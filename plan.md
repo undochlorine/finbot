@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.9` |
-| **Last done** | `1.8` Service unit tests |
+| **Current step** | `2.1` |
+| **Last done** | `1.9` SQLite integration tests |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 1.8` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 2.1` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -410,7 +410,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.9 SQLite integration tests
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** real temp DB file (or `:memory:` if WAL/constraints still apply — prefer temp file to match persistence).
 - **Files:** `internal/adapter/sqlite/*_test.go`
 - **DoD:** two users cannot see each other’s banks; unique name; restart-open of the same file still has data. Tests pass. No docker-compose.
@@ -575,4 +575,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 1.9`
+`let's move to step 2.1`
