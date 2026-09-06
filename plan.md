@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.3` |
-| **Last done** | `1.2` ports |
+| **Current step** | `1.4` |
+| **Last done** | `1.3` SQLite migrations |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 1.3` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 1.4` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -47,7 +47,7 @@ Telegram bot that lets a user split money into named **banks** (Travelling, Gift
 Do not reopen these unless the user changes them. Log any change under [Decisions log](#decisions-log).
 
 - **Name / path:** `finbot` at `~/Projects/finbot`
-- **Language of product:** Go
+- **Language of product:** Go 1.27
 - **MVP database:** SQLite file on disk (server reload must not lose data)
 - **Isolation:** every row scoped by Telegram user ID; never leak another user’s banks
 - **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`
@@ -126,6 +126,7 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 
 | Concern | Choice | Why |
 | --- | --- | --- |
+| Go | 1.27 | Locked for module, Docker, and local run |
 | SQLite driver | `modernc.org/sqlite` | Pure Go, simpler Docker |
 | SQLite mode | WAL | Safer concurrent reads |
 | Migrations | numbered SQL files applied at startup | No extra migrator yet |
@@ -150,11 +151,11 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 
 - `telegram_id` INTEGER PRIMARY KEY
 - `username` TEXT
-- `last_activity_at` TEXT (RFC3339) or INTEGER unix — pick one in step `1.3` and stay consistent
+- `last_activity_at` TEXT (RFC3339 UTC)
 - `plan` TEXT NOT NULL DEFAULT `'trial'`
-- `trial_ends_at` same time type as other timestamps; set once at insert
+- `trial_ends_at` TEXT (RFC3339 UTC); set once at insert
 - `discount_percent` INTEGER NULL — `NULL` = not whitelisted; `0`–`100` = admin privilege (`100` = free)
-- `created_at`, `updated_at`
+- `created_at`, `updated_at` TEXT (RFC3339 UTC)
 
 ### banks
 
@@ -164,7 +165,7 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 - `balance_cents` INTEGER NOT NULL DEFAULT `0`
 - `include_in_total` INTEGER NOT NULL
 - `created_at`, `updated_at`
-- UNIQUE `(user_id, name_normalized)` where `name_normalized` is `lower(name)` (generated column or extra column)
+- UNIQUE `(user_id, name_normalized)` extra column (not a generated `lower(name)`), filled by the app with `NormalizeBankName` so Unicode case-folding matches the domain
 
 ### Total
 
@@ -287,6 +288,8 @@ go run ./cmd/bot
 | 2026-09-06 | Project name `finbot`; remove bank = delete entirely; commands + inline buttons; include-in-total at create + toggle later; English MVP; GitHub later; SQLite MVP; Postgres for stage 2; negative balances allowed; money as cents |
 | 2026-09-06 | Stage 2 monetization: configurable trial (default 7 days, frozen as `trial_ends_at` at signup); whitelist is a per-user discount 0–100% (100 = free); explicit payment-strategy step `4.6` with provider TBD later |
 | 2026-09-06 | `TRIAL_DURATION=0` means no trial; negatives rejected. `LOG_LEVEL` constrained to debug/info/warn/error from MVP. Local `.env` is loaded if present (real env wins). No `.gitkeep` placeholders. |
+| 2026-09-06 | SQLite timestamps are TEXT RFC3339 UTC. `name_normalized` is an app-written column (Unicode-aware), not SQLite `lower()`. `ON DELETE CASCADE` from banks to users. |
+| 2026-09-06 | Go 1.27 everywhere (`go.mod`, Dockerfile, README). |
 
 ---
 
@@ -346,7 +349,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.3 SQLite migrations
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `users` + `banks` tables; apply on open.
 - **Files:** `internal/adapter/sqlite/migrations/*.sql`; migrate runner
 - **DoD:** opening a new DB creates schema (`users` includes `trial_ends_at` and `discount_percent`; `banks` as specified); re-open is idempotent; unique per-user bank name enforced.
@@ -552,4 +555,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 1.3`
+`let's move to step 1.4`
