@@ -12,6 +12,7 @@ packages:
   finbot/internal/adapter/telegram:
     interfaces:
       HTTPClient: {}
+      Service: {}
   finbot/internal/ports:
     interfaces:
       Cache: {}
