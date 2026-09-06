@@ -24,7 +24,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 5. Do not start later steps unless asked. Do not skip DoD.
 6. After a logical code scope: `make lint` (required from step `1.x` onward whenever Go code changes).
 7. Do not create a GitHub remote or commit unless the user asks.
-8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**; integration tests against a temp SQLite file (no docker-compose in MVP). Hand-written fakes need explicit approval.
+8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**; integration tests against a temp SQLite file (no docker-compose in MVP). Hand-written fakes need explicit approval. CI: `make test-unit`, `make lint`, `make test-integration` (see [CI](#ci-github-actions)).
 
 ### How to pick up work
 
@@ -296,6 +296,35 @@ export TRIAL_DURATION=168h    # optional; 0 = no trial; default 7 days; enforced
 go run ./cmd/bot
 ```
 
+```bash
+make test-unit          # all tests except SQLite (//go:build integration)
+make test-integration   # SQLite adapter tests against a temp DB file
+make test               # both
+make lint               # golangci-lint, config .golangci.yaml
+```
+
+---
+
+## CI (GitHub Actions)
+
+Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Runs on push to `master`/`main`, pull requests, and manual `workflow_dispatch`.
+
+There is one **common** stage. Its jobs run in parallel:
+
+| Job | What it runs |
+| --- | --- |
+| `unit:test` | `make test-unit` — every test **without** the `integration` build tag |
+| `lint` | golangci-lint (`v2.13`) with `.golangci.yaml` (includes `integration` build tags so SQLite tests are linted) |
+| `integration:test` | `make test-integration` — SQLite tests tagged `//go:build integration` |
+
+A fourth job named `common` is a **gate**: it succeeds only if all three jobs succeeded. Future stages (build, deploy, …) must use `needs: common` so they are skipped when any common job fails.
+
+**Unit vs integration:** SQLite adapter tests use a real temp DB file, so they are integration tests (`internal/adapter/sqlite/*_test.go`). Service/domain/config/cache/clock tests are unit tests.
+
+No CI secrets are required yet (tests do not need `BOT_TOKEN`).
+
+**GitHub UI (human, once):** after the first successful run, optionally protect `master` so it cannot merge unless `common` is green — see README.
+
 ---
 
 ## Decisions log
@@ -310,6 +339,7 @@ go run ./cmd/bot
 | 2026-09-06 | Negative `/add` and `/spend` amounts are invalid. Negative balances remain allowed. |
 | 2026-09-06 | Unit tests mock ports with mockery. Hand-written fakes require explicit approval. |
 | 2026-09-06 | Interface per consumer: service owns BankRepository / UserRepository / Clock; memorycache owns Clock; Cache and Notifier stay in `ports` until telegram consumes them. Each layer’s tests use that layer’s mockery mocks. |
+| 2026-09-06 | GitHub Actions CI before Telegram (`2.x`): common stage with `unit:test`, `lint`, `integration:test`; gate job `common` blocks later stages. SQLite `*_test.go` use `//go:build integration`. |
 
 ---
 
@@ -348,6 +378,13 @@ Implement one id at a time. Update the status field in place.
 - **Goal:** enough for a human (or future agent) to know what this is and how to run it later.
 - **Files:** `README.md`
 - **DoD:** purpose, architecture one-liner, pointer to `plan.md`, env vars listed (including `TRIAL_DURATION`). Full run checklist can wait for `3.3`.
+
+#### 0.5 GitHub Actions CI (common stage)
+
+- **Status:** `done`
+- **Goal:** a pipeline that always runs unit tests, lint, and integration tests before any later stage (build/deploy not added yet).
+- **Files:** `.github/workflows/ci.yml`; `Makefile` (`test-unit` / `test-integration`); `internal/adapter/sqlite/*_test.go` (`//go:build integration`); README + this plan
+- **DoD:** workflow has jobs `unit:test`, `lint`, `integration:test` under a `common` gate. Any failed common job makes `common` fail, so future jobs with `needs: common` do not run. No GitHub secrets required for this stage.
 
 ---
 
@@ -412,8 +449,8 @@ Implement one id at a time. Update the status field in place.
 
 - **Status:** `done`
 - **Goal:** real temp DB file (or `:memory:` if WAL/constraints still apply — prefer temp file to match persistence).
-- **Files:** `internal/adapter/sqlite/*_test.go`
-- **DoD:** two users cannot see each other’s banks; unique name; restart-open of the same file still has data. Tests pass. No docker-compose.
+- **Files:** `internal/adapter/sqlite/*_test.go` (`//go:build integration`; run with `make test-integration`)
+- **DoD:** two users cannot see each other’s banks; unique name; restart-open of the same file still has data. Tests pass (`make test-integration`). No docker-compose.
 
 ---
 
