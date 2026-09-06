@@ -3,6 +3,7 @@ module finbot
 go 1.27.0
 
 require (
+	github.com/go-telegram/bot v1.25.0
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.58.0
 )

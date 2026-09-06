@@ -9,6 +9,9 @@ packages:
   finbot/internal/adapter/memorycache:
     interfaces:
       Clock: {}
+  finbot/internal/adapter/telegram:
+    interfaces:
+      HTTPClient: {}
   finbot/internal/ports:
     interfaces:
       Cache: {}

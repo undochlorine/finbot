@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.1` |
-| **Last done** | `1.9` SQLite integration tests |
+| **Current step** | `2.2` |
+| **Last done** | `2.1` Bot wiring |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -24,11 +24,11 @@ This file is the source of truth for the project. An agent that lost prior chat 
 5. Do not start later steps unless asked. Do not skip DoD.
 6. After a logical code scope: `make lint` (required from step `1.x` onward whenever Go code changes).
 7. Do not create a GitHub remote or commit unless the user asks.
-8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**; integration tests against a temp SQLite file (no docker-compose in MVP). Hand-written fakes need explicit approval. CI: `make test-unit`, `make lint`, `make test-integration` (see [CI](#ci-github-actions)).
+8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**; integration tests against a temp SQLite file (no docker-compose in MVP). **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval** before it is added. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration` (see [CI](#ci-github-actions)).
 
 ### How to pick up work
 
-Say: `let's move to step 2.1` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 2.2` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -65,7 +65,7 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Whitelist (stage 2, schema from MVP):** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, `30` = 30% off, or any 0–100. `NULL` = not on the whitelist (pays full price after trial)
 - **Payment strategy (stage 2):** dedicated step `4.6`. Provider, prices, and checkout flow are **TBD with the user** before that step is implemented. Do not pick Stripe vs Telegram Stars vs something else in MVP
 - **Log level:** `LOG_LEVEL` is `debug`, `info`, `warn`, or `error` (default `info`). Invalid values fail startup.
-- **Mocks:** mockery on the **consumer’s** interfaces (`internal/service/mocks`, `internal/adapter/memorycache/mocks`, `internal/ports/mocks`, …). Service tests must not import `ports/mocks`. Hand-written fakes need explicit approval.
+- **Mocks:** mockery on the **consumer’s** interfaces (`internal/service/mocks`, `internal/adapter/memorycache/mocks`, `internal/adapter/telegram/mocks`, `internal/ports/mocks`, …). Service tests must not import `ports/mocks`. Hand-written stubs/fakes need a written reason **and explicit user approval**. If mockery can generate it, use mockery.
 
 ---
 
@@ -82,7 +82,7 @@ internal/
   service/           use cases + BankRepository, UserRepository, Clock
   ports/             Cache, Notifier (until telegram, their consumer, exists)
   adapter/
-    telegram/        handlers, inline keyboards, conversation FSM
+    telegram/        handlers, inline keyboards, conversation FSM; owns HTTPClient
     sqlite/          migrations + repositories (satisfy service repo interfaces)
     memorycache/     in-process Cache; owns Clock
     clock/           real clock
@@ -116,6 +116,10 @@ Owned by **memorycache**:
 
 - `Clock` — `Now()` for TTL expiry
 
+Owned by **telegram**:
+
+- `HTTPClient` — `Do(*http.Request)` for Bot API transport (getMe, long poll). Production uses `net/http`; tests use mockery.
+
 Still in **ports** until telegram is the consumer (step `2.x`); then move them to that package:
 
 - `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in MVP, Redis in stage 2
@@ -145,8 +149,8 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 | Migrations | numbered SQL files applied at startup | No extra migrator yet |
 | Telegram | `github.com/go-telegram/bot` | Handlers + inline keyboards |
 | Conversation state | `Cache` + short TTL | Swap to Redis later |
-| Tests | table-driven `service/` unit tests with mockery on **service** interfaces; temp SQLite integration | Matches DoD without docker-compose |
-| Mocks | mockery on each consumer’s interfaces; hand-written fakes only with explicit user approval | Interface per consumer; tests do not import another layer’s mocks |
+| Tests | table-driven unit tests with mockery on **that package’s** interfaces; temp SQLite integration | Matches DoD without docker-compose |
+| Mocks | mockery on each consumer’s interfaces; hand-written stubs/fakes only with a written reason **and** explicit user approval | Interface per consumer; tests do not import another layer’s mocks |
 
 ### What not to do in MVP
 
@@ -281,6 +285,7 @@ Register these with BotFather when running locally (step `3.3`).
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
+- Unit tests use mockery for every mockable consumer interface. Do not invent a hand-written stub because it is shorter. Custom doubles require a reason and user approval.
 
 ---
 
@@ -319,7 +324,7 @@ There is one **common** stage. Its jobs run in parallel:
 
 A fourth job named `common` is a **gate**: it succeeds only if all three jobs succeeded. Future stages (build, deploy, …) must use `needs: common` so they are skipped when any common job fails.
 
-**Unit vs integration:** SQLite adapter tests use a real temp DB file, so they are integration tests (`internal/adapter/sqlite/*_test.go`). Service/domain/config/cache/clock tests are unit tests.
+**Unit vs integration:** SQLite adapter tests use a real temp DB file, so they are integration tests (`internal/adapter/sqlite/*_test.go`). Service/domain/config/cache/clock/telegram/cmd tests are unit tests.
 
 No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 
@@ -337,7 +342,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-06 | SQLite timestamps are TEXT RFC3339 UTC. `name_normalized` is an app-written column (Unicode-aware), not SQLite `lower()`. `ON DELETE CASCADE` from banks to users. |
 | 2026-09-06 | Go 1.27 everywhere (`go.mod`, Dockerfile, README). |
 | 2026-09-06 | Negative `/add` and `/spend` amounts are invalid. Negative balances remain allowed. |
-| 2026-09-06 | Unit tests mock ports with mockery. Hand-written fakes require explicit approval. |
+| 2026-09-06 | Unit tests mock consumer interfaces with mockery. Hand-written stubs/fakes need a written reason **and explicit user approval**. Plain cases always use mockery. |
 | 2026-09-06 | Interface per consumer: service owns BankRepository / UserRepository / Clock; memorycache owns Clock; Cache and Notifier stay in `ports` until telegram consumes them. Each layer’s tests use that layer’s mockery mocks. |
 | 2026-09-06 | GitHub Actions CI before Telegram (`2.x`): common stage with `unit:test`, `lint`, `integration:test`; gate job `common` blocks later stages. SQLite `*_test.go` use `//go:build integration`. |
 
@@ -443,7 +448,7 @@ Implement one id at a time. Update the status field in place.
 - **Status:** `done`
 - **Goal:** table-driven tests of business rules with mockery-generated **service** mocks.
 - **Files:** `internal/service/*_test.go`; `.mockery.yml`; `internal/service/mocks/`
-- **DoD:** covers create, duplicate name, add/spend/set (including negative add/spend invalid), delete, toggle, total vs excluded bank, empty list. Tests depend on `internal/service/mocks`, not `ports/mocks`. Tests pass (`go test ./internal/service/...`).
+- **DoD:** covers create, duplicate name, add/spend/set (including negative add/spend invalid), delete, toggle, total vs excluded bank, empty list. Tests depend on `internal/service/mocks`, not `ports/mocks`. No hand-written repository/clock stubs. Tests pass (`go test ./internal/service/...`).
 
 #### 1.9 SQLite integration tests
 
@@ -460,7 +465,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.1 Bot wiring
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `main` loads config, opens SQLite, builds services, starts long polling, graceful shutdown.
 - **Files:** `cmd/bot/main.go`; `internal/adapter/telegram/` bootstrap
 - **DoD:** process starts with a token; exits non-zero if token/DB missing. No feature complete yet except process health.
@@ -612,4 +617,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.1`
+`let's move to step 2.2`

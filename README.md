@@ -26,12 +26,12 @@ Full BotFather / command checklist lands in step `3.3`. Until then:
 go run ./cmd/bot
 ```
 
-Until `2.1`, the process loads config (including `.env`), sets the log level, and exits. Missing `BOT_TOKEN` or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit.
+The process loads config (including `.env`), opens SQLite, and long-polls Telegram until SIGINT/SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. Commands land in later `2.x` steps.
 
 ## Tests and lint
 
 ```bash
-make test-unit          # domain, service (mocks), config, cache, clock
+make test-unit          # domain, service (mocks), config, cache, clock, telegram wiring, cmd/bot
 make test-integration   # SQLite adapter against a temp DB file
 make test               # both
 make lint               # golangci-lint using .golangci.yaml
