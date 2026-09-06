@@ -1,0 +1,119 @@
+package config
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
+	"time"
+)
+
+const (
+	defaultSQLitePath    = "./data/finbot.db"
+	defaultLogLevel      = "info"
+	defaultTrialDuration = 168 * time.Hour
+	dotEnvPath           = ".env"
+)
+
+type Config struct {
+	BotToken      string
+	SQLitePath    string
+	LogLevel      slog.Level
+	TrialDuration time.Duration
+}
+
+func Load() (Config, error) {
+	if err := applyDotEnv(dotEnvPath); err != nil {
+		return Config{}, err
+	}
+
+	token := os.Getenv("BOT_TOKEN")
+	if token == "" {
+		return Config{}, fmt.Errorf("BOT_TOKEN is required")
+	}
+
+	sqlitePath := os.Getenv("SQLITE_PATH")
+	if sqlitePath == "" {
+		sqlitePath = defaultSQLitePath
+	}
+
+	level, err := parseLogLevel(os.Getenv("LOG_LEVEL"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	trial, err := parseTrialDuration(os.Getenv("TRIAL_DURATION"))
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		BotToken:      token,
+		SQLitePath:    sqlitePath,
+		LogLevel:      level,
+		TrialDuration: trial,
+	}, nil
+}
+
+func parseLogLevel(raw string) (slog.Level, error) {
+	if raw == "" {
+		raw = defaultLogLevel
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("LOG_LEVEL must be debug, info, warn, or error")
+	}
+}
+
+func parseTrialDuration(raw string) (time.Duration, error) {
+	if raw == "" {
+		return defaultTrialDuration, nil
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("TRIAL_DURATION: %w", err)
+	}
+	if parsed < 0 {
+		return 0, fmt.Errorf("TRIAL_DURATION must be >= 0")
+	}
+	return parsed, nil
+}
+
+func applyDotEnv(path string) error {
+	data, err := os.ReadFile(path) //nolint:gosec // path is the fixed local .env file
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			return fmt.Errorf("%s: invalid line %q", path, line)
+		}
+		key = strings.TrimSpace(key)
+		val = strings.Trim(strings.TrimSpace(val), `"'`)
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		if err := os.Setenv(key, val); err != nil {
+			return fmt.Errorf("set %s: %w", key, err)
+		}
+	}
+	return nil
+}
