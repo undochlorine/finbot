@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.2` |
-| **Last done** | `1.1` domain entities and errors |
+| **Current step** | `1.3` |
+| **Last done** | `1.2` ports |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 1.2` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 1.3` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -339,7 +339,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.2 Ports
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** interfaces only.
 - **Files:** `internal/ports/*.go`
 - **DoD:** `BankRepository`, `UserRepository`, `Cache`, `Clock`, `Notifier` defined with `context.Context` on IO methods.
@@ -552,4 +552,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 1.2`
+`let's move to step 1.3`
