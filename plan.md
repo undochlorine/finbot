@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.6` |
-| **Last done** | `1.5` Memory cache adapter |
+| **Current step** | `1.7` |
+| **Last done** | `1.6` Clock adapter |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 1.6` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 1.7` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -370,7 +370,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.6 Clock adapter
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** real `time.Now` behind `ports.Clock`; tests can fake it later.
 - **Files:** `internal/adapter/clock/*.go`
 
@@ -555,4 +555,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 1.6`
+`let's move to step 1.7`
