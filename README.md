@@ -27,3 +27,45 @@ go run ./cmd/bot
 ```
 
 Until `2.1`, the process loads config (including `.env`), sets the log level, and exits. Missing `BOT_TOKEN` or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit.
+
+## Tests and lint
+
+```bash
+make test-unit          # domain, service (mocks), config, cache, clock
+make test-integration   # SQLite adapter against a temp DB file
+make test               # both
+make lint               # golangci-lint using .golangci.yaml
+```
+
+SQLite tests are tagged `//go:build integration` so they are not part of `make test-unit`.
+
+## CI
+
+GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pushes to `master`/`main`, pull requests, and manual dispatch.
+
+**Common stage** (parallel):
+
+| Job | Command |
+| --- | --- |
+| `unit:test` | `make test-unit` |
+| `lint` | golangci-lint |
+| `integration:test` | `make test-integration` |
+
+Job `common` succeeds only if those three succeeded. Later pipeline stages (none yet) must `needs: common`; if any common job fails they will not run.
+
+No repository secrets are needed for this pipeline.
+
+### One-time GitHub setup
+
+Actions usually work as soon as the workflow file is on the default branch. If a run does not appear:
+
+1. Open the repo on GitHub: [undochlorine/finbot](https://github.com/undochlorine/finbot).
+2. **Settings → Actions → General**. Under “Actions permissions”, choose **Allow all actions and reusable workflows**. Save.
+3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`.
+
+Optional, after the first green run (status check names only appear then):
+
+1. **Settings → Branches → Add branch ruleset** (or classic **Branch protection rule**) for `master`.
+2. Enable **Require status checks to pass before merging**.
+3. Search and require **`common`** (that single check already means unit, lint, and integration passed).
+4. Save. Do not require GitHub secrets for CI at this stage.
