@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"finbot/internal/domain"
-	"finbot/internal/ports"
+	"finbot/internal/service"
 )
 
-var _ ports.UserRepository = (*UserRepository)(nil)
+var _ service.UserRepository = (*UserRepository)(nil)
 
 type UserRepository struct {
 	db *sql.DB

@@ -1,0 +1,20 @@
+dir: "{{.InterfaceDir}}/mocks"
+filename: "mock_{{.InterfaceName | snakecase}}.go"
+formatter: goimports
+pkgname: mocks
+structname: "{{.Mock}}{{.InterfaceName}}"
+template: testify
+
+packages:
+  finbot/internal/adapter/memorycache:
+    interfaces:
+      Clock: {}
+  finbot/internal/ports:
+    interfaces:
+      Cache: {}
+      Notifier: {}
+  finbot/internal/service:
+    interfaces:
+      BankRepository: {}
+      Clock: {}
+      UserRepository: {}

@@ -1,28 +1,29 @@
 package memorycache
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
 
-	"finbot/internal/ports"
+	"github.com/stretchr/testify/require"
+
+	"finbot/internal/adapter/memorycache/mocks"
 )
 
-type stubClock struct {
-	now time.Time
+func fixedNow() time.Time {
+	return time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 }
 
-func (s *stubClock) Now() time.Time { return s.now }
-
-var _ ports.Clock = (*stubClock)(nil)
-
-func fixedClock() *stubClock {
-	return &stubClock{now: time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)}
+func newTestClock(t *testing.T, now time.Time) (*mocks.MockClock, func(time.Duration)) {
+	t.Helper()
+	current := now
+	clock := mocks.NewMockClock(t)
+	clock.EXPECT().Now().RunAndReturn(func() time.Time { return current }).Maybe()
+	return clock, func(d time.Duration) { current = current.Add(d) }
 }
 
 func TestCache(t *testing.T) {
-	now := fixedClock().now
+	now := fixedNow()
 	ttl := time.Minute
 
 	tests := []struct {
@@ -134,82 +135,59 @@ func TestCache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clock := &stubClock{now: now}
+			clock, advance := newTestClock(t, now)
 			c := New(clock)
 			ctx := context.Background()
 			const storedKey = "fsm:1"
 
 			if tt.put {
-				if err := c.Set(ctx, storedKey, tt.putVal, tt.putTTL); err != nil {
-					t.Fatalf("set: %v", err)
-				}
+				require.NoError(t, c.Set(ctx, storedKey, tt.putVal, tt.putTTL))
 			}
 			if tt.overwrite {
-				if err := c.Set(ctx, storedKey, tt.overwriteVal, tt.overwriteTTL); err != nil {
-					t.Fatalf("overwrite: %v", err)
-				}
+				require.NoError(t, c.Set(ctx, storedKey, tt.overwriteVal, tt.overwriteTTL))
 			}
-			clock.now = clock.now.Add(tt.advance)
+			advance(tt.advance)
 			if tt.del {
-				if err := c.Delete(ctx, storedKey); err != nil {
-					t.Fatalf("delete: %v", err)
-				}
+				require.NoError(t, c.Delete(ctx, storedKey))
 			}
 
 			got, ok, err := c.Get(ctx, tt.getKey)
-			if err != nil {
-				t.Fatalf("get: %v", err)
-			}
-			if ok != tt.wantOK {
-				t.Fatalf("ok=%v, want %v", ok, tt.wantOK)
-			}
-			if !bytes.Equal(got, tt.want) {
-				t.Fatalf("got %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantOK, ok)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestCacheIsolatesSlices(t *testing.T) {
-	c := New(fixedClock())
+	clock, _ := newTestClock(t, fixedNow())
+	c := New(clock)
 	ctx := context.Background()
 
 	in := []byte("add")
-	if err := c.Set(ctx, "k", in, time.Minute); err != nil {
-		t.Fatalf("set: %v", err)
-	}
+	require.NoError(t, c.Set(ctx, "k", in, time.Minute))
 	in[0] = 'x'
 
 	got, ok, err := c.Get(ctx, "k")
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if !ok || string(got) != "add" {
-		t.Fatalf("got %q ok=%v, want add", got, ok)
-	}
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "add", string(got))
 	got[0] = 'y'
 
 	again, ok, err := c.Get(ctx, "k")
-	if err != nil {
-		t.Fatalf("get again: %v", err)
-	}
-	if !ok || string(again) != "add" {
-		t.Fatalf("got %q ok=%v, want add", again, ok)
-	}
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "add", string(again))
 }
 
 func TestCacheCanceledContext(t *testing.T) {
-	c := New(fixedClock())
+	clock, _ := newTestClock(t, fixedNow())
+	c := New(clock)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, _, err := c.Get(ctx, "k"); err == nil {
-		t.Fatal("get: expected error")
-	}
-	if err := c.Set(ctx, "k", []byte("v"), time.Minute); err == nil {
-		t.Fatal("set: expected error")
-	}
-	if err := c.Delete(ctx, "k"); err == nil {
-		t.Fatal("delete: expected error")
-	}
+	_, _, err := c.Get(ctx, "k")
+	require.Error(t, err)
+	require.Error(t, c.Set(ctx, "k", []byte("v"), time.Minute))
+	require.Error(t, c.Delete(ctx, "k"))
 }

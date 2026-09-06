@@ -1,0 +1,83 @@
+version: "2"
+
+run:
+  concurrency: 8
+  timeout: 10m
+  issues-exit-code: 1
+
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - depguard
+    - errcheck
+    - errname
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - mnd
+    - nilerr
+    - nolintlint
+    - protogetter
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wrapcheck
+  settings:
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: github.com/sirupsen/logrus
+              desc: not allowed
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gosec:
+      excludes:
+        - G104
+    lll:
+      line-length: 120
+    misspell:
+      locale: US
+      ignore-rules:
+        - favourite
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/go-ozzo/ozzo-validation/*
+  exclusions:
+    generated: lax
+    paths:
+      - "examples/.*"
+      - "third_party/.*"
+      - "builtin/.*"
+    rules:
+      - linters:
+          - gosec
+          - lll
+          - wrapcheck
+        path: "_test\\.go"
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+      custom-order: true
