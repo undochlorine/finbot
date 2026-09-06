@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"finbot/internal/adapter/telegram/mocks"
-	"finbot/internal/service"
+	"finbot/internal/domain"
 )
 
 const getMeOKBody = `{"ok":true,"result":{"id":1,"is_bot":true,"first_name":"finbot"}}`
@@ -46,12 +48,12 @@ func expectGetMe(t *testing.T, status int, body string) *mocks.MockHTTPClient {
 }
 
 func TestNew(t *testing.T) {
-	svc := service.New(nil, nil, nil, 0)
+	svc := mocks.NewMockService(t)
 
 	tests := []struct {
 		name    string
 		token   string
-		svc     *service.Service
+		svc     Service
 		client  HTTPClient
 		wantErr string
 	}{
@@ -70,7 +72,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewGetMe(t *testing.T) {
-	svc := service.New(nil, nil, nil, 0)
+	svc := mocks.NewMockService(t)
 
 	tests := []struct {
 		name    string
@@ -104,7 +106,7 @@ func TestNewGetMe(t *testing.T) {
 }
 
 func TestStartReturnsWhenContextCanceled(t *testing.T) {
-	b, err := New("123:token", service.New(nil, nil, nil, 0), expectGetMe(t, http.StatusOK, getMeOKBody))
+	b, err := New("123:token", mocks.NewMockService(t), expectGetMe(t, http.StatusOK, getMeOKBody))
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -121,4 +123,29 @@ func TestStartReturnsWhenContextCanceled(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Start did not return after context cancel")
 	}
+}
+
+func TestNewWiresActivityMiddleware(t *testing.T) {
+	ctx := context.Background()
+	from := models.User{ID: telegramUserID, Username: "alice"}
+	svc := mocks.NewMockService(t)
+	svc.EXPECT().
+		UpsertUser(ctx, domain.UserID(telegramUserID), "alice").
+		Return(domain.User{TelegramID: domain.UserID(telegramUserID), Username: "alice"}, nil).
+		Once()
+
+	var nextCalled bool
+	b, err := New(
+		"123:token",
+		svc,
+		expectGetMe(t, http.StatusOK, getMeOKBody),
+		bot.WithNotAsyncHandlers(),
+		bot.WithDefaultHandler(func(context.Context, *bot.Bot, *models.Update) {
+			nextCalled = true
+		}),
+	)
+	require.NoError(t, err)
+
+	b.ProcessUpdate(ctx, &models.Update{Message: &models.Message{From: &from}})
+	require.True(t, nextCalled)
 }

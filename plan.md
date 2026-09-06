@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.2` |
-| **Last done** | `2.1` Bot wiring |
+| **Current step** | `2.3` |
+| **Last done** | `2.2` Activity + user upsert middleware |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.2` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 2.3` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -472,7 +472,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.2 Activity + user upsert middleware
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** every inbound update upserts the user and sets `LastActivityAt`. First insert sets `TrialEndsAt = now + TRIAL_DURATION` and must not overwrite it later.
 - **Files:** telegram middleware / handler wrapper
 - **DoD:** first `/start` creates a `users` row with `trial_ends_at` populated. Second message does not extend the trial.
@@ -617,4 +617,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.2`
+`let's move to step 2.3`
