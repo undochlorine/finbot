@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.1` |
-| **Last done** | stage 0 (0.1–0.4) |
+| **Current step** | `1.2` |
+| **Last done** | `1.1` domain entities and errors |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -332,7 +332,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.1 Domain entities and errors
 
-- **Status:** `to review`
+- **Status:** `done`
 - **Goal:** `User` (including `TrialEndsAt`, `DiscountPercent`), `Bank`, `Money` helpers, domain errors (`ErrBankNotFound`, `ErrBankNameTaken`, `ErrInvalidAmount`, …).
 - **Files:** `internal/domain/*.go` (+ tests for money parse/format)
 - **DoD:** parse/format cents covered by table tests; no IO.
