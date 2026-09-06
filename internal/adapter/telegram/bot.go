@@ -52,6 +52,7 @@ func New(token string, svc Service, client HTTPClient, opts ...bot.Option) (*Bot
 	if err != nil {
 		return nil, fmt.Errorf("init telegram bot: %w", err)
 	}
+	registerHandlers(inner)
 	return &Bot{inner: inner}, nil
 }
 
