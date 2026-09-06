@@ -6,10 +6,10 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `0.1` |
-| **Last done** | project folder created, git initialized (local only) |
+| **Current step** | `1.2` |
+| **Last done** | `1.1` domain entities and errors |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
-| **GitHub** | not created yet (local git only until asked) |
+| **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
 | **Path** | `/Users/a.sicaci/Projects/finbot` |
 
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 0.1` (next). Or any other id, e.g. `let's move to step 2.4`.
+Say: `let's move to step 1.2` (next). Or any other id, e.g. `let's move to step 2.4`.
 
 ---
 
@@ -61,10 +61,10 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Auth:** Telegram user ID is identity. No extra login
 - **GitHub:** local git only until the user asks to create a private repo
 - **Stage 2 database:** PostgreSQL preferred over MongoDB (relational users + banks)
-- **Trial (stage 2, schema from MVP):** every new user gets a free trial. Duration is configurable (`TRIAL_DURATION`, default **7 days**). `trial_ends_at` is **frozen at first signup** so changing the default later does not rewrite existing users
+- **Trial (stage 2, schema from MVP):** duration is configurable (`TRIAL_DURATION`, default **7 days**). `0` means no trial. Negative values are rejected. `trial_ends_at` is **frozen at first signup** so changing the default later does not rewrite existing users.
 - **Whitelist (stage 2, schema from MVP):** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, `30` = 30% off, or any 0–100. `NULL` = not on the whitelist (pays full price after trial)
 - **Payment strategy (stage 2):** dedicated step `4.6`. Provider, prices, and checkout flow are **TBD with the user** before that step is implemented. Do not pick Stripe vs Telegram Stars vs something else in MVP
-- **Lint:** `golangci-lint run --config ~/Projects/golangci.yaml`
+- **Log level:** `LOG_LEVEL` is `debug`, `info`, `warn`, or `error` (default `info`). Invalid values fail startup.
 
 ---
 
@@ -268,12 +268,13 @@ Register these with BotFather when running locally (step `3.3`).
 
 ## Local run (filled in as steps complete)
 
-Until step `0.2` / `3.3`:
+Until step `3.3`:
 
 ```bash
-export BOT_TOKEN=...          # from @BotFather
+export BOT_TOKEN=...          # or put it in .env
 export SQLITE_PATH=./data/finbot.db
-export TRIAL_DURATION=168h    # optional; default 7 days; enforced only in 4.5
+export LOG_LEVEL=info         # debug | info | warn | error
+export TRIAL_DURATION=168h    # optional; 0 = no trial; default 7 days; enforced only in 4.5
 go run ./cmd/bot
 ```
 
@@ -285,6 +286,7 @@ go run ./cmd/bot
 | --- | --- |
 | 2026-09-06 | Project name `finbot`; remove bank = delete entirely; commands + inline buttons; include-in-total at create + toggle later; English MVP; GitHub later; SQLite MVP; Postgres for stage 2; negative balances allowed; money as cents |
 | 2026-09-06 | Stage 2 monetization: configurable trial (default 7 days, frozen as `trial_ends_at` at signup); whitelist is a per-user discount 0–100% (100 = free); explicit payment-strategy step `4.6` with provider TBD later |
+| 2026-09-06 | `TRIAL_DURATION=0` means no trial; negatives rejected. `LOG_LEVEL` constrained to debug/info/warn/error from MVP. Local `.env` is loaded if present (real env wins). No `.gitkeep` placeholders. |
 
 ---
 
@@ -298,28 +300,28 @@ Implement one id at a time. Update the status field in place.
 
 #### 0.1 Go module and directory skeleton
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `go mod init finbot` and empty package dirs so later steps have a home.
-- **Files:** `go.mod`; `cmd/bot/`; `internal/{domain,ports,service,config,text,adapter/telegram,adapter/sqlite,adapter/memorycache,adapter/clock}/` (`.gitkeep` where empty)
+- **Files:** `go.mod`; `cmd/bot/`; `internal/{domain,ports,service,config,text,adapter/telegram,adapter/sqlite,adapter/memorycache,adapter/clock}/`
 - **DoD:** `go mod init` succeeded; dirs exist; no application logic yet.
 
 #### 0.2 Env config and gitignore
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** 12-factor config from env; secrets never committed.
 - **Files:** `internal/config/config.go`; `.env.example`; `.gitignore` (binaries, `.env`, `data/*.db`, IDE)
-- **DoD:** config loads `BOT_TOKEN` (required), `SQLITE_PATH` (default `./data/finbot.db`), `LOG_LEVEL`, `TRIAL_DURATION` (default `168h` / 7 days). Missing token is a clear startup error. `.env` is gitignored. Trial duration is stored for later; **do not enforce a paywall**.
+- **DoD:** config loads `BOT_TOKEN` (required; from process env or `.env`), `SQLITE_PATH` (default `./data/finbot.db`), `LOG_LEVEL` (`debug`/`info`/`warn`/`error`, default `info`), `TRIAL_DURATION` (default `168h`; `0` = no trial; negative rejected). Missing token is a clear startup error. `.env` is gitignored. Trial duration is stored for later; **do not enforce a paywall**.
 
 #### 0.3 Dockerfile
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** multi-stage image for later cheap hosting; not deployed in MVP.
 - **Files:** `Dockerfile`; `.dockerignore`
 - **DoD:** image builds a static-ish Go binary; SQLite path and token via env; data dir is a volume path.
 
 #### 0.4 README skeleton
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** enough for a human (or future agent) to know what this is and how to run it later.
 - **Files:** `README.md`
 - **DoD:** purpose, architecture one-liner, pointer to `plan.md`, env vars listed (including `TRIAL_DURATION`). Full run checklist can wait for `3.3`.
@@ -330,7 +332,7 @@ Implement one id at a time. Update the status field in place.
 
 #### 1.1 Domain entities and errors
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `User` (including `TrialEndsAt`, `DiscountPercent`), `Bank`, `Money` helpers, domain errors (`ErrBankNotFound`, `ErrBankNameTaken`, `ErrInvalidAmount`, …).
 - **Files:** `internal/domain/*.go` (+ tests for money parse/format)
 - **DoD:** parse/format cents covered by table tests; no IO.
@@ -550,4 +552,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 0.1`
+`let's move to step 1.2`
