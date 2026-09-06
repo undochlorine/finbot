@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `1.8` |
-| **Last done** | `1.7` Service use cases |
+| **Current step** | `1.9` |
+| **Last done** | `1.8` Service unit tests |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -22,9 +22,9 @@ This file is the source of truth for the project. An agent that lost prior chat 
 3. Mark the step `to review`. Update **Current step** / **Last done** in the header.
 4. User accepts → mark `done`. Next `todo` becomes the pointer.
 5. Do not start later steps unless asked. Do not skip DoD.
-6. After a logical code scope: `golangci-lint run --config ~/Projects/golangci.yaml` (required from step `1.x` onward whenever Go code changes).
+6. After a logical code scope: `make lint` (required from step `1.x` onward whenever Go code changes).
 7. Do not create a GitHub remote or commit unless the user asks.
-8. Tests: table-driven unit tests for business logic; integration tests against a temp SQLite file (no docker-compose in MVP).
+8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**; integration tests against a temp SQLite file (no docker-compose in MVP). Hand-written fakes need explicit approval.
 
 ### How to pick up work
 
@@ -55,7 +55,7 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
 - **Money:** `int64` minor units (cents). Display as `123.45`. No FX / multi-currency in MVP (implicit single currency)
-- **Negative balances:** allowed (personal tracking, not a hard wallet)
+- **Negative balances:** allowed (personal tracking, not a hard wallet). **Negative add/spend amounts are invalid** (`ErrInvalidAmount`); use `/spend` / `/set` instead
 - **Bank names:** unique per user, compared case-insensitively. Unicode allowed. Store the name as the user typed it
 - **No operation/transaction history in MVP.** Domain should stay easy to add an `Operation` log later
 - **Auth:** Telegram user ID is identity. No extra login
@@ -65,23 +65,26 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Whitelist (stage 2, schema from MVP):** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, `30` = 30% off, or any 0–100. `NULL` = not on the whitelist (pays full price after trial)
 - **Payment strategy (stage 2):** dedicated step `4.6`. Provider, prices, and checkout flow are **TBD with the user** before that step is implemented. Do not pick Stripe vs Telegram Stars vs something else in MVP
 - **Log level:** `LOG_LEVEL` is `debug`, `info`, `warn`, or `error` (default `info`). Invalid values fail startup.
+- **Mocks:** mockery on the **consumer’s** interfaces (`internal/service/mocks`, `internal/adapter/memorycache/mocks`, `internal/ports/mocks`, …). Service tests must not import `ports/mocks`. Hand-written fakes need explicit approval.
 
 ---
 
 ## Architecture (from day 1)
 
-Hexagonal / ports-and-adapters. The **service** layer depends on **domain + ports**, never on Telegram types or SQL types.
+Clean / hexagonal: adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
+
+The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types.
 
 ```text
 cmd/bot/main.go
 internal/
   domain/            User, Bank, Money, errors
-  ports/             BankRepository, UserRepository, Cache, Clock, Notifier
-  service/           use cases
+  service/           use cases + BankRepository, UserRepository, Clock
+  ports/             Cache, Notifier (until telegram, their consumer, exists)
   adapter/
     telegram/        handlers, inline keyboards, conversation FSM
-    sqlite/          migrations + repositories
-    memorycache/     in-process Cache (Redis later)
+    sqlite/          migrations + repositories (satisfy service repo interfaces)
+    memorycache/     in-process Cache; owns Clock
     clock/           real clock
   config/            env-based config
   text/              English strings
@@ -94,18 +97,28 @@ flowchart LR
   Services --> Domain
   Services --> BankRepo
   Services --> UserRepo
-  Services --> Cache
+  Services --> Clock
   BankRepo --> SQLite
   UserRepo --> SQLite
+  Handlers --> Cache
   Cache --> Memory
 ```
 
-### Ports (define in MVP even if some impls are trivial)
+### Driven dependencies (define in MVP even if some impls are trivial)
+
+Owned by **service** (what use cases call):
 
 - `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
-- `UserRepository` — upsert on first seen, update `LastActivityAt`, read user
-- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in MVP, Redis in stage 2
+- `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
 - `Clock` — `Now()` for activity and tests
+
+Owned by **memorycache**:
+
+- `Clock` — `Now()` for TTL expiry
+
+Still in **ports** until telegram is the consumer (step `2.x`); then move them to that package:
+
+- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in MVP, Redis in stage 2
 - `Notifier` — send a message to a Telegram user (used by handlers now; inactivity job in stage 2)
 
 ### Stage-2 hooks that must exist in MVP (unused or no-op is OK)
@@ -115,8 +128,8 @@ flowchart LR
 - `User.TrialEndsAt` set **once** on first upsert (`now + TRIAL_DURATION`). Never refresh it on later messages
 - `User.DiscountPercent` optional (`*int`): `nil` = not whitelisted; `100` = free; `50` / `30` / custom = that % off after trial. Unused in MVP
 - Config `TRIAL_DURATION` (default `168h` / 7 days) loaded in `0.2` even though trial is not enforced until `4.5`
-- `ports.Cache` with memory implementation
-- `Clock` interface
+- `ports.Cache` with memory implementation (telegram will own `Cache` once handlers exist)
+- `Clock` interface on each consumer that needs time (`service`, `memorycache`)
 - Env config + Dockerfile (12-factor; hosting is stage 2)
 - Every SQL query filtered by `user_id`
 
@@ -131,9 +144,9 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 | SQLite mode | WAL | Safer concurrent reads |
 | Migrations | numbered SQL files applied at startup | No extra migrator yet |
 | Telegram | `github.com/go-telegram/bot` | Handlers + inline keyboards |
-| Conversation state | `ports.Cache` + short TTL | Swap to Redis later |
-| Tests | table-driven `service/` unit tests; temp SQLite integration | Matches DoD without docker-compose |
-| Mocks | mockery on ports if the repo already uses it; otherwise hand-written fakes in tests | Keep tests about business logic |
+| Conversation state | `Cache` + short TTL | Swap to Redis later |
+| Tests | table-driven `service/` unit tests with mockery on **service** interfaces; temp SQLite integration | Matches DoD without docker-compose |
+| Mocks | mockery on each consumer’s interfaces; hand-written fakes only with explicit user approval | Interface per consumer; tests do not import another layer’s mocks |
 
 ### What not to do in MVP
 
@@ -248,7 +261,8 @@ Register these with BotFather when running locally (step `3.3`).
 
 - Duplicate bank name (case-insensitive) → clear error, do not overwrite
 - Unknown bank → error, offer `/banks`
-- Invalid amount (empty, `abc`, `1.234`, overflow) → error, ask again
+- Invalid amount (empty, `abc`, `1.234`, overflow, **negative add/spend**) → error, ask again
+- Negative add/spend is invalid; negative **balances** are still allowed (`/spend` below zero, `/set` to a negative)
 - Delete last bank → allowed
 - Concurrent updates from the same user → last SQLite write wins; acceptable for MVP
 - Very large amounts → reject if cents would overflow `int64`
@@ -259,11 +273,14 @@ Register these with BotFather when running locally (step `3.3`).
 ## Layer rules (code style)
 
 - Match clean Go: small files, no comments on obvious code, no one-use aliases
-- Service must not import `database/sql`, SQLite, or Telegram packages
+- **Interface per consumer:** define the smallest interface the caller needs in the caller’s package; generate mocks next to that package
+- Service must not import `ports`, `database/sql`, SQLite, or Telegram packages
+- Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
+- Tests of layer X import `X/mocks`, never another layer’s mocks
 
 ---
 
@@ -290,6 +307,9 @@ go run ./cmd/bot
 | 2026-09-06 | `TRIAL_DURATION=0` means no trial; negatives rejected. `LOG_LEVEL` constrained to debug/info/warn/error from MVP. Local `.env` is loaded if present (real env wins). No `.gitkeep` placeholders. |
 | 2026-09-06 | SQLite timestamps are TEXT RFC3339 UTC. `name_normalized` is an app-written column (Unicode-aware), not SQLite `lower()`. `ON DELETE CASCADE` from banks to users. |
 | 2026-09-06 | Go 1.27 everywhere (`go.mod`, Dockerfile, README). |
+| 2026-09-06 | Negative `/add` and `/spend` amounts are invalid. Negative balances remain allowed. |
+| 2026-09-06 | Unit tests mock ports with mockery. Hand-written fakes require explicit approval. |
+| 2026-09-06 | Interface per consumer: service owns BankRepository / UserRepository / Clock; memorycache owns Clock; Cache and Notifier stay in `ports` until telegram consumes them. Each layer’s tests use that layer’s mockery mocks. |
 
 ---
 
@@ -343,9 +363,9 @@ Implement one id at a time. Update the status field in place.
 #### 1.2 Ports
 
 - **Status:** `done`
-- **Goal:** interfaces only.
+- **Goal:** interfaces only (later split per consumer; see architecture + 1.8).
 - **Files:** `internal/ports/*.go`
-- **DoD:** `BankRepository`, `UserRepository`, `Cache`, `Clock`, `Notifier` defined with `context.Context` on IO methods.
+- **DoD:** `Cache`, `Notifier` remain here until telegram exists. Repository and clock interfaces live on their consumers. IO methods take `context.Context`.
 
 #### 1.3 SQLite migrations
 
@@ -364,14 +384,14 @@ Implement one id at a time. Update the status field in place.
 #### 1.5 Memory cache adapter
 
 - **Status:** `done`
-- **Goal:** in-process `ports.Cache` with TTL for FSM keys.
+- **Goal:** in-process `Cache` with TTL for FSM keys.
 - **Files:** `internal/adapter/memorycache/*.go` (+ tests)
 - **DoD:** set/get/delete; expired keys treated as miss.
 
 #### 1.6 Clock adapter
 
 - **Status:** `done`
-- **Goal:** real `time.Now` behind `ports.Clock`; tests can fake it later.
+- **Goal:** real `time.Now` behind a `Clock` interface owned by each consumer; tests can fake it later.
 - **Files:** `internal/adapter/clock/*.go`
 
 #### 1.7 Service use cases
@@ -379,14 +399,14 @@ Implement one id at a time. Update the status field in place.
 - **Status:** `done`
 - **Goal:** create/add/spend/set/delete/get/list/total/all/toggle; upsert user (set `TrialEndsAt` only on insert); touch activity.
 - **Files:** `internal/service/*.go`
-- **DoD:** no Telegram/SQL imports. Duplicate name and not-found map to domain errors. Total sums only `IncludeInTotal` banks.
+- **DoD:** no Telegram/SQL/`ports` imports. Duplicate name and not-found map to domain errors. Total sums only `IncludeInTotal` banks.
 
 #### 1.8 Service unit tests
 
-- **Status:** `todo`
-- **Goal:** table-driven tests of business rules with fake ports.
-- **Files:** `internal/service/*_test.go`
-- **DoD:** covers create, duplicate name, add/spend/set, delete, toggle, total vs excluded bank, empty list. Tests pass (`go test ./internal/service/...`).
+- **Status:** `done`
+- **Goal:** table-driven tests of business rules with mockery-generated **service** mocks.
+- **Files:** `internal/service/*_test.go`; `.mockery.yml`; `internal/service/mocks/`
+- **DoD:** covers create, duplicate name, add/spend/set (including negative add/spend invalid), delete, toggle, total vs excluded bank, empty list. Tests depend on `internal/service/mocks`, not `ports/mocks`. Tests pass (`go test ./internal/service/...`).
 
 #### 1.9 SQLite integration tests
 
@@ -465,7 +485,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 #### 3.1 Lint
 
 - **Status:** `todo`
-- **Goal:** `golangci-lint run --config ~/Projects/golangci.yaml` → 0 issues.
+- **Goal:** `make lint` → 0 issues. Config is `.golangci.yaml` in this repo.
 - **DoD:** command run on the module; issues fixed.
 
 #### 3.2 Persistence check
@@ -505,7 +525,7 @@ Monetization sequence (do not skip `4.6`):
 #### 4.2 Redis cache
 
 - **Status:** `todo`
-- **Goal:** `ports.Cache` on Redis for FSM and any hot totals; replace memory adapter in production.
+- **Goal:** `Cache` on Redis for FSM and any hot totals; replace memory adapter in production. The consumer (telegram) owns the interface.
 
 #### 4.3 Cheap hosting that can scale
 
@@ -555,4 +575,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 1.8`
+`let's move to step 1.9`

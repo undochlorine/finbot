@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"finbot/internal/domain"
-	"finbot/internal/ports"
+	"finbot/internal/service"
 )
 
-var _ ports.BankRepository = (*BankRepository)(nil)
+var _ service.BankRepository = (*BankRepository)(nil)
 
 type BankRepository struct {
 	db *sql.DB

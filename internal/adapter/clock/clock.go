@@ -1,12 +1,6 @@
 package clock
 
-import (
-	"time"
-
-	"finbot/internal/ports"
-)
-
-var _ ports.Clock = Real{}
+import "time"
 
 type Real struct{}
 

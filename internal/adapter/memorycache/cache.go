@@ -12,18 +12,22 @@ import (
 
 var _ ports.Cache = (*Cache)(nil)
 
+type Clock interface {
+	Now() time.Time
+}
+
 type item struct {
 	value     []byte
 	expiresAt time.Time
 }
 
 type Cache struct {
-	clock ports.Clock
+	clock Clock
 	mu    sync.Mutex
 	items map[string]item
 }
 
-func New(clock ports.Clock) *Cache {
+func New(clock Clock) *Cache {
 	return &Cache{
 		clock: clock,
 		items: make(map[string]item),

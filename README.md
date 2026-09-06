@@ -2,7 +2,7 @@
 
 Private Telegram bot for splitting money into named banks (Travelling, Gifts, Live, …), updating balances, and seeing a total of the banks that count.
 
-MVP is Go 1.27 + SQLite. Architecture is hexagonal: Telegram and SQLite are adapters; use cases live in `internal/service` and depend only on domain types and ports.
+MVP is Go 1.27 + SQLite. Architecture is clean/hexagonal: Telegram and SQLite are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
 
 The living work plan is [`plan.md`](plan.md).
 
