@@ -11,9 +11,27 @@ import (
 	"finbot/internal/text"
 )
 
-func registerHandlers(inner *bot.Bot) {
-	inner.RegisterHandlerMatchFunc(commandAtStart("start"), handleStart)
-	inner.RegisterHandlerMatchFunc(commandAtStart("help"), handleHelp)
+func (h *Bot) registerHandlers() {
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("start"), handleStart)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("help"), handleHelp)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("newbank"), h.handleNewBank)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackNewBankPrefix,
+		bot.MatchTypePrefix,
+		h.handleNewBankCallback,
+	)
+}
+
+func commandPayload(msg string) string {
+	if msg == "" || !strings.HasPrefix(msg, "/") {
+		return strings.TrimSpace(msg)
+	}
+	_, rest, found := strings.Cut(msg, " ")
+	if !found {
+		return ""
+	}
+	return strings.TrimSpace(rest)
 }
 
 func commandAtStart(name string) bot.MatchFunc {
@@ -32,21 +50,29 @@ func commandAtStart(name string) bot.MatchFunc {
 }
 
 func handleStart(ctx context.Context, b *bot.Bot, update *models.Update) {
-	reply(ctx, b, update, text.Start)
+	reply(ctx, b, messageChatID(update), text.Start, nil)
 }
 
 func handleHelp(ctx context.Context, b *bot.Bot, update *models.Update) {
-	reply(ctx, b, update, text.Help)
+	reply(ctx, b, messageChatID(update), text.Help, nil)
 }
 
-func reply(ctx context.Context, b *bot.Bot, update *models.Update, message string) {
-	if b == nil || update == nil || update.Message == nil {
+func messageChatID(update *models.Update) int64 {
+	if update == nil || update.Message == nil {
+		return 0
+	}
+	return update.Message.Chat.ID
+}
+
+func reply(ctx context.Context, b *bot.Bot, chatID int64, message string, markup models.ReplyMarkup) {
+	if b == nil || chatID == 0 {
 		return
 	}
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text:   message,
-	}); err != nil {
+	params := &bot.SendMessageParams{ChatID: chatID, Text: message}
+	if markup != nil {
+		params.ReplyMarkup = markup
+	}
+	if _, err := b.SendMessage(ctx, params); err != nil {
 		slog.Error("send telegram message", slog.Any("err", err))
 	}
 }

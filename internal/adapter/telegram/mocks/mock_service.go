@@ -38,6 +38,156 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// CreateBank provides a mock function for the type MockService
+func (_mock *MockService) CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, name, includeInTotal)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateBank")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, name, includeInTotal)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, name, includeInTotal)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, string, bool) error); ok {
+		r1 = returnFunc(ctx, userID, name, includeInTotal)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_CreateBank_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateBank'
+type MockService_CreateBank_Call struct {
+	*mock.Call
+}
+
+// CreateBank is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - name string
+//   - includeInTotal bool
+func (_e *MockService_Expecter) CreateBank(ctx interface{}, userID interface{}, name interface{}, includeInTotal interface{}) *MockService_CreateBank_Call {
+	return &MockService_CreateBank_Call{Call: _e.mock.On("CreateBank", ctx, userID, name, includeInTotal)}
+}
+
+func (_c *MockService_CreateBank_Call) Run(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool)) *MockService_CreateBank_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_CreateBank_Call) Return(bank domain.Bank, err error) *MockService_CreateBank_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_CreateBank_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error)) *MockService_CreateBank_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetByName provides a mock function for the type MockService
+func (_mock *MockService) GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetByName")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, name)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, name)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, string) error); ok {
+		r1 = returnFunc(ctx, userID, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_GetByName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByName'
+type MockService_GetByName_Call struct {
+	*mock.Call
+}
+
+// GetByName is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - name string
+func (_e *MockService_Expecter) GetByName(ctx interface{}, userID interface{}, name interface{}) *MockService_GetByName_Call {
+	return &MockService_GetByName_Call{Call: _e.mock.On("GetByName", ctx, userID, name)}
+}
+
+func (_c *MockService_GetByName_Call) Run(run func(ctx context.Context, userID domain.UserID, name string)) *MockService_GetByName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_GetByName_Call) Return(bank domain.Bank, err error) *MockService_GetByName_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_GetByName_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)) *MockService_GetByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpsertUser provides a mock function for the type MockService
 func (_mock *MockService) UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error) {
 	ret := _mock.Called(ctx, userID, username)

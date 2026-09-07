@@ -11,6 +11,7 @@ packages:
       Clock: {}
   finbot/internal/adapter/telegram:
     interfaces:
+      Cache: {}
       HTTPClient: {}
       Service: {}
   finbot/internal/ports:

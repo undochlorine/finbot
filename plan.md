@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.4` |
-| **Last done** | `2.3` `/start` and `/help` |
+| **Current step** | `2.5` |
+| **Last done** | `2.4` `/newbank` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.4` (next). Or any other id, e.g. `let's move to step 2.5`.
+Say: `let's move to step 2.5` (next). Or any other id, e.g. `let's move to step 2.6`.
 
 ---
 
@@ -50,7 +50,7 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Language of product:** Go 1.27
 - **MVP database:** SQLite file on disk (server reload must not lose data)
 - **Isolation:** every row scoped by Telegram user ID; never leak another user’s banks
-- **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`
+- **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`. Bank names may contain spaces. Command-line args after `/newbank` are the **entire name**; include-in-total is never parsed from that line.
 - **Bot language:** English. All user-facing strings live in `internal/text` so i18n can be added later
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
@@ -74,6 +74,8 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 Clean / hexagonal: adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
 
 The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types.
+
+**FSM** means **Finite State Machine**: the bot’s per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). It is stored in `Cache` with a short TTL so Redis can replace RAM later. TTL is 10 minutes until step `2.9`.
 
 ```text
 cmd/bot/main.go
@@ -244,7 +246,7 @@ Register these with BotFather when running locally (step `3.3`).
 | --- | --- |
 | `/start` | Upsert user, short intro, point to `/help` |
 | `/help` | List commands |
-| `/newbank` | Ask name → ask “Count in total?” yes/no buttons. Shortcut: `/newbank Travelling` then still ask include flag (or `/newbank Travelling yes`) |
+| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no`). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
 | `/add` | Pick bank (buttons or arg) → amount. Adds to balance |
 | `/spend` | Same as add, subtracts (negative allowed) |
 | `/set` | Pick bank → amount. Sets absolute balance |
@@ -257,7 +259,9 @@ Register these with BotFather when running locally (step `3.3`).
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`.
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`.
+
+`/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
 **Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, so stage 2 can change without colliding.
 
@@ -345,6 +349,8 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-06 | Unit tests mock consumer interfaces with mockery. Hand-written stubs/fakes need a written reason **and explicit user approval**. Plain cases always use mockery. |
 | 2026-09-06 | Interface per consumer: service owns BankRepository / UserRepository / Clock; memorycache owns Clock; Cache and Notifier stay in `ports` until telegram consumes them. Each layer’s tests use that layer’s mockery mocks. |
 | 2026-09-06 | GitHub Actions CI before Telegram (`2.x`): common stage with `unit:test`, `lint`, `integration:test`; gate job `common` blocks later stages. SQLite `*_test.go` use `//go:build integration`. |
+| 2026-09-07 | Telegram owns `Cache`; `ports.Cache` remains so memorycache does not import the telegram adapter. FSM TTL is 10 minutes until `2.9`. |
+| 2026-09-07 | **FSM** = Finite State Machine (conversation step in Cache). `/newbank` args are the full bank name (spaces allowed). Include yes/no is only after the name is accepted (buttons or typing `yes`/`no`). Duplicate names error as soon as the name is entered; the user stays on the name step and can type another. Document command shortcuts in `/start` and `/help`. |
 
 ---
 
@@ -486,9 +492,9 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.4 `/newbank` flow
 
-- **Status:** `todo`
-- **Goal:** FSM: name → include-in-total buttons; shortcuts if args present.
-- **DoD:** bank persisted; duplicate name errors in chat.
+- **Status:** `done`
+- **Goal:** FSM: name (reject duplicates immediately) → include-in-total buttons; name-only shortcut if args present (spaces kept; no yes/no on the command line).
+- **DoD:** bank persisted; duplicate name errors in chat as soon as the name is entered; `/start` and `/help` mention command+name shortcuts.
 
 #### 2.5 `/add`, `/spend`, `/set`
 
@@ -617,4 +623,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.4`
+`let's move to step 2.5`
