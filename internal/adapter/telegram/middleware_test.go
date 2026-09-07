@@ -13,8 +13,6 @@ import (
 	"finbot/internal/domain"
 )
 
-const telegramUserID int64 = 42
-
 func TestActivityMiddleware(t *testing.T) {
 	ctx := context.Background()
 	from := models.User{ID: telegramUserID, Username: "alice"}

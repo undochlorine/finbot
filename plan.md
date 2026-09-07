@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.1` |
-| **Last done** | `2.9` conversation FSM polish |
+| **Current step** | `3.2` |
+| **Last done** | `3.1` lint |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.1` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.2` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -650,7 +650,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.1 Lint
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `make lint` → 0 issues. Config is `.golangci.yaml` in this repo.
 - **DoD:** command run on the module; issues fixed.
 
@@ -847,4 +847,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.1`
+`let's move to step 3.2`

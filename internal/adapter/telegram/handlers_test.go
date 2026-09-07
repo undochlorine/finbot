@@ -2,22 +2,13 @@ package telegram
 
 import (
 	"context"
-	"io"
-	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"finbot/internal/adapter/telegram/mocks"
-	"finbot/internal/domain"
 	"finbot/internal/text"
 )
-
-const sendMessageOKBody = `{"ok":true,"result":{"message_id":1,"date":1,"chat":{"id":42,"type":"private"}}}`
 
 func TestCommandAtStart(t *testing.T) {
 	tests := []struct {
@@ -80,53 +71,4 @@ func TestStartAndHelpReply(t *testing.T) {
 			require.Contains(t, sent, "42")
 		})
 	}
-}
-
-func newCommandBot(t *testing.T, ctx context.Context, wantSend bool, sent *string) *Bot {
-	t.Helper()
-
-	svc := mocks.NewMockService(t)
-	svc.EXPECT().
-		UpsertUser(ctx, domain.UserID(telegramUserID), "alice").
-		Return(domain.User{TelegramID: domain.UserID(telegramUserID), Username: "alice"}, nil)
-
-	client := expectGetMe(t, http.StatusOK, getMeOKBody)
-	expectSetMyCommands(t, client, nil)
-	if wantSend {
-		expectSendMessage(t, client, sent)
-	}
-
-	b, err := New("123:token", svc, mocks.NewMockCache(t), client, bot.WithNotAsyncHandlers())
-	require.NoError(t, err)
-	return b
-}
-
-func expectSendMessage(t *testing.T, client *mocks.MockHTTPClient, sent *string) {
-	t.Helper()
-	resp := jsonResponse(http.StatusOK, sendMessageOKBody)
-	t.Cleanup(func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close sendMessage body: %v", err)
-		}
-	})
-
-	client.EXPECT().
-		Do(mock.MatchedBy(func(req *http.Request) bool {
-			return strings.Contains(req.URL.Path, "sendMessage")
-		})).
-		Run(func(req *http.Request) {
-			body, err := io.ReadAll(req.Body)
-			require.NoError(t, err)
-			*sent = string(body)
-		}).
-		Return(resp, nil).
-		Once()
-}
-
-func commandUpdate(text string) *models.Update {
-	return &models.Update{Message: &models.Message{
-		From: &models.User{ID: telegramUserID, Username: "alice"},
-		Chat: models.Chat{ID: telegramUserID, Type: "private"},
-		Text: text,
-	}}
 }

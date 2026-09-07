@@ -2,14 +2,8 @@ package telegram
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/go-telegram/bot"
-	"github.com/go-telegram/bot/models"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"finbot/internal/adapter/telegram/mocks"
@@ -150,7 +144,7 @@ func TestNewBankFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
-			b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+			b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				tt.setup(svc, cache, client, &sent)
 			})
 			b.ProcessUpdate(ctx, commandUpdate(tt.text))
@@ -170,7 +164,7 @@ func TestNewBankPendingName(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		expectNameAvailable(svc, ctx, userID, "Holiday")
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday"})
@@ -187,7 +181,7 @@ func TestNewBankPendingNameInvalid(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		expectSendMessage(t, client, &sent)
@@ -202,7 +196,7 @@ func TestNewBankPendingNameTaken(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		svc.EXPECT().
 			GetByName(ctx, userID, "Holiday").
@@ -221,7 +215,7 @@ func TestNewBankPendingNameKeepsSpacesAndYes(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		expectNameAvailable(svc, ctx, userID, "Holiday yes")
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday yes"})
@@ -237,7 +231,7 @@ func TestNewBankPendingIncludeText(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
@@ -257,7 +251,7 @@ func TestNewBankCallbackCreatesBank(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
@@ -268,7 +262,7 @@ func TestNewBankCallbackCreatesBank(t *testing.T) {
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, includeCallbackUpdate(callbackNewBankIncludeYes))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackNewBankIncludeYes))
 	require.Contains(t, sent, text.BankCreated("Holiday", true))
 }
 
@@ -278,7 +272,7 @@ func TestNewBankCallbackDuplicate(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
@@ -289,7 +283,7 @@ func TestNewBankCallbackDuplicate(t *testing.T) {
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, includeCallbackUpdate(callbackNewBankIncludeYes))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackNewBankIncludeYes))
 	require.Contains(t, sent, text.BankNameTaken("Holiday"))
 }
 
@@ -297,78 +291,4 @@ func TestCommandAtStartNewBank(t *testing.T) {
 	require.True(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank)))
 	require.True(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank+" Holiday "+domain.Yes)))
 	require.False(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank+"foo")))
-}
-
-func newNewBankBot(
-	t *testing.T,
-	ctx context.Context,
-	setup func(*mocks.MockService, *mocks.MockCache, *mocks.MockHTTPClient),
-) *Bot {
-	t.Helper()
-
-	svc := mocks.NewMockService(t)
-	svc.EXPECT().
-		UpsertUser(ctx, domain.UserID(telegramUserID), "alice").
-		Return(domain.User{TelegramID: domain.UserID(telegramUserID), Username: "alice"}, nil).
-		Maybe()
-
-	cache := mocks.NewMockCache(t)
-	client := expectGetMe(t, http.StatusOK, getMeOKBody)
-	expectSetMyCommands(t, client, nil)
-	setup(svc, cache, client)
-
-	b, err := New("123:token", svc, cache, client, bot.WithNotAsyncHandlers())
-	require.NoError(t, err)
-	return b
-}
-
-func expectNameAvailable(svc *mocks.MockService, ctx context.Context, userID domain.UserID, name string) {
-	svc.EXPECT().GetByName(ctx, userID, name).Return(domain.Bank{}, domain.ErrBankNotFound)
-}
-
-func expectFSMSet(t *testing.T, cache *mocks.MockCache, ctx context.Context, key string, want fsmState) {
-	t.Helper()
-	cache.EXPECT().
-		Set(ctx, key, mock.MatchedBy(func(v []byte) bool {
-			var got fsmState
-			return json.Unmarshal(v, &got) == nil && got == want
-		}), fsmTTL).
-		Return(nil)
-}
-
-func expectAnswerCallbackQuery(t *testing.T, client *mocks.MockHTTPClient) {
-	t.Helper()
-	resp := jsonResponse(http.StatusOK, `{"ok":true,"result":true}`)
-	t.Cleanup(func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close answerCallbackQuery body: %v", err)
-		}
-	})
-	client.EXPECT().
-		Do(mock.MatchedBy(func(req *http.Request) bool {
-			return strings.Contains(req.URL.Path, "answerCallbackQuery")
-		})).
-		Return(resp, nil).
-		Once()
-}
-
-func includeCallbackUpdate(data string) *models.Update {
-	return &models.Update{CallbackQuery: &models.CallbackQuery{
-		ID:   "cb1",
-		From: models.User{ID: telegramUserID, Username: "alice"},
-		Data: data,
-		Message: models.MaybeInaccessibleMessage{
-			Type: models.MaybeInaccessibleMessageTypeMessage,
-			Message: &models.Message{
-				Chat: models.Chat{ID: telegramUserID, Type: "private"},
-			},
-		},
-	}}
-}
-
-func mustFSM(t *testing.T, st fsmState) []byte {
-	t.Helper()
-	raw, err := json.Marshal(st)
-	require.NoError(t, err)
-	return raw
 }

@@ -1,51 +1,18 @@
 package telegram
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"finbot/internal/adapter/telegram/mocks"
 	"finbot/internal/domain"
 )
-
-const getMeOKBody = `{"ok":true,"result":{"id":1,"is_bot":true,"first_name":"finbot"}}`
-
-func jsonResponse(status int, body string) *http.Response {
-	return &http.Response{
-		StatusCode: status,
-		Body:       io.NopCloser(bytes.NewReader([]byte(body))),
-		Header:     make(http.Header),
-	}
-}
-
-func expectGetMe(t *testing.T, status int, body string) *mocks.MockHTTPClient {
-	t.Helper()
-	resp := jsonResponse(status, body)
-	t.Cleanup(func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close getMe body: %v", err)
-		}
-	})
-
-	client := mocks.NewMockHTTPClient(t)
-	client.EXPECT().
-		Do(mock.MatchedBy(func(req *http.Request) bool {
-			return strings.Contains(req.URL.Path, "getMe")
-		})).
-		Return(resp, nil).
-		Once()
-	return client
-}
 
 func TestNew(t *testing.T) {
 	svc := mocks.NewMockService(t)

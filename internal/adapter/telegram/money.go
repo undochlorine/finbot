@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -84,14 +82,8 @@ func (h *Bot) progressMoney(
 		h.offerBanks(ctx, b, chatID, userID, flow)
 		return
 	}
-	bank, err := h.svc.GetByName(ctx, userID, name)
-	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
-		return
-	}
-	if err != nil {
-		slog.Error("get bank by name", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	if !ok {
 		return
 	}
 	if amountRaw == "" {
@@ -100,27 +92,6 @@ func (h *Bot) progressMoney(
 		return
 	}
 	h.applyMoney(ctx, b, chatID, userID, flow, bank.ID, bank.Name, amountRaw)
-}
-
-func (h *Bot) offerBanks(
-	ctx context.Context,
-	b *bot.Bot,
-	chatID int64,
-	userID domain.UserID,
-	flow string,
-) {
-	banks, err := h.svc.List(ctx, userID)
-	if err != nil {
-		slog.Error("list banks", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
-		return
-	}
-	if len(banks) == 0 {
-		reply(ctx, b, chatID, text.NoBanks, nil)
-		return
-	}
-	h.saveFSM(ctx, userID, fsmState{Flow: flow, Step: stepBank})
-	reply(ctx, b, chatID, text.AskBank, bankKeyboard(flow, banks))
 }
 
 func (h *Bot) applyMoney(
@@ -151,8 +122,7 @@ func (h *Bot) applyMoney(
 		return
 	}
 	if err != nil {
-		slog.Error("change balance", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "change balance", err)
 		return
 	}
 	h.clearFSM(ctx, userID)
@@ -185,27 +155,24 @@ func (h *Bot) changeBalance(
 }
 
 func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.CallbackQuery == nil {
+	if !h.beginCallback(ctx, b, update) {
 		return
 	}
-	h.answerCallback(ctx, b, update)
 	flow, bankID, ok := parseMoneyCallback(update.CallbackQuery.Data)
 	if !ok {
 		return
 	}
-	st, ok := h.loadCallbackFSM(ctx, b, update)
-	if !ok || st.Flow != flow || st.Step != stepBank {
+	if _, ok := h.callbackFSM(ctx, b, update, flow, stepBank); !ok {
 		return
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
-	bank, err := h.svc.Get(ctx, userID, bankID)
-	if err != nil {
-		slog.Error("get bank", slog.Any("err", err))
-		reply(ctx, b, callbackChatID(update), text.SomethingWentWrong, nil)
+	chatID := callbackChatID(update)
+	bank, ok := h.bankByID(ctx, b, chatID, userID, bankID)
+	if !ok {
 		return
 	}
 	h.saveAmountStep(ctx, userID, flow, bank)
-	reply(ctx, b, callbackChatID(update), askAmountText(flow, bank.Name), nil)
+	reply(ctx, b, chatID, askAmountText(flow, bank.Name), nil)
 }
 
 func (h *Bot) saveAmountStep(ctx context.Context, userID domain.UserID, flow string, bank domain.Bank) {
@@ -225,46 +192,13 @@ func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
 		{callbackSpendPrefix, domain.CommandSpend},
 		{callbackSetPrefix, domain.CommandSet},
 	} {
-		rest, found := strings.CutPrefix(data, p.prefix)
+		id, found := parsePrefixedID(data, p.prefix)
 		if !found {
 			continue
-		}
-		id, err := strconv.ParseInt(rest, 10, 64)
-		if err != nil {
-			return "", 0, false
 		}
 		return p.flow, id, true
 	}
 	return "", 0, false
-}
-
-func bankKeyboard(flow string, banks []domain.Bank) *models.InlineKeyboardMarkup {
-	prefix := callbackPrefix(flow)
-	rows := make([][]models.InlineKeyboardButton, 0, len(banks))
-	for _, bank := range banks {
-		rows = append(rows, []models.InlineKeyboardButton{{
-			Text:         bank.Name,
-			CallbackData: prefix + strconv.FormatInt(bank.ID, 10),
-		}})
-	}
-	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
-}
-
-func callbackPrefix(flow string) string {
-	switch flow {
-	case domain.CommandAdd:
-		return callbackAddPrefix
-	case domain.CommandSpend:
-		return callbackSpendPrefix
-	case domain.CommandDelete:
-		return callbackDeletePrefix
-	case domain.CommandBank:
-		return callbackBankPrefix
-	case domain.CommandToggle:
-		return callbackTogglePrefix
-	default:
-		return callbackSetPrefix
-	}
 }
 
 func askAmountText(flow, name string) string {
