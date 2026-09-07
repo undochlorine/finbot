@@ -8,6 +8,8 @@ import (
 )
 
 const (
+	commandCancel = "cancel"
+
 	fsmTTL = 10 * time.Minute
 
 	stepName    = "name"

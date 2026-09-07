@@ -25,6 +25,7 @@ func (h *Bot) registerHandlers() {
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandBanks), h.handleBanks)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandTotal), h.handleTotal)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAll), h.handleAll)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandCancel), h.handleCancel)
 	h.inner.RegisterHandler(
 		bot.HandlerTypeCallbackQueryData,
 		callbackNewBankPrefix,
@@ -101,6 +102,20 @@ func handleStart(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 func handleHelp(ctx context.Context, b *bot.Bot, update *models.Update) {
 	reply(ctx, b, messageChatID(update), text.Help, nil)
+}
+
+func (h *Bot) handleCancel(ctx context.Context, b *bot.Bot, update *models.Update) {
+	from := sender(update)
+	if from == nil {
+		return
+	}
+	userID := domain.UserID(from.ID)
+	if _, ok := h.loadFSM(ctx, userID); !ok {
+		reply(ctx, b, messageChatID(update), text.NothingToCancel, nil)
+		return
+	}
+	h.clearFSM(ctx, userID)
+	reply(ctx, b, messageChatID(update), text.Canceled, nil)
 }
 
 func messageChatID(update *models.Update) int64 {
