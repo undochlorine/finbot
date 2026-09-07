@@ -22,25 +22,28 @@ func TestLoad(t *testing.T) {
 			name: "defaults",
 			env:  map[string]string{"BOT_TOKEN": "tok"},
 			want: Config{
-				BotToken:      "tok",
-				SQLitePath:    defaultSQLitePath,
-				LogLevel:      slog.LevelInfo,
-				TrialDuration: defaultTrialDuration,
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
 			},
 		},
 		{
 			name: "overrides",
 			env: map[string]string{
-				"BOT_TOKEN":      "tok",
-				"SQLITE_PATH":    "/var/lib/finbot/finbot.db",
-				"LOG_LEVEL":      "DEBUG",
-				"TRIAL_DURATION": "24h",
+				"BOT_TOKEN":         "tok",
+				"SQLITE_PATH":       "/var/lib/finbot/finbot.db",
+				"LOG_LEVEL":         "DEBUG",
+				"TRIAL_DURATION":    "24h",
+				"ADMIN_TELEGRAM_ID": "12345",
 			},
 			want: Config{
-				BotToken:      "tok",
-				SQLitePath:    "/var/lib/finbot/finbot.db",
-				LogLevel:      slog.LevelDebug,
-				TrialDuration: 24 * time.Hour,
+				BotToken:        "tok",
+				SQLitePath:      "/var/lib/finbot/finbot.db",
+				LogLevel:        slog.LevelDebug,
+				TrialDuration:   24 * time.Hour,
+				AdminTelegramID: 12345,
 			},
 		},
 		{
@@ -50,11 +53,42 @@ func TestLoad(t *testing.T) {
 				"TRIAL_DURATION": "0",
 			},
 			want: Config{
-				BotToken:      "tok",
-				SQLitePath:    defaultSQLitePath,
-				LogLevel:      slog.LevelInfo,
-				TrialDuration: 0,
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   0,
+				AdminTelegramID: 0,
 			},
+		},
+		{
+			name: "zero admin id is unset",
+			env: map[string]string{
+				"BOT_TOKEN":         "tok",
+				"ADMIN_TELEGRAM_ID": "0",
+			},
+			want: Config{
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+			},
+		},
+		{
+			name: "invalid admin id",
+			env: map[string]string{
+				"BOT_TOKEN":         "tok",
+				"ADMIN_TELEGRAM_ID": "not-an-id",
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative admin id",
+			env: map[string]string{
+				"BOT_TOKEN":         "tok",
+				"ADMIN_TELEGRAM_ID": "-1",
+			},
+			wantErr: true,
 		},
 		{
 			name: "invalid trial duration",
@@ -88,6 +122,7 @@ func TestLoad(t *testing.T) {
 			t.Setenv("SQLITE_PATH", "")
 			t.Setenv("LOG_LEVEL", "")
 			t.Setenv("TRIAL_DURATION", "")
+			t.Setenv("ADMIN_TELEGRAM_ID", "")
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}

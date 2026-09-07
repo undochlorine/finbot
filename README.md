@@ -24,6 +24,7 @@ Users can type details on the same line as a slash command instead of waiting fo
 | `SQLITE_PATH` | no | `./data/finbot.db` | File on disk; use a volume in Docker (`/data/finbot.db`) |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
+| `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `.env`.
 
@@ -51,7 +52,7 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the token from BotFather. Leave `SQLITE_PATH`, `LOG_LEVEL`, and `TRIAL_DURATION` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `SQLITE_PATH`, `LOG_LEVEL`, and `TRIAL_DURATION` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
 
 ### 3. Start the process
 
@@ -59,7 +60,7 @@ Set `BOT_TOKEN` in `.env` to the token from BotFather. Leave `SQLITE_PATH`, `LOG
 go run ./cmd/bot
 ```
 
-The process loads config, creates the SQLite directory if needed, opens the database, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
+The process loads config, creates the SQLite directory if needed, opens the database, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
 
 ### 4. Open Telegram
 

@@ -1,19 +1,22 @@
 package text
 
+import "fmt"
+
 const (
-	CmdDescStart   = "welcome"
-	CmdDescHelp    = "this list"
-	CmdDescNewBank = "create a bank"
-	CmdDescAdd     = "add money to a bank"
-	CmdDescSpend   = "subtract money from a bank"
-	CmdDescSet     = "set a bank's balance"
-	CmdDescDelete  = "delete a bank"
-	CmdDescBank    = "show one bank"
-	CmdDescToggle  = "include or exclude a bank from the total"
-	CmdDescBanks   = "list all banks"
-	CmdDescTotal   = "sum of banks included in the total"
-	CmdDescAll     = "list banks and the total"
-	CmdDescCancel  = "cancel the current step"
+	CmdDescStart    = "welcome"
+	CmdDescHelp     = "this list"
+	CmdDescNewBank  = "create a bank"
+	CmdDescAdd      = "add money to a bank"
+	CmdDescSpend    = "subtract money from a bank"
+	CmdDescSet      = "set a bank's balance"
+	CmdDescDelete   = "delete a bank"
+	CmdDescBank     = "show one bank"
+	CmdDescToggle   = "include or exclude a bank from the total"
+	CmdDescBanks    = "list all banks"
+	CmdDescTotal    = "sum of banks included in the total"
+	CmdDescAll      = "list banks and the total"
+	CmdDescCancel   = "cancel the current step"
+	CmdDescFeedback = "send feedback to the admin"
 )
 
 const Start = `Welcome to Finbot. Split money into named banks and track balances.
@@ -37,6 +40,7 @@ const Help = `Finbot commands:
 /total - sum of banks included in the total
 /all - list banks and the total
 /cancel - cancel the current step
+/feedback - send feedback to the admin
 
 You can skip prompts by typing details after a command. Bank names may contain spaces.
 Example: /newbank Holiday fund
@@ -118,6 +122,19 @@ const Canceled = "Canceled."
 const NothingToCancel = "Nothing to cancel."
 
 const FlowExpired = "This step expired. Start over with a command."
+
+const FeedbackAsk = "What's your feedback? Send it as a message."
+
+const FeedbackThanks = "Thanks, I sent that to the admin."
+
+const FeedbackUnavailable = "Feedback is not available right now."
+
+func FeedbackForward(userID int64, username, body string) string {
+	if username == "" {
+		return fmt.Sprintf("Feedback from %d:\n\n%s", userID, body)
+	}
+	return fmt.Sprintf("Feedback from %d (@%s):\n\n%s", userID, username, body)
+}
 
 func BankCard(name, balance string, included bool) string {
 	if included {

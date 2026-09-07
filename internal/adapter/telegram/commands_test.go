@@ -31,6 +31,7 @@ func TestMenuCommandsListsMVPCommands(t *testing.T) {
 		{domain.CommandTotal, text.CmdDescTotal},
 		{domain.CommandAll, text.CmdDescAll},
 		{commandCancel, text.CmdDescCancel},
+		{commandFeedback, text.CmdDescFeedback},
 	}
 
 	got := menuCommands()

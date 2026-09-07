@@ -13,6 +13,7 @@ func TestRunMissingToken(t *testing.T) {
 	t.Setenv("SQLITE_PATH", filepath.Join(t.TempDir(), "finbot.db"))
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
+	t.Setenv("ADMIN_TELEGRAM_ID", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -33,6 +34,7 @@ func TestRunSQLiteDirMissing(t *testing.T) {
 	t.Setenv("SQLITE_PATH", filepath.Join(parent, "finbot.db"))
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
+	t.Setenv("ADMIN_TELEGRAM_ID", "")
 
 	err := run(context.Background())
 	if err == nil {
