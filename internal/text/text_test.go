@@ -6,24 +6,27 @@ import (
 )
 
 func TestHelpListsMVPCommands(t *testing.T) {
-	commands := []string{
-		"/start",
-		"/help",
-		"/newbank",
-		"/add",
-		"/spend",
-		"/set",
-		"/delete",
-		"/bank",
-		"/toggle",
-		"/banks",
-		"/total",
-		"/all",
-		"/cancel",
+	commands := []struct {
+		cmd  string
+		desc string
+	}{
+		{"/start", CmdDescStart},
+		{"/help", CmdDescHelp},
+		{"/newbank", CmdDescNewBank},
+		{"/add", CmdDescAdd},
+		{"/spend", CmdDescSpend},
+		{"/set", CmdDescSet},
+		{"/delete", CmdDescDelete},
+		{"/bank", CmdDescBank},
+		{"/toggle", CmdDescToggle},
+		{"/banks", CmdDescBanks},
+		{"/total", CmdDescTotal},
+		{"/all", CmdDescAll},
+		{"/cancel", CmdDescCancel},
 	}
 	for _, cmd := range commands {
-		if !strings.Contains(Help, cmd+" -") {
-			t.Errorf("help missing %s", cmd)
+		if !strings.Contains(Help, cmd.cmd+" - "+cmd.desc) {
+			t.Errorf("help missing %s - %s", cmd.cmd, cmd.desc)
 		}
 	}
 }

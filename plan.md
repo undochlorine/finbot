@@ -240,7 +240,7 @@ Admin can add, change, or revoke a user’s discount at any time (`4.8`).
 
 ## Telegram surface (MVP)
 
-Register these with BotFather when running locally (step `3.3`).
+The process registers these with Telegram `setMyCommands` on startup so clients show the Commands menu and `/` autocomplete. BotFather `/setcommands` is not required.
 
 | Command | Flow |
 | --- | --- |
@@ -356,6 +356,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | Reusable answer/command tokens (`yes`/`no`, `newbank`, `add`, `spend`, `set`, `delete`) are domain consts. `/start` and `/help` stay telegram-local. User-facing labels stay in `internal/text`. |
 | 2026-09-07 | Empty `/total` replies `Total: 0.00`. `/banks`, `/all`, and `/bank` with no banks still hint `/newbank`. |
 | 2026-09-07 | FSM polish: TTL stays 10 minutes. `/cancel` is telegram-local. Expired callbacks (cache miss) ask to start over; stale callbacks (wrong in-flight flow) are ignored. Starting another flow command replaces the pending FSM. Read-only commands leave it in place. Plain text with no FSM stays silent. |
+| 2026-09-07 | Slash command menu (`/` hint / Commands button) is registered via Bot API `setMyCommands` when the bot process starts. BotFather `/setcommands` is optional, not required. |
 
 ---
 
@@ -550,7 +551,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 #### 3.3 Local run docs
 
 - **Status:** `todo`
-- **Goal:** BotFather steps, command list, env, `go run ./cmd/bot`.
+- **Goal:** BotFather create-bot + token, env, `go run ./cmd/bot`. The slash command menu is registered by the process (`setMyCommands`), not by BotFather.
 - **Files:** `README.md`
 - **DoD:** a new machine can run MVP from README + a token.
 

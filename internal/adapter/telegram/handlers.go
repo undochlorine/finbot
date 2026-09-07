@@ -13,8 +13,8 @@ import (
 )
 
 func (h *Bot) registerHandlers() {
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("start"), handleStart)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("help"), handleHelp)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandStart), handleStart)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandHelp), handleHelp)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandNewBank), h.handleNewBank)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAdd), h.handleAdd)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSpend), h.handleSpend)

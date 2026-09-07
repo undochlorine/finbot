@@ -99,7 +99,11 @@ func TestNewGetMe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New("123:token", svc, mocks.NewMockCache(t), expectGetMe(t, tt.status, tt.body))
+			client := expectGetMe(t, tt.status, tt.body)
+			if !tt.wantErr {
+				expectSetMyCommands(t, client, nil)
+			}
+			_, err := New("123:token", svc, mocks.NewMockCache(t), client)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -110,7 +114,9 @@ func TestNewGetMe(t *testing.T) {
 }
 
 func TestStartReturnsWhenContextCanceled(t *testing.T) {
-	b, err := New("123:token", mocks.NewMockService(t), mocks.NewMockCache(t), expectGetMe(t, http.StatusOK, getMeOKBody))
+	client := expectGetMe(t, http.StatusOK, getMeOKBody)
+	expectSetMyCommands(t, client, nil)
+	b, err := New("123:token", mocks.NewMockService(t), mocks.NewMockCache(t), client)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -139,11 +145,13 @@ func TestNewWiresActivityMiddleware(t *testing.T) {
 		Once()
 
 	var nextCalled bool
+	client := expectGetMe(t, http.StatusOK, getMeOKBody)
+	expectSetMyCommands(t, client, nil)
 	b, err := New(
 		"123:token",
 		svc,
 		mocks.NewMockCache(t),
-		expectGetMe(t, http.StatusOK, getMeOKBody),
+		client,
 		bot.WithNotAsyncHandlers(),
 		bot.WithDefaultHandler(func(context.Context, *bot.Bot, *models.Update) {
 			nextCalled = true

@@ -78,6 +78,9 @@ func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.
 	}
 	h.inner = inner
 	h.registerHandlers()
+	if err := h.registerMenuCommands(context.Background()); err != nil {
+		return nil, fmt.Errorf("register telegram commands: %w", err)
+	}
 	return h, nil
 }
 
