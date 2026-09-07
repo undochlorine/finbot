@@ -37,30 +37,6 @@ func TestCommandPayload(t *testing.T) {
 	}
 }
 
-func TestParseYesNo(t *testing.T) {
-	tests := []struct {
-		name   string
-		in     string
-		want   bool
-		wantOK bool
-	}{
-		{name: "yes", in: "yes", want: true, wantOK: true},
-		{name: "no", in: "no", want: false, wantOK: true},
-		{name: "YES", in: "YES", want: true, wantOK: true},
-		{name: "maybe", in: "maybe"},
-		{name: "empty", in: ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := parseYesNo(tt.in)
-			require.Equal(t, tt.wantOK, ok)
-			if ok {
-				require.Equal(t, tt.want, got)
-			}
-		})
-	}
-}
-
 func TestNewBankFlow(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
@@ -77,7 +53,7 @@ func TestNewBankFlow(t *testing.T) {
 			name: "asks for name",
 			text: "/newbank",
 			setup: func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepName})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskName,
@@ -87,7 +63,7 @@ func TestNewBankFlow(t *testing.T) {
 			text: "/newbank Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				expectNameAvailable(svc, ctx, userID, "Holiday")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Holiday"})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday"})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -98,7 +74,7 @@ func TestNewBankFlow(t *testing.T) {
 			text: "/newbank Holiday yes",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				expectNameAvailable(svc, ctx, userID, "Holiday yes")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Holiday yes"})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday yes"})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -109,7 +85,7 @@ func TestNewBankFlow(t *testing.T) {
 			text: "/newbank Gifts no",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				expectNameAvailable(svc, ctx, userID, "Gifts no")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Gifts no"})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Gifts no"})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -120,7 +96,7 @@ func TestNewBankFlow(t *testing.T) {
 			text: "/newbank My Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				expectNameAvailable(svc, ctx, userID, "My Holiday")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "My Holiday"})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "My Holiday"})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -128,10 +104,10 @@ func TestNewBankFlow(t *testing.T) {
 		},
 		{
 			name: "yes alone is the bank name",
-			text: "/newbank yes",
+			text: "/newbank " + domain.Yes,
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				expectNameAvailable(svc, ctx, userID, "yes")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "yes"})
+				expectNameAvailable(svc, ctx, userID, domain.Yes)
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: domain.Yes})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -144,7 +120,7 @@ func TestNewBankFlow(t *testing.T) {
 				svc.EXPECT().
 					GetByName(ctx, userID, "Holiday").
 					Return(domain.Bank{Name: "Holiday"}, nil)
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepName})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.BankNameTaken("Holiday"),
@@ -153,7 +129,7 @@ func TestNewBankFlow(t *testing.T) {
 			name: "empty name after command",
 			text: "/newbank    ",
 			setup: func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepName})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskName,
@@ -163,7 +139,7 @@ func TestNewBankFlow(t *testing.T) {
 			text: "/newbank@finbot Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				expectNameAvailable(svc, ctx, userID, "Holiday")
-				expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Holiday"})
+				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday"})
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NewBankAskInclude,
@@ -195,9 +171,9 @@ func TestNewBankPendingName(t *testing.T) {
 	var sent string
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: flowNewBank, Step: stepName}), true, nil)
+		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		expectNameAvailable(svc, ctx, userID, "Holiday")
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Holiday"})
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday"})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday"))
@@ -212,8 +188,8 @@ func TestNewBankPendingNameInvalid(t *testing.T) {
 	var sent string
 
 	b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: flowNewBank, Step: stepName}), true, nil)
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepName})
+		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("   "))
@@ -227,11 +203,11 @@ func TestNewBankPendingNameTaken(t *testing.T) {
 	var sent string
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: flowNewBank, Step: stepName}), true, nil)
+		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		svc.EXPECT().
 			GetByName(ctx, userID, "Holiday").
 			Return(domain.Bank{Name: "Holiday"}, nil)
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepName})
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday"))
@@ -246,9 +222,9 @@ func TestNewBankPendingNameKeepsSpacesAndYes(t *testing.T) {
 	var sent string
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: flowNewBank, Step: stepName}), true, nil)
+		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandNewBank, Step: stepName}), true, nil)
 		expectNameAvailable(svc, ctx, userID, "Holiday yes")
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: flowNewBank, Step: stepInclude, Name: "Holiday yes"})
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday yes"})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday yes"))
@@ -263,7 +239,7 @@ func TestNewBankPendingIncludeText(t *testing.T) {
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
-			Flow: flowNewBank, Step: stepInclude, Name: "Holiday",
+			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
 		svc.EXPECT().
 			CreateBank(ctx, userID, "Holiday", false).
@@ -271,7 +247,7 @@ func TestNewBankPendingIncludeText(t *testing.T) {
 		cache.EXPECT().Delete(ctx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, commandUpdate("no"))
+	b.ProcessUpdate(ctx, commandUpdate(domain.No))
 	require.Contains(t, sent, text.BankCreated("Holiday", false))
 }
 
@@ -283,7 +259,7 @@ func TestNewBankCallbackCreatesBank(t *testing.T) {
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
-			Flow: flowNewBank, Step: stepInclude, Name: "Holiday",
+			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
 		svc.EXPECT().
 			CreateBank(ctx, userID, "Holiday", true).
@@ -304,7 +280,7 @@ func TestNewBankCallbackDuplicate(t *testing.T) {
 
 	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
-			Flow: flowNewBank, Step: stepInclude, Name: "Holiday",
+			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
 		svc.EXPECT().
 			CreateBank(ctx, userID, "Holiday", true).
@@ -318,9 +294,9 @@ func TestNewBankCallbackDuplicate(t *testing.T) {
 }
 
 func TestCommandAtStartNewBank(t *testing.T) {
-	require.True(t, commandAtStart("newbank")(commandUpdate("/newbank")))
-	require.True(t, commandAtStart("newbank")(commandUpdate("/newbank Holiday yes")))
-	require.False(t, commandAtStart("newbank")(commandUpdate("/newbankfoo")))
+	require.True(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank)))
+	require.True(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank+" Holiday "+domain.Yes)))
+	require.False(t, commandAtStart(domain.CommandNewBank)(commandUpdate("/"+domain.CommandNewBank+"foo")))
 }
 
 func newNewBankBot(

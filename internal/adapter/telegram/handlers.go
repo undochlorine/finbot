@@ -8,16 +8,18 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"finbot/internal/domain"
 	"finbot/internal/text"
 )
 
 func (h *Bot) registerHandlers() {
 	h.inner.RegisterHandlerMatchFunc(commandAtStart("start"), handleStart)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart("help"), handleHelp)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("newbank"), h.handleNewBank)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("add"), h.handleAdd)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("spend"), h.handleSpend)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart("set"), h.handleSet)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandNewBank), h.handleNewBank)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAdd), h.handleAdd)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSpend), h.handleSpend)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSet), h.handleSet)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandDelete), h.handleDelete)
 	h.inner.RegisterHandler(
 		bot.HandlerTypeCallbackQueryData,
 		callbackNewBankPrefix,
@@ -41,6 +43,12 @@ func (h *Bot) registerHandlers() {
 		callbackSetPrefix,
 		bot.MatchTypePrefix,
 		h.handleMoneyCallback,
+	)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackDeletePrefix,
+		bot.MatchTypePrefix,
+		h.handleDeleteCallback,
 	)
 }
 

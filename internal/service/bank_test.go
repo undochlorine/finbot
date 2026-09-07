@@ -114,11 +114,6 @@ func TestCreateBankDuplicate(t *testing.T) {
 }
 
 func TestAddSpendSet(t *testing.T) {
-	const (
-		opAdd   = "add"
-		opSpend = "spend"
-		opSet   = "set"
-	)
 	ctx := context.Background()
 	now := fixedNow()
 
@@ -132,18 +127,18 @@ func TestAddSpendSet(t *testing.T) {
 		want    domain.Money
 		wantErr error
 	}{
-		{name: "add increases", start: 10000, op: opAdd, amount: 2500, want: 12500},
-		{name: "spend decreases", start: 10000, op: opSpend, amount: 2500, want: 7500},
-		{name: "spend below zero allowed", start: 100, op: opSpend, amount: 250, want: -150},
-		{name: "set replaces", start: 10000, op: opSet, amount: 0, want: 0},
-		{name: "set negative allowed", start: 10000, op: opSet, amount: -500, want: -500},
-		{name: "add negative is invalid", start: 10000, op: opAdd, amount: -1, noIO: true, wantErr: domain.ErrInvalidAmount},
-		{name: "spend negative is invalid", start: 10000, op: opSpend, amount: -1, noIO: true, wantErr: domain.ErrInvalidAmount},
-		{name: "add overflow rejected", start: math.MaxInt64, op: opAdd, amount: 1, wantErr: domain.ErrInvalidAmount},
-		{name: "spend underflow rejected", start: math.MinInt64, op: opSpend, amount: 1, wantErr: domain.ErrInvalidAmount},
-		{name: "add unknown bank", op: opAdd, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
-		{name: "spend unknown bank", op: opSpend, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
-		{name: "set unknown bank", op: opSet, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
+		{name: "add increases", start: 10000, op: domain.CommandAdd, amount: 2500, want: 12500},
+		{name: "spend decreases", start: 10000, op: domain.CommandSpend, amount: 2500, want: 7500},
+		{name: "spend below zero allowed", start: 100, op: domain.CommandSpend, amount: 250, want: -150},
+		{name: "set replaces", start: 10000, op: domain.CommandSet, amount: 0, want: 0},
+		{name: "set negative allowed", start: 10000, op: domain.CommandSet, amount: -500, want: -500},
+		{name: "add negative is invalid", start: 10000, op: domain.CommandAdd, amount: -1, noIO: true, wantErr: domain.ErrInvalidAmount},
+		{name: "spend negative is invalid", start: 10000, op: domain.CommandSpend, amount: -1, noIO: true, wantErr: domain.ErrInvalidAmount},
+		{name: "add overflow rejected", start: math.MaxInt64, op: domain.CommandAdd, amount: 1, wantErr: domain.ErrInvalidAmount},
+		{name: "spend underflow rejected", start: math.MinInt64, op: domain.CommandSpend, amount: 1, wantErr: domain.ErrInvalidAmount},
+		{name: "add unknown bank", op: domain.CommandAdd, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
+		{name: "spend unknown bank", op: domain.CommandSpend, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
+		{name: "set unknown bank", op: domain.CommandSet, amount: 100, unknown: true, wantErr: domain.ErrBankNotFound},
 	}
 
 	for _, tt := range tests {
@@ -382,11 +377,11 @@ func applyMoneyOp(
 	amount domain.Money,
 ) (domain.Bank, error) {
 	switch op {
-	case "add":
+	case domain.CommandAdd:
 		return svc.Add(ctx, user, id, amount)
-	case "spend":
+	case domain.CommandSpend:
 		return svc.Spend(ctx, user, id, amount)
-	case "set":
+	case domain.CommandSet:
 		return svc.Set(ctx, user, id, amount)
 	default:
 		return domain.Bank{}, errors.New("unknown op")

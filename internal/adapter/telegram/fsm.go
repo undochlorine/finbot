@@ -10,23 +10,22 @@ import (
 const (
 	fsmTTL = 10 * time.Minute
 
-	flowNewBank = "newbank"
-	flowAdd     = "add"
-	flowSpend   = "spend"
-	flowSet     = "set"
-
 	stepName    = "name"
 	stepInclude = "include"
 	stepBank    = "bank"
 	stepAmount  = "amount"
+	stepConfirm = "confirm"
 
-	callbackNewBankPrefix     = "v1:newbank:"
-	callbackNewBankIncludeYes = "v1:newbank:include:1"
-	callbackNewBankIncludeNo  = "v1:newbank:include:0"
+	callbackNewBankPrefix     = "v1:" + domain.CommandNewBank + ":"
+	callbackNewBankIncludeYes = callbackNewBankPrefix + stepInclude + ":1"
+	callbackNewBankIncludeNo  = callbackNewBankPrefix + stepInclude + ":0"
 
-	callbackAddPrefix   = "v1:add:"
-	callbackSpendPrefix = "v1:spend:"
-	callbackSetPrefix   = "v1:set:"
+	callbackAddPrefix    = "v1:" + domain.CommandAdd + ":"
+	callbackSpendPrefix  = "v1:" + domain.CommandSpend + ":"
+	callbackSetPrefix    = "v1:" + domain.CommandSet + ":"
+	callbackDeletePrefix = "v1:" + domain.CommandDelete + ":"
+	callbackDeleteYes    = callbackDeletePrefix + domain.Yes + ":"
+	callbackDeleteNo     = callbackDeletePrefix + domain.No + ":"
 )
 
 type fsmState struct {
