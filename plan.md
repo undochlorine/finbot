@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.2` |
-| **Last done** | `3.1` lint |
+| **Current step** | `3.3` |
+| **Last done** | `3.2` persistence check |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.2` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.3` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -656,7 +656,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.2 Persistence check
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** kill and restart the process against the same `SQLITE_PATH`; banks remain.
 - **DoD:** documented in README how to verify; agent or user actually ran it once.
 
@@ -847,4 +847,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.2`
+`let's move to step 3.3`
