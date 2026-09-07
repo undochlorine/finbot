@@ -264,6 +264,8 @@ func callbackPrefix(flow string) string {
 		return callbackDeletePrefix
 	case domain.CommandBank:
 		return callbackBankPrefix
+	case domain.CommandToggle:
+		return callbackTogglePrefix
 	default:
 		return callbackSetPrefix
 	}
