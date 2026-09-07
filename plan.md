@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.5` |
-| **Last done** | `2.4` `/newbank` |
+| **Current step** | `2.6` |
+| **Last done** | `2.5` `/add` `/spend` `/set` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.5` (next). Or any other id, e.g. `let's move to step 2.6`.
+Say: `let's move to step 2.6` (next). Or any other id, e.g. `let's move to step 2.7`.
 
 ---
 
@@ -498,7 +498,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.5 `/add`, `/spend`, `/set`
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** bank picker buttons or args; then amount; cache FSM.
 - **DoD:** balances change correctly; invalid amount re-prompted; empty banks → hint `/newbank`.
 
@@ -623,4 +623,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.5`
+`let's move to step 2.6`

@@ -23,7 +23,8 @@ const Help = `Finbot commands:
 
 You can skip prompts by typing details after a command. Bank names may contain spaces.
 Example: /newbank Holiday fund
-After the name is accepted, the bot asks whether the bank counts in your total.`
+After the name is accepted, the bot asks whether the bank counts in your total.
+Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.`
 
 const NewBankAskName = "What should this bank be called?"
 
@@ -46,4 +47,38 @@ func BankCreated(name string, included bool) string {
 
 func BankNameTaken(name string) string {
 	return "You already have a bank named \"" + name + "\". Choose a different name."
+}
+
+const NoBanks = "You have no banks yet. Create one with /newbank."
+
+const AskBank = "Which bank?"
+
+const InvalidAmount = "That amount isn't valid. Send a number like 100 or 12.50."
+
+func UnknownBank(name string) string {
+	return "I don't know a bank named \"" + name + "\". Send /banks to see your list."
+}
+
+func AskAddAmount(name string) string {
+	return "How much should I add to \"" + name + "\"?"
+}
+
+func AskSpendAmount(name string) string {
+	return "How much should I spend from \"" + name + "\"?"
+}
+
+func AskSetAmount(name string) string {
+	return "What should \"" + name + "\" be set to?"
+}
+
+func Added(name, amount, balance string) string {
+	return "Added " + amount + " to \"" + name + "\". Balance is " + balance + "."
+}
+
+func Spent(name, amount, balance string) string {
+	return "Spent " + amount + " from \"" + name + "\". Balance is " + balance + "."
+}
+
+func SetTo(name, balance string) string {
+	return "Set \"" + name + "\" to " + balance + "."
 }

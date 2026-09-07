@@ -66,15 +66,31 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 	}
 	userID := domain.UserID(from.ID)
 	st, ok := h.loadFSM(ctx, userID)
-	if !ok || st.Flow != flowNewBank {
+	if !ok {
 		return
 	}
 	chatID := messageChatID(update)
+	switch st.Flow {
+	case flowNewBank:
+		h.continueNewBank(ctx, b, chatID, userID, st, update.Message.Text)
+	case flowAdd, flowSpend, flowSet:
+		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
+	}
+}
+
+func (h *Bot) continueNewBank(
+	ctx context.Context,
+	b *bot.Bot,
+	chatID int64,
+	userID domain.UserID,
+	st fsmState,
+	raw string,
+) {
 	switch st.Step {
 	case stepName:
-		h.progressNewBank(ctx, b, chatID, userID, update.Message.Text, true)
+		h.progressNewBank(ctx, b, chatID, userID, raw, true)
 	case stepInclude:
-		include, parsed := parseYesNo(strings.TrimSpace(update.Message.Text))
+		include, parsed := parseYesNo(strings.TrimSpace(raw))
 		if !parsed {
 			reply(ctx, b, chatID, text.NewBankAskInclude, includeKeyboard())
 			return
