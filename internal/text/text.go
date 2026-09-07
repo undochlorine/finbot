@@ -20,6 +20,7 @@ const Help = `Finbot commands:
 /banks - list all banks
 /total - sum of banks included in the total
 /all - list banks and the total
+/cancel - cancel the current step
 
 You can skip prompts by typing details after a command. Bank names may contain spaces.
 Example: /newbank Holiday fund
@@ -95,6 +96,12 @@ func BankDeleted(name string) string {
 }
 
 const DeleteCancelled = "Okay, I didn't delete anything."
+
+const Canceled = "Canceled."
+
+const NothingToCancel = "Nothing to cancel."
+
+const FlowExpired = "This step expired. Start over with a command."
 
 func BankCard(name, balance string, included bool) string {
 	if included {

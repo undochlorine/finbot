@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.9` |
-| **Last done** | `2.8` `/toggle` |
+| **Current step** | `3.1` |
+| **Last done** | `2.9` conversation FSM polish |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.9` (next). Or any other id, e.g. `let's move to step 3.1`.
+Say: `let's move to step 3.1` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -75,7 +75,7 @@ Clean / hexagonal: adapters on the outside, domain in the middle. **Interface pe
 
 The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types.
 
-**FSM** means **Finite State Machine**: the bot’s per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). It is stored in `Cache` with a short TTL so Redis can replace RAM later. TTL is 10 minutes until step `2.9`.
+**FSM** means **Finite State Machine**: the bot’s per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). It is stored in `Cache` with a short TTL so Redis can replace RAM later. TTL is 10 minutes.
 
 ```text
 cmd/bot/main.go
@@ -256,6 +256,7 @@ Register these with BotFather when running locally (step `3.3`).
 | `/banks` | List all banks (name, balance, whether in total) |
 | `/total` | Sum of included banks only |
 | `/all` | Full list + total |
+| `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. |
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
@@ -286,7 +287,7 @@ Register these with BotFather when running locally (step `3.3`).
 - Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
-- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`). Handler-only names (`start`, `help`) stay in telegram.
+- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`). Handler-only names (`start`, `help`, `cancel`) stay in telegram.
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
@@ -354,6 +355,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | **FSM** = Finite State Machine (conversation step in Cache). `/newbank` args are the full bank name (spaces allowed). Include yes/no is only after the name is accepted (buttons or typing `yes`/`no`). Duplicate names error as soon as the name is entered; the user stays on the name step and can type another. Document command shortcuts in `/start` and `/help`. |
 | 2026-09-07 | Reusable answer/command tokens (`yes`/`no`, `newbank`, `add`, `spend`, `set`, `delete`) are domain consts. `/start` and `/help` stay telegram-local. User-facing labels stay in `internal/text`. |
 | 2026-09-07 | Empty `/total` replies `Total: 0.00`. `/banks`, `/all`, and `/bank` with no banks still hint `/newbank`. |
+| 2026-09-07 | FSM polish: TTL stays 10 minutes. `/cancel` is telegram-local. Expired callbacks (cache miss) ask to start over; stale callbacks (wrong in-flight flow) are ignored. Starting another flow command replaces the pending FSM. Read-only commands leave it in place. Plain text with no FSM stays silent. |
 
 ---
 
@@ -525,7 +527,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.9 Conversation FSM polish
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** TTL expiry, cancel (`/cancel`), ignore stale callback data, don’t mix two in-flight flows.
 - **DoD:** starting `/add` then `/spend` replaces the pending flow; expired state asks the user to start over.
 
@@ -626,4 +628,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.9`
+`let's move to step 3.1`

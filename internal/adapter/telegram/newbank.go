@@ -98,21 +98,16 @@ func (h *Bot) handleNewBankCallback(ctx context.Context, b *bot.Bot, update *mod
 	if update == nil || update.CallbackQuery == nil {
 		return
 	}
-	if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	}); err != nil {
-		slog.Error("answer callback query", slog.Any("err", err))
-	}
+	h.answerCallback(ctx, b, update)
 	include, ok := parseIncludeCallback(update.CallbackQuery.Data)
 	if !ok {
 		return
 	}
-	userID := domain.UserID(update.CallbackQuery.From.ID)
-	st, ok := h.loadFSM(ctx, userID)
+	st, ok := h.loadCallbackFSM(ctx, b, update)
 	if !ok || st.Flow != domain.CommandNewBank || st.Step != stepInclude || st.Name == "" {
 		return
 	}
-	h.createBankAndReply(ctx, b, callbackChatID(update), userID, st.Name, include)
+	h.createBankAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), st.Name, include)
 }
 
 func (h *Bot) progressNewBank(
@@ -176,6 +171,23 @@ func (h *Bot) createBankAndReply(
 		return
 	}
 	reply(ctx, b, chatID, text.BankCreated(bank.Name, bank.IncludeInTotal), nil)
+}
+
+func (h *Bot) answerCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	}); err != nil {
+		slog.Error("answer callback query", slog.Any("err", err))
+	}
+}
+
+func (h *Bot) loadCallbackFSM(ctx context.Context, b *bot.Bot, update *models.Update) (fsmState, bool) {
+	st, ok := h.loadFSM(ctx, domain.UserID(update.CallbackQuery.From.ID))
+	if !ok {
+		reply(ctx, b, callbackChatID(update), text.FlowExpired, nil)
+		return fsmState{}, false
+	}
+	return st, true
 }
 
 func (h *Bot) loadFSM(ctx context.Context, userID domain.UserID) (fsmState, bool) {

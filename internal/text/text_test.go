@@ -19,6 +19,7 @@ func TestHelpListsMVPCommands(t *testing.T) {
 		"/banks",
 		"/total",
 		"/all",
+		"/cancel",
 	}
 	for _, cmd := range commands {
 		if !strings.Contains(Help, cmd+" -") {
@@ -120,6 +121,9 @@ func TestMoneyCopy(t *testing.T) {
 			got:  Toggled("Holiday", "50.00", false),
 			want: []string{"Holiday", "50.00", "does not count toward your total"},
 		},
+		{name: "canceled", got: Canceled, want: []string{"Canceled"}},
+		{name: "nothing to cancel", got: NothingToCancel, want: []string{"Nothing to cancel"}},
+		{name: "expired", got: FlowExpired, want: []string{"expired", "Start over"}},
 		{name: "total", got: Total("123.45"), want: []string{"123.45"}},
 		{name: "empty total", got: Total("0.00"), want: []string{"0.00"}},
 		{

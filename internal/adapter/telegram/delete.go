@@ -116,20 +116,16 @@ func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *mode
 	if update == nil || update.CallbackQuery == nil {
 		return
 	}
-	if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	}); err != nil {
-		slog.Error("answer callback query", slog.Any("err", err))
-	}
+	h.answerCallback(ctx, b, update)
 	action, bankID, ok := parseDeleteCallback(update.CallbackQuery.Data)
 	if !ok {
 		return
 	}
-	userID := domain.UserID(update.CallbackQuery.From.ID)
-	st, ok := h.loadFSM(ctx, userID)
+	st, ok := h.loadCallbackFSM(ctx, b, update)
 	if !ok || st.Flow != domain.CommandDelete {
 		return
 	}
+	userID := domain.UserID(update.CallbackQuery.From.ID)
 	chatID := callbackChatID(update)
 	switch action {
 	case deleteActionPick:
