@@ -26,6 +26,10 @@ type Cache interface {
 	Delete(ctx context.Context, key string) error
 }
 
+type Notifier interface {
+	Notify(ctx context.Context, userID domain.UserID, message string) error
+}
+
 type Service interface {
 	UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error)
 	GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)
@@ -42,11 +46,14 @@ type Service interface {
 }
 
 var _ HTTPClient = (*http.Client)(nil)
+var _ Notifier = (*Bot)(nil)
 
 type Bot struct {
-	inner *bot.Bot
-	svc   Service
-	cache Cache
+	inner   *bot.Bot
+	svc     Service
+	cache   Cache
+	notify  Notifier
+	adminID domain.UserID
 }
 
 func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.Option) (*Bot, error) {
@@ -92,4 +99,20 @@ func (b *Bot) Start(ctx context.Context) {
 
 func (b *Bot) ProcessUpdate(ctx context.Context, update *models.Update) {
 	b.inner.ProcessUpdate(ctx, update)
+}
+
+func (b *Bot) SetAdmin(id domain.UserID, n Notifier) {
+	b.adminID = id
+	b.notify = n
+}
+
+func (b *Bot) Notify(ctx context.Context, userID domain.UserID, message string) error {
+	_, err := b.inner.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: int64(userID),
+		Text:   message,
+	})
+	if err != nil {
+		return fmt.Errorf("notify telegram user: %w", err)
+	}
+	return nil
 }

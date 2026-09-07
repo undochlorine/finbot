@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,10 +18,11 @@ const (
 )
 
 type Config struct {
-	BotToken      string
-	SQLitePath    string
-	LogLevel      slog.Level
-	TrialDuration time.Duration
+	BotToken        string
+	SQLitePath      string
+	LogLevel        slog.Level
+	TrialDuration   time.Duration
+	AdminTelegramID int64
 }
 
 func Load() (Config, error) {
@@ -48,11 +50,17 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	adminID, err := parseAdminTelegramID(os.Getenv("ADMIN_TELEGRAM_ID"))
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		BotToken:      token,
-		SQLitePath:    sqlitePath,
-		LogLevel:      level,
-		TrialDuration: trial,
+		BotToken:        token,
+		SQLitePath:      sqlitePath,
+		LogLevel:        level,
+		TrialDuration:   trial,
+		AdminTelegramID: adminID,
 	}, nil
 }
 
@@ -86,6 +94,21 @@ func parseTrialDuration(raw string) (time.Duration, error) {
 		return 0, fmt.Errorf("TRIAL_DURATION must be >= 0")
 	}
 	return parsed, nil
+}
+
+func parseAdminTelegramID(raw string) (int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, nil
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("ADMIN_TELEGRAM_ID must be a Telegram user id")
+	}
+	if id < 0 {
+		return 0, fmt.Errorf("ADMIN_TELEGRAM_ID must be >= 0")
+	}
+	return id, nil
 }
 
 func applyDotEnv(path string) error {

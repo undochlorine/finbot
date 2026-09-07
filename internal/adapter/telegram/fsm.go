@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	commandStart  = "start"
-	commandHelp   = "help"
-	commandCancel = "cancel"
+	commandStart    = "start"
+	commandHelp     = "help"
+	commandCancel   = "cancel"
+	commandFeedback = "feedback"
 
 	fsmTTL = 10 * time.Minute
 
@@ -28,6 +29,7 @@ const (
 	stepBank    = "bank"
 	stepAmount  = "amount"
 	stepConfirm = "confirm"
+	stepText    = "text"
 
 	callbackNewBankPrefix     = "v1:" + domain.CommandNewBank + ":"
 	callbackNewBankIncludeYes = callbackNewBankPrefix + stepInclude + ":1"

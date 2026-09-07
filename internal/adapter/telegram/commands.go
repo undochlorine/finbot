@@ -26,6 +26,7 @@ func menuCommands() []models.BotCommand {
 		{Command: domain.CommandTotal, Description: text.CmdDescTotal},
 		{Command: domain.CommandAll, Description: text.CmdDescAll},
 		{Command: commandCancel, Description: text.CmdDescCancel},
+		{Command: commandFeedback, Description: text.CmdDescFeedback},
 	}
 }
 

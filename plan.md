@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.4` |
-| **Last done** | `3.3` local run docs |
+| **Current step** | `3.5` |
+| **Last done** | `3.4` feedback forward |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.3` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.5` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -410,12 +410,12 @@ export BOT_TOKEN=...          # or put it in .env
 export SQLITE_PATH=./data/finbot.db
 export LOG_LEVEL=info         # debug | info | warn | error
 export TRIAL_DURATION=168h    # optional; 0 = no trial; default 7 days; enforced only in 4.5
+export ADMIN_TELEGRAM_ID=     # 3.4; your Telegram user id; empty = /feedback unavailable
 go run ./cmd/bot
 ```
 
 Added in later Stage 3 steps (document in README when those steps land):
 
-- `ADMIN_TELEGRAM_ID` — `3.4`; required for `/feedback` to work
 - `DEFAULT_CURRENCY` — `3.6`; default bank currency (e.g. `USD`)
 
 ```bash
@@ -669,7 +669,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.4 Feedback (forward)
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** `/feedback` asks for text, then forwards user id + username + body to `ADMIN_TELEGRAM_ID` via `Notifier`, then thanks the user.
 - **Files:** `internal/config`; `internal/text`; `internal/adapter/telegram/`; `internal/ports` (`Notifier` already exists)
 - **DoD:** if `ADMIN_TELEGRAM_ID` is unset, `/feedback` says it is unavailable. No `feedback` table. Command is registered in the slash menu. Unit tests cover the forward payload and the unset-admin path.
@@ -847,4 +847,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.4`
+`let's move to step 3.5`

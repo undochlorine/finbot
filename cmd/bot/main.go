@@ -16,6 +16,7 @@ import (
 	"finbot/internal/adapter/sqlite"
 	"finbot/internal/adapter/telegram"
 	"finbot/internal/config"
+	"finbot/internal/domain"
 	"finbot/internal/service"
 )
 
@@ -77,6 +78,9 @@ func run(ctx context.Context) error {
 	)
 	if err != nil {
 		return fmt.Errorf("telegram: %w", err)
+	}
+	if cfg.AdminTelegramID != 0 {
+		b.SetAdmin(domain.UserID(cfg.AdminTelegramID), b)
 	}
 
 	b.Start(ctx)

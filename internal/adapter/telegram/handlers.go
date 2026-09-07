@@ -30,6 +30,7 @@ func (h *Bot) registerHandlers() {
 		{domain.CommandTotal, h.handleTotal},
 		{domain.CommandAll, h.handleAll},
 		{commandCancel, h.handleCancel},
+		{commandFeedback, h.handleFeedback},
 	} {
 		h.inner.RegisterHandlerMatchFunc(commandAtStart(item.cmd), item.fn)
 	}
@@ -125,6 +126,8 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 		h.continueBank(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandToggle:
 		h.continueToggle(ctx, b, chatID, userID, st, update.Message.Text)
+	case commandFeedback:
+		h.progressFeedback(ctx, b, chatID, userID, from.Username, update.Message.Text)
 	}
 }
 

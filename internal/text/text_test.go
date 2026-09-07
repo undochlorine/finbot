@@ -23,11 +23,19 @@ func TestHelpListsMVPCommands(t *testing.T) {
 		{"/total", CmdDescTotal},
 		{"/all", CmdDescAll},
 		{"/cancel", CmdDescCancel},
+		{"/feedback", CmdDescFeedback},
 	}
 	for _, cmd := range commands {
 		if !strings.Contains(Help, cmd.cmd+" - "+cmd.desc) {
 			t.Errorf("help missing %s - %s", cmd.cmd, cmd.desc)
 		}
+	}
+}
+
+func TestFeedbackForwardOmitsEmptyUsername(t *testing.T) {
+	got := FeedbackForward(42, "", "hi")
+	if strings.Contains(got, "@") {
+		t.Fatalf("unexpected @: %q", got)
 	}
 }
 
@@ -127,6 +135,19 @@ func TestMoneyCopy(t *testing.T) {
 		{name: "canceled", got: Canceled, want: []string{"Canceled"}},
 		{name: "nothing to cancel", got: NothingToCancel, want: []string{"Nothing to cancel"}},
 		{name: "expired", got: FlowExpired, want: []string{"expired", "Start over"}},
+		{name: "feedback ask", got: FeedbackAsk, want: []string{"feedback"}},
+		{name: "feedback thanks", got: FeedbackThanks, want: []string{"Thanks"}},
+		{name: "feedback unavailable", got: FeedbackUnavailable, want: []string{"not available"}},
+		{
+			name: "feedback forward",
+			got:  FeedbackForward(42, "alice", "please add history"),
+			want: []string{"42", "alice", "please add history"},
+		},
+		{
+			name: "feedback forward no username",
+			got:  FeedbackForward(42, "", "please add history"),
+			want: []string{"42", "please add history"},
+		},
 		{name: "total", got: Total("123.45"), want: []string{"123.45"}},
 		{name: "empty total", got: Total("0.00"), want: []string{"0.00"}},
 		{

@@ -13,6 +13,7 @@ packages:
     interfaces:
       Cache: {}
       HTTPClient: {}
+      Notifier: {}
       Service: {}
   finbot/internal/ports:
     interfaces:
