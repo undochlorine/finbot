@@ -38,6 +38,22 @@ go run ./cmd/bot
 
 The process loads config (including `.env`), opens SQLite, registers the slash command menu with Telegram (`setMyCommands`), and long-polls until SIGINT/SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. If an old Telegram client still shows no Commands hint, close and reopen the chat.
 
+## Verify persistence
+
+Banks live in the SQLite file at `SQLITE_PATH` (default `./data/finbot.db`). A process restart must keep them.
+
+1. Start the bot with a stable path (`export SQLITE_PATH=./data/finbot.db` or the same value in `.env`).
+2. Create a bank (`/newbank Travelling`) and note `/banks`.
+3. Stop the process with Ctrl+C (SIGINT) or SIGTERM so the file is closed cleanly. Do not delete `data/finbot.db` or `data/finbot.db-*` (WAL sidecars).
+4. Start the same command again with the same `SQLITE_PATH`.
+5. `/banks` still lists Travelling with the same balance.
+
+The adapter test `TestReopenKeepsData` is the same open → write → close → reopen path:
+
+```bash
+go test -tags=integration -count=1 ./internal/adapter/sqlite/ -run TestReopenKeepsData
+```
+
 ## Tests and lint
 
 ```bash
