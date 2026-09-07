@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.8` |
-| **Last done** | `2.7` `/bank`, `/banks`, `/total`, `/all` |
+| **Current step** | `2.9` |
+| **Last done** | `2.8` `/toggle` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.8` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 2.9` (next). Or any other id, e.g. `let's move to step 3.1`.
 
 ---
 
@@ -519,7 +519,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.8 `/toggle`
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** flip `include_in_total`; reply with new state.
 - **DoD:** `/total` changes after toggle without changing balances.
 
@@ -626,4 +626,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.8`
+`let's move to step 2.9`

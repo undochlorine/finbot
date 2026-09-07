@@ -699,6 +699,78 @@ func (_c *MockService_Spend_Call) RunAndReturn(run func(ctx context.Context, use
 	return _c
 }
 
+// Toggle provides a mock function for the type MockService
+func (_mock *MockService) Toggle(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Toggle")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64) error); ok {
+		r1 = returnFunc(ctx, userID, bankID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Toggle_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Toggle'
+type MockService_Toggle_Call struct {
+	*mock.Call
+}
+
+// Toggle is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+func (_e *MockService_Expecter) Toggle(ctx interface{}, userID interface{}, bankID interface{}) *MockService_Toggle_Call {
+	return &MockService_Toggle_Call{Call: _e.mock.On("Toggle", ctx, userID, bankID)}
+}
+
+func (_c *MockService_Toggle_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64)) *MockService_Toggle_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Toggle_Call) Return(bank domain.Bank, err error) *MockService_Toggle_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Toggle_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)) *MockService_Toggle_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Total provides a mock function for the type MockService
 func (_mock *MockService) Total(ctx context.Context, userID domain.UserID) (domain.Money, error) {
 	ret := _mock.Called(ctx, userID)

@@ -26,7 +26,8 @@ Example: /newbank Holiday fund
 After the name is accepted, the bot asks whether the bank counts in your total.
 Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
 Delete still asks you to confirm: /delete Holiday.
-Show one bank: /bank Holiday.`
+Show one bank: /bank Holiday.
+Toggle whether a bank counts in the total: /toggle Holiday.`
 
 const NewBankAskName = "What should this bank be called?"
 
@@ -108,4 +109,11 @@ func Total(amount string) string {
 
 func All(banks, total string) string {
 	return banks + "\n\n" + total
+}
+
+func Toggled(name, balance string, included bool) string {
+	if included {
+		return "\"" + name + "\" now counts toward your total. Balance is " + balance + "."
+	}
+	return "\"" + name + "\" now does not count toward your total. Balance is " + balance + "."
 }
