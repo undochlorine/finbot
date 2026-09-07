@@ -314,6 +314,7 @@ func newNewBankBot(
 
 	cache := mocks.NewMockCache(t)
 	client := expectGetMe(t, http.StatusOK, getMeOKBody)
+	expectSetMyCommands(t, client, nil)
 	setup(svc, cache, client)
 
 	b, err := New("123:token", svc, cache, client, bot.WithNotAsyncHandlers())

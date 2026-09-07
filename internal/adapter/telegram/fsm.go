@@ -8,6 +8,8 @@ import (
 )
 
 const (
+	commandStart  = "start"
+	commandHelp   = "help"
 	commandCancel = "cancel"
 
 	fsmTTL = 10 * time.Minute

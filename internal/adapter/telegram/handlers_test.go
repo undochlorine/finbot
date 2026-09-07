@@ -91,6 +91,7 @@ func newCommandBot(t *testing.T, ctx context.Context, wantSend bool, sent *strin
 		Return(domain.User{TelegramID: domain.UserID(telegramUserID), Username: "alice"}, nil)
 
 	client := expectGetMe(t, http.StatusOK, getMeOKBody)
+	expectSetMyCommands(t, client, nil)
 	if wantSend {
 		expectSendMessage(t, client, sent)
 	}

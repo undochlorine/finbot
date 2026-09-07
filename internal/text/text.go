@@ -1,5 +1,21 @@
 package text
 
+const (
+	CmdDescStart   = "welcome"
+	CmdDescHelp    = "this list"
+	CmdDescNewBank = "create a bank"
+	CmdDescAdd     = "add money to a bank"
+	CmdDescSpend   = "subtract money from a bank"
+	CmdDescSet     = "set a bank's balance"
+	CmdDescDelete  = "delete a bank"
+	CmdDescBank    = "show one bank"
+	CmdDescToggle  = "include or exclude a bank from the total"
+	CmdDescBanks   = "list all banks"
+	CmdDescTotal   = "sum of banks included in the total"
+	CmdDescAll     = "list banks and the total"
+	CmdDescCancel  = "cancel the current step"
+)
+
 const Start = `Welcome to Finbot. Split money into named banks and track balances.
 Some banks count toward your total; some do not.
 

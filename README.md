@@ -36,7 +36,7 @@ Full BotFather / command checklist lands in step `3.3`. Until then:
 go run ./cmd/bot
 ```
 
-The process loads config (including `.env`), opens SQLite, and long-polls Telegram until SIGINT/SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. Commands land in later `2.x` steps.
+The process loads config (including `.env`), opens SQLite, registers the slash command menu with Telegram (`setMyCommands`), and long-polls until SIGINT/SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. If an old Telegram client still shows no Commands hint, close and reopen the chat.
 
 ## Tests and lint
 
