@@ -29,14 +29,43 @@ Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process e
 
 ## Run locally
 
-Full BotFather / command checklist lands in step `3.3`. Until then:
+A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
 
 ```bash
-# values can live in .env instead of exports
+git clone https://github.com/undochlorine/finbot.git
+cd finbot
+```
+
+### 1. Create a bot and token
+
+1. Open [@BotFather](https://t.me/BotFather) in Telegram.
+2. Send `/newbot`. Choose a display name, then a username that ends in `bot`.
+3. Copy the HTTP API token BotFather prints.
+4. Do **not** run BotFather `/setcommands`. On startup this process registers the Commands menu itself (`setMyCommands`).
+
+### 2. Configure env
+
+From the repo root:
+
+```bash
+cp .env.example .env
+```
+
+Set `BOT_TOKEN` in `.env` to the token from BotFather. Leave `SQLITE_PATH`, `LOG_LEVEL`, and `TRIAL_DURATION` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+
+### 3. Start the process
+
+```bash
 go run ./cmd/bot
 ```
 
-The process loads config (including `.env`), opens SQLite, registers the slash command menu with Telegram (`setMyCommands`), and long-polls until SIGINT/SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. If an old Telegram client still shows no Commands hint, close and reopen the chat.
+The process loads config, creates the SQLite directory if needed, opens the database, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
+
+### 4. Open Telegram
+
+Find the bot by the username you gave BotFather and send `/start`. `/help` lists commands. The `/` hint and Commands button should show the menu after the process has started. If an old Telegram client still shows no Commands hint, close and reopen the chat.
+
+Try `/newbank Travelling`, then `/banks`. To confirm the SQLite file survives a restart, follow [Verify persistence](#verify-persistence).
 
 ## Verify persistence
 

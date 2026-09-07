@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.3` |
-| **Last done** | `3.2` persistence check |
+| **Current step** | `3.4` |
+| **Last done** | `3.3` local run docs |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -403,7 +403,7 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 
 ## Local run (filled in as steps complete)
 
-Until step `3.3`:
+Human checklist is README **Run locally** (BotFather token, `.env`, `go run ./cmd/bot`). Slash menu is `setMyCommands` at process start, not BotFather `/setcommands`.
 
 ```bash
 export BOT_TOKEN=...          # or put it in .env
@@ -662,7 +662,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.3 Local run docs
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** BotFather create-bot + token, env, `go run ./cmd/bot`. The slash command menu is registered by the process (`setMyCommands`), not by BotFather.
 - **Files:** `README.md`
 - **DoD:** a new machine can run MVP from README + a token.
@@ -847,4 +847,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.3`
+`let's move to step 3.4`
