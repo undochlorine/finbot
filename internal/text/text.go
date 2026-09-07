@@ -25,7 +25,8 @@ You can skip prompts by typing details after a command. Bank names may contain s
 Example: /newbank Holiday fund
 After the name is accepted, the bot asks whether the bank counts in your total.
 Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
-Delete still asks you to confirm: /delete Holiday.`
+Delete still asks you to confirm: /delete Holiday.
+Show one bank: /bank Holiday.`
 
 const NewBankAskName = "What should this bank be called?"
 
@@ -93,3 +94,18 @@ func BankDeleted(name string) string {
 }
 
 const DeleteCancelled = "Okay, I didn't delete anything."
+
+func BankCard(name, balance string, included bool) string {
+	if included {
+		return name + ": " + balance + " (in total)"
+	}
+	return name + ": " + balance + " (not in total)"
+}
+
+func Total(amount string) string {
+	return "Total: " + amount
+}
+
+func All(banks, total string) string {
+	return banks + "\n\n" + total
+}

@@ -66,6 +66,8 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandDelete:
 		h.continueDelete(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandBank:
+		h.continueBank(ctx, b, chatID, userID, st, update.Message.Text)
 	}
 }
 

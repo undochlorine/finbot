@@ -20,6 +20,10 @@ func (h *Bot) registerHandlers() {
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSpend), h.handleSpend)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSet), h.handleSet)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandDelete), h.handleDelete)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandBank), h.handleBank)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandBanks), h.handleBanks)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandTotal), h.handleTotal)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAll), h.handleAll)
 	h.inner.RegisterHandler(
 		bot.HandlerTypeCallbackQueryData,
 		callbackNewBankPrefix,
@@ -49,6 +53,12 @@ func (h *Bot) registerHandlers() {
 		callbackDeletePrefix,
 		bot.MatchTypePrefix,
 		h.handleDeleteCallback,
+	)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackBankPrefix,
+		bot.MatchTypePrefix,
+		h.handleBankCallback,
 	)
 }
 
