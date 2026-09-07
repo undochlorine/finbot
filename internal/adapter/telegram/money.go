@@ -36,15 +36,15 @@ func splitBankAmount(payload string) (name, amount string) {
 }
 
 func (h *Bot) handleAdd(ctx context.Context, b *bot.Bot, update *models.Update) {
-	h.startMoney(ctx, b, update, flowAdd)
+	h.startMoney(ctx, b, update, domain.CommandAdd)
 }
 
 func (h *Bot) handleSpend(ctx context.Context, b *bot.Bot, update *models.Update) {
-	h.startMoney(ctx, b, update, flowSpend)
+	h.startMoney(ctx, b, update, domain.CommandSpend)
 }
 
 func (h *Bot) handleSet(ctx context.Context, b *bot.Bot, update *models.Update) {
-	h.startMoney(ctx, b, update, flowSet)
+	h.startMoney(ctx, b, update, domain.CommandSet)
 }
 
 func (h *Bot) startMoney(ctx context.Context, b *bot.Bot, update *models.Update, flow string) {
@@ -171,9 +171,9 @@ func (h *Bot) changeBalance(
 		err  error
 	)
 	switch flow {
-	case flowAdd:
+	case domain.CommandAdd:
 		bank, err = h.svc.Add(ctx, userID, bankID, amount)
-	case flowSpend:
+	case domain.CommandSpend:
 		bank, err = h.svc.Spend(ctx, userID, bankID, amount)
 	default:
 		bank, err = h.svc.Set(ctx, userID, bankID, amount)
@@ -225,9 +225,9 @@ func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
 		prefix string
 		flow   string
 	}{
-		{callbackAddPrefix, flowAdd},
-		{callbackSpendPrefix, flowSpend},
-		{callbackSetPrefix, flowSet},
+		{callbackAddPrefix, domain.CommandAdd},
+		{callbackSpendPrefix, domain.CommandSpend},
+		{callbackSetPrefix, domain.CommandSet},
 	} {
 		rest, found := strings.CutPrefix(data, p.prefix)
 		if !found {
@@ -256,10 +256,12 @@ func bankKeyboard(flow string, banks []domain.Bank) *models.InlineKeyboardMarkup
 
 func callbackPrefix(flow string) string {
 	switch flow {
-	case flowAdd:
+	case domain.CommandAdd:
 		return callbackAddPrefix
-	case flowSpend:
+	case domain.CommandSpend:
 		return callbackSpendPrefix
+	case domain.CommandDelete:
+		return callbackDeletePrefix
 	default:
 		return callbackSetPrefix
 	}
@@ -267,9 +269,9 @@ func callbackPrefix(flow string) string {
 
 func askAmountText(flow, name string) string {
 	switch flow {
-	case flowAdd:
+	case domain.CommandAdd:
 		return text.AskAddAmount(name)
-	case flowSpend:
+	case domain.CommandSpend:
 		return text.AskSpendAmount(name)
 	default:
 		return text.AskSetAmount(name)
@@ -278,9 +280,9 @@ func askAmountText(flow, name string) string {
 
 func successText(flow string, bank domain.Bank, amount domain.Money) string {
 	switch flow {
-	case flowAdd:
+	case domain.CommandAdd:
 		return text.Added(bank.Name, amount.Format(), bank.Balance.Format())
-	case flowSpend:
+	case domain.CommandSpend:
 		return text.Spent(bank.Name, amount.Format(), bank.Balance.Format())
 	default:
 		return text.SetTo(bank.Name, bank.Balance.Format())

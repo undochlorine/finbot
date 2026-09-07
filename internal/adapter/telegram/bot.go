@@ -35,6 +35,7 @@ type Service interface {
 	Add(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 	Spend(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 	Set(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
+	Delete(ctx context.Context, userID domain.UserID, bankID int64) error
 }
 
 var _ HTTPClient = (*http.Client)(nil)

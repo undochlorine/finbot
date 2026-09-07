@@ -14,17 +14,6 @@ import (
 	"finbot/internal/text"
 )
 
-func parseYesNo(s string) (bool, bool) {
-	switch strings.ToLower(s) {
-	case "yes":
-		return true, true
-	case "no":
-		return false, true
-	default:
-		return false, false
-	}
-}
-
 func parseIncludeCallback(data string) (bool, bool) {
 	switch data {
 	case callbackNewBankIncludeYes:
@@ -71,10 +60,12 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 	}
 	chatID := messageChatID(update)
 	switch st.Flow {
-	case flowNewBank:
+	case domain.CommandNewBank:
 		h.continueNewBank(ctx, b, chatID, userID, st, update.Message.Text)
-	case flowAdd, flowSpend, flowSet:
+	case domain.CommandAdd, domain.CommandSpend, domain.CommandSet:
 		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandDelete:
+		h.continueDelete(ctx, b, chatID, userID, st, update.Message.Text)
 	}
 }
 
@@ -90,7 +81,7 @@ func (h *Bot) continueNewBank(
 	case stepName:
 		h.progressNewBank(ctx, b, chatID, userID, raw, true)
 	case stepInclude:
-		include, parsed := parseYesNo(strings.TrimSpace(raw))
+		include, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
 		if !parsed {
 			reply(ctx, b, chatID, text.NewBankAskInclude, includeKeyboard())
 			return
@@ -114,7 +105,7 @@ func (h *Bot) handleNewBankCallback(ctx context.Context, b *bot.Bot, update *mod
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
 	st, ok := h.loadFSM(ctx, userID)
-	if !ok || st.Flow != flowNewBank || st.Step != stepInclude || st.Name == "" {
+	if !ok || st.Flow != domain.CommandNewBank || st.Step != stepInclude || st.Name == "" {
 		return
 	}
 	h.createBankAndReply(ctx, b, callbackChatID(update), userID, st.Name, include)
@@ -130,7 +121,7 @@ func (h *Bot) progressNewBank(
 ) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		h.saveFSM(ctx, userID, fsmState{Flow: flowNewBank, Step: stepName})
+		h.saveFSM(ctx, userID, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		msg := text.NewBankAskName
 		if askedName {
 			msg = text.InvalidBankName
@@ -139,13 +130,13 @@ func (h *Bot) progressNewBank(
 		return
 	}
 	if _, err := domain.NormalizeBankName(name); err != nil {
-		h.saveFSM(ctx, userID, fsmState{Flow: flowNewBank, Step: stepName})
+		h.saveFSM(ctx, userID, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		reply(ctx, b, chatID, text.InvalidBankName, nil)
 		return
 	}
 	existing, err := h.svc.GetByName(ctx, userID, name)
 	if err == nil {
-		h.saveFSM(ctx, userID, fsmState{Flow: flowNewBank, Step: stepName})
+		h.saveFSM(ctx, userID, fsmState{Flow: domain.CommandNewBank, Step: stepName})
 		reply(ctx, b, chatID, text.BankNameTaken(existing.Name), nil)
 		return
 	}
@@ -154,7 +145,7 @@ func (h *Bot) progressNewBank(
 		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
 		return
 	}
-	h.saveFSM(ctx, userID, fsmState{Flow: flowNewBank, Step: stepInclude, Name: name})
+	h.saveFSM(ctx, userID, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: name})
 	reply(ctx, b, chatID, text.NewBankAskInclude, includeKeyboard())
 }
 

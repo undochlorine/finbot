@@ -24,7 +24,8 @@ const Help = `Finbot commands:
 You can skip prompts by typing details after a command. Bank names may contain spaces.
 Example: /newbank Holiday fund
 After the name is accepted, the bot asks whether the bank counts in your total.
-Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.`
+Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
+Delete still asks you to confirm: /delete Holiday.`
 
 const NewBankAskName = "What should this bank be called?"
 
@@ -82,3 +83,13 @@ func Spent(name, amount, balance string) string {
 func SetTo(name, balance string) string {
 	return "Set \"" + name + "\" to " + balance + "."
 }
+
+func AskDeleteConfirm(name string) string {
+	return "Delete \"" + name + "\"? This cannot be undone."
+}
+
+func BankDeleted(name string) string {
+	return "Deleted bank \"" + name + "\"."
+}
+
+const DeleteCancelled = "Okay, I didn't delete anything."
