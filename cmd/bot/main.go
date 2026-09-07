@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"finbot/internal/adapter/clock"
+	"finbot/internal/adapter/memorycache"
 	"finbot/internal/adapter/sqlite"
 	"finbot/internal/adapter/telegram"
 	"finbot/internal/config"
@@ -60,14 +61,20 @@ func run(ctx context.Context) error {
 		}
 	}()
 
+	clk := clock.New()
 	svc := service.New(
 		sqlite.NewBankRepository(db),
 		sqlite.NewUserRepository(db),
-		clock.New(),
+		clk,
 		cfg.TrialDuration,
 	)
 
-	b, err := telegram.New(cfg.BotToken, svc, &http.Client{Timeout: telegramHTTPTimeout})
+	b, err := telegram.New(
+		cfg.BotToken,
+		svc,
+		memorycache.New(clk),
+		&http.Client{Timeout: telegramHTTPTimeout},
+	)
 	if err != nil {
 		return fmt.Errorf("telegram: %w", err)
 	}

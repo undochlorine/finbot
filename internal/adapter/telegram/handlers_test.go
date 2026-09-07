@@ -95,7 +95,7 @@ func newCommandBot(t *testing.T, ctx context.Context, wantSend bool, sent *strin
 		expectSendMessage(t, client, sent)
 	}
 
-	b, err := New("123:token", svc, client, bot.WithNotAsyncHandlers())
+	b, err := New("123:token", svc, mocks.NewMockCache(t), client, bot.WithNotAsyncHandlers())
 	require.NoError(t, err)
 	return b
 }

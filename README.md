@@ -4,7 +4,17 @@ Private Telegram bot for splitting money into named banks (Travelling, Gifts, Li
 
 MVP is Go 1.27 + SQLite. Architecture is clean/hexagonal: Telegram and SQLite are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
 
-The living work plan is [`plan.md`](plan.md).
+**FSM** (Finite State Machine) is the per-user conversation step stored in Cache: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Details and product decisions live in [`plan.md`](plan.md).
+
+### Command shortcuts
+
+Users can type details on the same line as a slash command instead of waiting for a prompt. Bank names may contain spaces.
+
+- `/newbank Travelling` — skip the “what should this bank be called?” prompt
+- `/newbank Holiday fund` — the whole remainder is the name; `yes`/`no` on that line is part of the name, not the include-in-total flag
+- Later: `/add Travelling 100`, `/bank Travelling`, and similar
+
+`/start` and `/help` in the bot mention this. Include-in-total is chosen only after a unique name is accepted.
 
 ## Environment
 
