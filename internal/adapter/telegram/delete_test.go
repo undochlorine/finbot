@@ -163,6 +163,7 @@ func TestDeletePendingConfirmInvalid(t *testing.T) {
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("maybe"))

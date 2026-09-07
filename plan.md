@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.5` |
-| **Last done** | `3.4` feedback forward |
+| **Current step** | `3.6` |
+| **Last done** | `3.5` chat hygiene |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.5` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.6` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -82,7 +82,7 @@ flowchart TB
 | Idea | Stage 3 | Stage 4 |
 | --- | --- | --- |
 | Feedback | `/feedback` forwards to `ADMIN_TELEGRAM_ID` via existing `Notifier`. No inbox table. | Persist feedback; admin inbox (Telegram first, web when `4.19` exists). |
-| Chat flooding | Edit/delete **bot** prompts after the step finishes; store last `message_id` on FSM. Do not delete user messages. | Only if hygiene needs a second pass. |
+| Chat flooding | Wizard prompts are edited in place or deleted; typed answers in a flow are deleted. Slash commands and outcomes stay. See [Chat hygiene](#chat-hygiene-35). | Only if hygiene needs a second pass. |
 | Transaction history | Append-only `operations` on add/spend/set/delete/(transfer). **No `/history`.** | `/history` (pagination/filters). |
 | Finance tips | Nothing (needs history UX + enough data). | Rule-based tips from operations. LLM optional later, not required. |
 | Language | `users.locale` default `en`; `internal/text` becomes locale-keyed with **only English**. No `/language`. | `/language` with a short list (languages chosen at that step). |
@@ -110,6 +110,7 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Isolation:** every row scoped by Telegram user ID; never leak another user’s banks
 - **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`. Bank names may contain spaces. Command-line args after `/newbank` are the **entire name**; include-in-total is never parsed from that line.
 - **Bot language:** English through Stage 3. All user-facing strings live in `internal/text`. Step `3.6` keys the catalog by locale with **only `en` loaded** and stores `users.locale` (default `en`). `/language` and extra catalogs are `4.12`.
+- **Chat hygiene:** keep slash commands, outcomes, `/feedback` body, and `Canceled.`. Edit one bot prompt per flow; delete typed answers. See [Chat hygiene](#chat-hygiene-35).
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
 - **Money:** `int64` minor units (cents). Display as `123.45`. No multi-currency **UX** until `4.13`. Step `3.6` adds `banks.currency` + `DEFAULT_CURRENCY` (hidden in copy; totals still sum as today). FX / cross-currency transfer is `4.13`–`4.14`.
@@ -185,7 +186,7 @@ Owned by **telegram**:
 
 Still in **ports** until telegram is the consumer (step `2.x`); then move them to that package:
 
-- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in Stage 3, Redis in `4.2`. From `3.5`, FSM also stores the last **bot** `message_id` for chat hygiene.
+- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in Stage 3, Redis in `4.2`. From `3.5`, FSM stores `prompt_id` (the bot message edited in place) and `sweep_ids` (typed answers to delete when the flow ends).
 - `Notifier` — send a message to a Telegram user (handlers now; `/feedback` forward in `3.4`; inactivity job in `4.4`)
 
 ### Stage-4 hooks that already exist (unused or no-op is OK)
@@ -237,7 +238,7 @@ Painful to retrofit; Telegram UX stays the same except `/start` may persist a re
 - No docker-compose required (SQLite file is enough). A Dockerfile is still added so `4.3` hosting is not a rewrite
 - Do not put Telegram `Update` types inside `service/`
 - Do not store money as `float64`
-- Do not delete **user** messages for chat hygiene — only bot prompts
+- Do not delete slash commands, outcomes, or the user’s `/feedback` body. Wizard prompts and typed answers in a flow are cleaned up (see [Chat hygiene](#chat-hygiene-35)).
 
 ---
 
@@ -369,7 +370,34 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 
 **Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, so Stage 4 can change without colliding.
 
-**Chat hygiene (`3.5`):** FSM stores the last **bot** `message_id` for the in-flight flow. On success, cancel, or stale callback: edit that message (strip buttons) and/or delete the prompt. Final confirmation stays as a new message (or one edited summary). Do not delete user messages.
+**Chat hygiene (`3.5`):** see [Chat hygiene](#chat-hygiene-35).
+
+### Chat hygiene (`3.5`)
+
+The chat should read as a ledger: what the user asked for, and what changed. Wizard steps are not history.
+
+**Keep**
+
+| Kind | Why |
+| --- | --- |
+| Slash commands (`/add`, `/add Travelling 100`, `/start`, `/help`, `/cancel`, …) | The user’s intent and timestamp. Shortcuts *are* the record. Deleting them feels like the bot eating the chat. |
+| Outcomes | Created / added / spent / set / deleted / delete-cancelled / toggled / bank card / `/banks` / `/total` / `/all` |
+| Terminal errors | No banks, unknown bank from a shortcut, something went wrong, feedback unavailable, nothing to cancel, flow expired |
+| The user’s `/feedback` body | The thanks line does not repeat it |
+| `/cancel` + `Canceled.` | Abort should stay visible |
+
+**Remove** (edit in place or delete)
+
+| Kind | Why |
+| --- | --- |
+| Bot prompts | Ask name / include / which bank / amount / delete confirm / feedback ask. Same message is edited as the step advances; success edits it into the outcome and strips buttons. |
+| Typed answers in a flow | Bank name, amount, yes/no — already restated in the outcome |
+| Recovered validation prompts | Invalid amount/name, name taken: gone once the flow succeeds or is cancelled |
+| Replaced flow | Starting `/spend` while `/add` is pending deletes the add wizard. No extra `Canceled.` |
+
+**Mechanism:** FSM `prompt_id` is the one bot message to edit. `sweep_ids` are extra messages (typed answers) deleted on success, `/cancel`, or replace. Expired callback: edit that message to expired, strip buttons. Stale callback on a leftover message: delete it. Delete/edit failures are logged; the outcome still goes out.
+
+**Do not delete:** slash commands, outcomes, `/feedback` text, `/start` `/help` `/banks` `/total` `/all` replies.
 
 ### Error / edge cases (handlers + service)
 
@@ -469,6 +497,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | FSM polish: TTL stays 10 minutes. `/cancel` is telegram-local. Expired callbacks (cache miss) ask to start over; stale callbacks (wrong in-flight flow) are ignored. Starting another flow command replaces the pending FSM. Read-only commands leave it in place. Plain text with no FSM stays silent. |
 | 2026-09-07 | Slash command menu (`/` hint / Commands button) is registered via Bot API `setMyCommands` when the bot process starts. BotFather `/setcommands` is optional, not required. |
 | 2026-09-08 | Stage 3 vs Stage 4 placement: private MVP stays full-banks / no paywall through `3.7`. Operations **write** in `3.6`, `/history` in `4.10`. Locale column + `en`-only catalog in `3.6`, picker in `4.12`. Currency column in `3.6`, picker/FX in `4.13`–`4.14`. Post-trial UX is a limited free tier (one `Total` bank, add/spend/set only), not a hard block. Paid and 100% whitelist kept longer on inactivity (`4.4`). Referral payload stored in `3.6`, rewards in `4.15`. Stay a modular monolith through `4.21` unless load forces a split. `/feedback` forwards to admin in `3.4`; web admin is `4.19`. |
+| 2026-09-08 | Chat hygiene (`3.5`): keep slash commands and outcomes; edit one bot prompt in place; delete typed wizard answers. Keep `/feedback` body and `Canceled.`. Do not delete `/start` `/help` or list/total replies. |
 
 ---
 
@@ -676,10 +705,10 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.5 Chat hygiene
 
-- **Status:** `todo`
-- **Goal:** lower chat flooding by editing or deleting **bot** prompts after a flow step finishes.
-- **Notes:** FSM stores the last bot `message_id`. On success, `/cancel`, or stale callback: edit that message (strip buttons) and/or delete the prompt. Final confirmation stays as a new message (or one edited summary). **Do not delete user messages.**
-- **DoD:** completing `/add` (picker → amount) does not leave a live keyboard on the old prompt. `/cancel` clears the prompt. Tests cover message_id stored on FSM and edit/delete on completion.
+- **Status:** `done`
+- **Goal:** lower chat flooding so history is commands + results, not wizard debris. Policy: [Chat hygiene](#chat-hygiene-35).
+- **Notes:** FSM stores `prompt_id` and `sweep_ids`. Success edits the prompt into the confirmation (no keyboard) and deletes typed answers. `/cancel` and replaced flows delete the wizard. Expired callbacks edit that message to expired.
+- **DoD:** completing `/add` (picker → amount) does not leave a live keyboard on the old prompt. `/cancel` clears the prompt. Typed amount is deleted; `/add` is kept. Tests cover `prompt_id` on FSM and edit/delete on completion.
 
 #### 3.6 Write-path foundations
 
@@ -847,4 +876,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.5`
+`let's move to step 3.6`

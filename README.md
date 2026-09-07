@@ -16,6 +16,10 @@ Users can type details on the same line as a slash command instead of waiting fo
 
 `/start` and `/help` in the bot mention this. Include-in-total is chosen only after a unique name is accepted.
 
+### Chat history
+
+The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/banks`, `/help`, …). It edits or deletes wizard prompts (which bank, how much, yes/no) and deletes the short answers you type during a flow (the amount `100`, a typed bank name). Your `/feedback` text stays. Policy: [`plan.md` chat hygiene](plan.md#chat-hygiene-35).
+
 ## Environment
 
 | Variable | Required | Default | Notes |

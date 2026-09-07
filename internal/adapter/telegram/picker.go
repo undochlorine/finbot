@@ -17,14 +17,18 @@ func (h *Bot) offerBanks(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	flow string,
 ) {
 	banks, ok := h.loadBanks(ctx, b, chatID, userID)
 	if !ok {
 		return
 	}
-	h.saveFSM(ctx, userID, fsmState{Flow: flow, Step: stepBank})
-	reply(ctx, b, chatID, text.AskBank, bankKeyboard(flow, banks))
+	st.Flow = flow
+	st.Step = stepBank
+	st.Name = ""
+	st.BankID = 0
+	h.prompt(ctx, b, chatID, userID, st, text.AskBank, bankKeyboard(flow, banks))
 }
 
 func (h *Bot) loadBanks(
@@ -50,11 +54,26 @@ func (h *Bot) bankByName(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	name string,
 ) (domain.Bank, bool) {
 	bank, err := h.svc.GetByName(ctx, userID, name)
 	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
+		if st.PromptID == 0 {
+			reply(ctx, b, chatID, text.UnknownBank(name), nil)
+			return domain.Bank{}, false
+		}
+		banks, listErr := h.svc.List(ctx, userID)
+		if listErr != nil {
+			replyErr(ctx, b, chatID, "list banks", listErr)
+			return domain.Bank{}, false
+		}
+		var markup models.ReplyMarkup
+		if len(banks) > 0 {
+			st.Step = stepBank
+			markup = bankKeyboard(st.Flow, banks)
+		}
+		h.prompt(ctx, b, chatID, userID, st, text.UnknownBank(name), markup)
 		return domain.Bank{}, false
 	}
 	if err != nil {

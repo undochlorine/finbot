@@ -90,12 +90,15 @@ func (h *Bot) handleCancel(ctx context.Context, b *bot.Bot, update *models.Updat
 		return
 	}
 	userID := domain.UserID(from.ID)
-	if _, ok := h.loadFSM(ctx, userID); !ok {
+	st, ok := h.loadFSM(ctx, userID)
+	if !ok {
 		reply(ctx, b, messageChatID(update), text.NothingToCancel, nil)
 		return
 	}
+	chatID := messageChatID(update)
+	h.drop(ctx, b, chatID, st)
 	h.clearFSM(ctx, userID)
-	reply(ctx, b, messageChatID(update), text.Canceled, nil)
+	reply(ctx, b, chatID, text.Canceled, nil)
 }
 
 func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -115,19 +118,25 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 		return
 	}
 	chatID := messageChatID(update)
+	msgID := userMessageID(update)
 	switch st.Flow {
 	case domain.CommandNewBank:
+		st.note(msgID)
 		h.continueNewBank(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandAdd, domain.CommandSpend, domain.CommandSet:
+		st.note(msgID)
 		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandDelete:
+		st.note(msgID)
 		h.continueDelete(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandBank:
+		st.note(msgID)
 		h.continueBank(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandToggle:
+		st.note(msgID)
 		h.continueToggle(ctx, b, chatID, userID, st, update.Message.Text)
 	case commandFeedback:
-		h.progressFeedback(ctx, b, chatID, userID, from.Username, update.Message.Text)
+		h.progressFeedback(ctx, b, chatID, userID, st, from.Username, update.Message.Text)
 	}
 }
 
@@ -139,16 +148,7 @@ func messageChatID(update *models.Update) int64 {
 }
 
 func reply(ctx context.Context, b *bot.Bot, chatID int64, message string, markup models.ReplyMarkup) {
-	if b == nil || chatID == 0 {
-		return
-	}
-	params := &bot.SendMessageParams{ChatID: chatID, Text: message}
-	if markup != nil {
-		params.ReplyMarkup = markup
-	}
-	if _, err := b.SendMessage(ctx, params); err != nil {
-		slog.Error("send telegram message", slog.Any("err", err))
-	}
+	sendMessage(ctx, b, chatID, message, markup)
 }
 
 func replyErr(ctx context.Context, b *bot.Bot, chatID int64, op string, err error) {
