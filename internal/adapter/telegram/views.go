@@ -16,7 +16,10 @@ func (h *Bot) handleBank(ctx context.Context, b *bot.Bot, update *models.Update)
 	if from == nil || update == nil || update.Message == nil {
 		return
 	}
-	h.progressBank(ctx, b, messageChatID(update), domain.UserID(from.ID), commandPayload(update.Message.Text), false)
+	chatID := messageChatID(update)
+	userID := domain.UserID(from.ID)
+	h.replacePending(ctx, b, chatID, userID)
+	h.progressBank(ctx, b, chatID, userID, fsmState{}, commandPayload(update.Message.Text), false)
 }
 
 func (h *Bot) handleBanks(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -54,7 +57,7 @@ func (h *Bot) continueBank(
 	if st.Step != stepBank {
 		return
 	}
-	h.progressBank(ctx, b, chatID, userID, raw, true)
+	h.progressBank(ctx, b, chatID, userID, st, raw, true)
 }
 
 func (h *Bot) progressBank(
@@ -62,19 +65,20 @@ func (h *Bot) progressBank(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	payload string,
 	fromFSM bool,
 ) {
 	name := strings.TrimSpace(payload)
 	if name == "" {
-		h.offerBanks(ctx, b, chatID, userID, domain.CommandBank)
+		h.offerBanks(ctx, b, chatID, userID, st, domain.CommandBank)
 		return
 	}
-	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, st, name)
 	if !ok {
 		return
 	}
-	h.replyBankCard(ctx, b, chatID, userID, bank, fromFSM)
+	h.replyBankCard(ctx, b, chatID, userID, st, bank, fromFSM)
 }
 
 func (h *Bot) replyBankCard(
@@ -82,11 +86,13 @@ func (h *Bot) replyBankCard(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	bank domain.Bank,
 	clear bool,
 ) {
 	if clear {
-		h.clearFSM(ctx, userID)
+		h.done(ctx, b, chatID, userID, st, bankCard(bank))
+		return
 	}
 	reply(ctx, b, chatID, bankCard(bank), nil)
 }
@@ -129,7 +135,8 @@ func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models
 	if !ok {
 		return
 	}
-	if _, ok := h.callbackFSM(ctx, b, update, domain.CommandBank, stepBank); !ok {
+	st, ok := h.callbackFSM(ctx, b, update, domain.CommandBank, stepBank)
+	if !ok {
 		return
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
@@ -138,7 +145,7 @@ func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models
 	if !ok {
 		return
 	}
-	h.replyBankCard(ctx, b, chatID, userID, bank, true)
+	h.replyBankCard(ctx, b, chatID, userID, st, bank, true)
 }
 
 func formatBanks(banks []domain.Bank) string {

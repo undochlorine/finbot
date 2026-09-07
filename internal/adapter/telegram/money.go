@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -50,7 +51,10 @@ func (h *Bot) startMoney(ctx context.Context, b *bot.Bot, update *models.Update,
 	if from == nil || update == nil || update.Message == nil {
 		return
 	}
-	h.progressMoney(ctx, b, messageChatID(update), domain.UserID(from.ID), flow, commandPayload(update.Message.Text))
+	chatID := messageChatID(update)
+	userID := domain.UserID(from.ID)
+	h.replacePending(ctx, b, chatID, userID)
+	h.progressMoney(ctx, b, chatID, userID, fsmState{Flow: flow}, commandPayload(update.Message.Text))
 }
 
 func (h *Bot) continueMoney(
@@ -63,9 +67,9 @@ func (h *Bot) continueMoney(
 ) {
 	switch st.Step {
 	case stepBank:
-		h.progressMoney(ctx, b, chatID, userID, st.Flow, raw)
+		h.progressMoney(ctx, b, chatID, userID, st, raw)
 	case stepAmount:
-		h.applyMoney(ctx, b, chatID, userID, st.Flow, st.BankID, st.Name, raw)
+		h.applyMoney(ctx, b, chatID, userID, st, raw)
 	}
 }
 
@@ -74,24 +78,25 @@ func (h *Bot) progressMoney(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
-	flow string,
+	st fsmState,
 	payload string,
 ) {
 	name, amountRaw := splitBankAmount(payload)
 	if name == "" {
-		h.offerBanks(ctx, b, chatID, userID, flow)
+		h.offerBanks(ctx, b, chatID, userID, st, st.Flow)
 		return
 	}
-	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, st, name)
 	if !ok {
 		return
 	}
 	if amountRaw == "" {
-		h.saveAmountStep(ctx, userID, flow, bank)
-		reply(ctx, b, chatID, askAmountText(flow, bank.Name), nil)
+		h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), askAmountText(st.Flow, bank.Name), nil)
 		return
 	}
-	h.applyMoney(ctx, b, chatID, userID, flow, bank.ID, bank.Name, amountRaw)
+	st.Name = bank.Name
+	st.BankID = bank.ID
+	h.applyMoney(ctx, b, chatID, userID, st, amountRaw)
 }
 
 func (h *Bot) applyMoney(
@@ -99,34 +104,40 @@ func (h *Bot) applyMoney(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
-	flow string,
-	bankID int64,
-	name string,
+	st fsmState,
 	amountRaw string,
 ) {
 	amount, err := domain.ParseMoney(amountRaw)
 	if err != nil {
-		h.saveFSM(ctx, userID, amountState(flow, bankID, name))
-		reply(ctx, b, chatID, text.InvalidAmount, nil)
+		h.repromptAmount(ctx, b, chatID, userID, st)
 		return
 	}
-	bank, err := h.changeBalance(ctx, userID, flow, bankID, amount)
+	bank, err := h.changeBalance(ctx, userID, st.Flow, st.BankID, amount)
 	if errors.Is(err, domain.ErrInvalidAmount) {
-		h.saveFSM(ctx, userID, amountState(flow, bankID, name))
-		reply(ctx, b, chatID, text.InvalidAmount, nil)
+		h.repromptAmount(ctx, b, chatID, userID, st)
 		return
 	}
 	if errors.Is(err, domain.ErrBankNotFound) {
-		h.clearFSM(ctx, userID)
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
+		h.done(ctx, b, chatID, userID, st, text.UnknownBank(st.Name))
 		return
 	}
 	if err != nil {
-		replyErr(ctx, b, chatID, "change balance", err)
+		slog.Error("change balance", slog.Any("err", err))
+		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
 		return
 	}
-	h.clearFSM(ctx, userID)
-	reply(ctx, b, chatID, successText(flow, bank, amount), nil)
+	h.done(ctx, b, chatID, userID, st, successText(st.Flow, bank, amount))
+}
+
+func (h *Bot) repromptAmount(
+	ctx context.Context,
+	b *bot.Bot,
+	chatID int64,
+	userID domain.UserID,
+	st fsmState,
+) {
+	bank := domain.Bank{ID: st.BankID, Name: st.Name}
+	h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), text.InvalidAmount, nil)
 }
 
 func (h *Bot) changeBalance(
@@ -162,7 +173,8 @@ func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *model
 	if !ok {
 		return
 	}
-	if _, ok := h.callbackFSM(ctx, b, update, flow, stepBank); !ok {
+	st, ok := h.callbackFSM(ctx, b, update, flow, stepBank)
+	if !ok {
 		return
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
@@ -171,16 +183,7 @@ func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *model
 	if !ok {
 		return
 	}
-	h.saveAmountStep(ctx, userID, flow, bank)
-	reply(ctx, b, chatID, askAmountText(flow, bank.Name), nil)
-}
-
-func (h *Bot) saveAmountStep(ctx context.Context, userID domain.UserID, flow string, bank domain.Bank) {
-	h.saveFSM(ctx, userID, amountState(flow, bank.ID, bank.Name))
-}
-
-func amountState(flow string, bankID int64, name string) fsmState {
-	return fsmState{Flow: flow, Step: stepAmount, Name: name, BankID: bankID}
+	h.prompt(ctx, b, chatID, userID, st.withAmount(flow, bank), askAmountText(flow, bank.Name), nil)
 }
 
 func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {

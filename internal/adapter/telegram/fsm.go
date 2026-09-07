@@ -13,7 +13,6 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 const (
@@ -46,10 +45,40 @@ const (
 )
 
 type fsmState struct {
-	Flow   string `json:"flow"`
-	Step   string `json:"step"`
-	Name   string `json:"name,omitempty"`
-	BankID int64  `json:"bank_id,omitempty"`
+	Flow     string `json:"flow"`
+	Step     string `json:"step"`
+	Name     string `json:"name,omitempty"`
+	BankID   int64  `json:"bank_id,omitempty"`
+	PromptID int    `json:"prompt_id,omitempty"`
+	SweepIDs []int  `json:"sweep_ids,omitempty"`
+}
+
+func (st *fsmState) note(id int) {
+	if id == 0 || id == st.PromptID {
+		return
+	}
+	for _, existing := range st.SweepIDs {
+		if existing == id {
+			return
+		}
+	}
+	st.SweepIDs = append(st.SweepIDs, id)
+}
+
+func (st fsmState) withAmount(flow string, bank domain.Bank) fsmState {
+	st.Flow = flow
+	st.Step = stepAmount
+	st.Name = bank.Name
+	st.BankID = bank.ID
+	return st
+}
+
+func (st fsmState) withDeleteConfirm(bank domain.Bank) fsmState {
+	st.Flow = domain.CommandDelete
+	st.Step = stepConfirm
+	st.Name = bank.Name
+	st.BankID = bank.ID
+	return st
 }
 
 func fsmKey(userID domain.UserID) string {
@@ -117,7 +146,7 @@ func (h *Bot) beginCallback(ctx context.Context, b *bot.Bot, update *models.Upda
 func (h *Bot) loadCallbackFSM(ctx context.Context, b *bot.Bot, update *models.Update) (fsmState, bool) {
 	st, ok := h.loadFSM(ctx, domain.UserID(update.CallbackQuery.From.ID))
 	if !ok {
-		reply(ctx, b, callbackChatID(update), text.FlowExpired, nil)
+		h.expireCallback(ctx, b, update)
 		return fsmState{}, false
 	}
 	return st, true
@@ -130,7 +159,11 @@ func (h *Bot) callbackFSM(
 	flow, step string,
 ) (fsmState, bool) {
 	st, ok := h.loadCallbackFSM(ctx, b, update)
-	if !ok || st.Flow != flow || st.Step != step {
+	if !ok {
+		return fsmState{}, false
+	}
+	if st.Flow != flow || st.Step != step {
+		h.stripStale(ctx, b, update, st)
 		return fsmState{}, false
 	}
 	return st, true

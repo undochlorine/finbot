@@ -16,11 +16,15 @@ func (h *Bot) handleFeedback(ctx context.Context, b *bot.Bot, update *models.Upd
 	if from == nil || update == nil || update.Message == nil {
 		return
 	}
+	chatID := messageChatID(update)
+	userID := domain.UserID(from.ID)
+	h.replacePending(ctx, b, chatID, userID)
 	h.progressFeedback(
 		ctx,
 		b,
-		messageChatID(update),
-		domain.UserID(from.ID),
+		chatID,
+		userID,
+		fsmState{},
 		from.Username,
 		commandPayload(update.Message.Text),
 	)
@@ -31,6 +35,7 @@ func (h *Bot) progressFeedback(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	username string,
 	body string,
 ) {
@@ -40,14 +45,14 @@ func (h *Bot) progressFeedback(
 	}
 	body = strings.TrimSpace(body)
 	if body == "" {
-		h.saveFSM(ctx, userID, fsmState{Flow: commandFeedback, Step: stepText})
-		reply(ctx, b, chatID, text.FeedbackAsk, nil)
+		st.Flow = commandFeedback
+		st.Step = stepText
+		h.prompt(ctx, b, chatID, userID, st, text.FeedbackAsk, nil)
 		return
 	}
 	if err := h.notify.Notify(ctx, h.adminID, text.FeedbackForward(int64(userID), username, body)); err != nil {
 		replyErr(ctx, b, chatID, "forward feedback", err)
 		return
 	}
-	h.clearFSM(ctx, userID)
-	reply(ctx, b, chatID, text.FeedbackThanks, nil)
+	h.done(ctx, b, chatID, userID, st, text.FeedbackThanks)
 }

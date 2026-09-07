@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -17,7 +18,10 @@ func (h *Bot) handleToggle(ctx context.Context, b *bot.Bot, update *models.Updat
 	if from == nil || update == nil || update.Message == nil {
 		return
 	}
-	h.progressToggle(ctx, b, messageChatID(update), domain.UserID(from.ID), commandPayload(update.Message.Text))
+	chatID := messageChatID(update)
+	userID := domain.UserID(from.ID)
+	h.replacePending(ctx, b, chatID, userID)
+	h.progressToggle(ctx, b, chatID, userID, fsmState{}, commandPayload(update.Message.Text))
 }
 
 func (h *Bot) continueToggle(
@@ -31,7 +35,7 @@ func (h *Bot) continueToggle(
 	if st.Step != stepBank {
 		return
 	}
-	h.progressToggle(ctx, b, chatID, userID, raw)
+	h.progressToggle(ctx, b, chatID, userID, st, raw)
 }
 
 func (h *Bot) progressToggle(
@@ -39,18 +43,21 @@ func (h *Bot) progressToggle(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	payload string,
 ) {
 	name := strings.TrimSpace(payload)
 	if name == "" {
-		h.offerBanks(ctx, b, chatID, userID, domain.CommandToggle)
+		h.offerBanks(ctx, b, chatID, userID, st, domain.CommandToggle)
 		return
 	}
-	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, st, name)
 	if !ok {
 		return
 	}
-	h.toggleAndReply(ctx, b, chatID, userID, bank.Name, bank.ID)
+	st.Name = bank.Name
+	st.BankID = bank.ID
+	h.toggleAndReply(ctx, b, chatID, userID, st)
 }
 
 func (h *Bot) toggleAndReply(
@@ -58,24 +65,23 @@ func (h *Bot) toggleAndReply(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
-	name string,
-	bankID int64,
+	st fsmState,
 ) {
-	bank, err := h.svc.Toggle(ctx, userID, bankID)
-	h.clearFSM(ctx, userID)
+	bank, err := h.svc.Toggle(ctx, userID, st.BankID)
 	if errors.Is(err, domain.ErrBankNotFound) {
 		msg := text.SomethingWentWrong
-		if name != "" {
-			msg = text.UnknownBank(name)
+		if st.Name != "" {
+			msg = text.UnknownBank(st.Name)
 		}
-		reply(ctx, b, chatID, msg, nil)
+		h.done(ctx, b, chatID, userID, st, msg)
 		return
 	}
 	if err != nil {
-		replyErr(ctx, b, chatID, "toggle bank", err)
+		slog.Error("toggle bank", slog.Any("err", err))
+		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
 		return
 	}
-	reply(ctx, b, chatID, text.Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal), nil)
+	h.done(ctx, b, chatID, userID, st, text.Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal))
 }
 
 func (h *Bot) handleToggleCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -86,8 +92,10 @@ func (h *Bot) handleToggleCallback(ctx context.Context, b *bot.Bot, update *mode
 	if !ok {
 		return
 	}
-	if _, ok := h.callbackFSM(ctx, b, update, domain.CommandToggle, stepBank); !ok {
+	st, ok := h.callbackFSM(ctx, b, update, domain.CommandToggle, stepBank)
+	if !ok {
 		return
 	}
-	h.toggleAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), "", bankID)
+	st.BankID = bankID
+	h.toggleAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), st)
 }

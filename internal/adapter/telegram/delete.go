@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -20,7 +21,10 @@ func (h *Bot) handleDelete(ctx context.Context, b *bot.Bot, update *models.Updat
 	if from == nil || update == nil || update.Message == nil {
 		return
 	}
-	h.progressDelete(ctx, b, messageChatID(update), domain.UserID(from.ID), commandPayload(update.Message.Text))
+	chatID := messageChatID(update)
+	userID := domain.UserID(from.ID)
+	h.replacePending(ctx, b, chatID, userID)
+	h.progressDelete(ctx, b, chatID, userID, fsmState{}, commandPayload(update.Message.Text))
 }
 
 func (h *Bot) continueDelete(
@@ -33,18 +37,18 @@ func (h *Bot) continueDelete(
 ) {
 	switch st.Step {
 	case stepBank:
-		h.progressDelete(ctx, b, chatID, userID, raw)
+		h.progressDelete(ctx, b, chatID, userID, st, raw)
 	case stepConfirm:
 		yes, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
 		if !parsed {
-			reply(ctx, b, chatID, text.AskDeleteConfirm(st.Name), deleteConfirmKeyboard(st.BankID))
+			h.prompt(ctx, b, chatID, userID, st, text.AskDeleteConfirm(st.Name), deleteConfirmKeyboard(st.BankID))
 			return
 		}
 		if yes {
-			h.deleteBankAndReply(ctx, b, chatID, userID, st.Name, st.BankID)
+			h.deleteBankAndReply(ctx, b, chatID, userID, st)
 			return
 		}
-		h.cancelDelete(ctx, b, chatID, userID)
+		h.done(ctx, b, chatID, userID, st, text.DeleteCancelled)
 	}
 }
 
@@ -53,18 +57,19 @@ func (h *Bot) progressDelete(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	payload string,
 ) {
 	name := strings.TrimSpace(payload)
 	if name == "" {
-		h.offerBanks(ctx, b, chatID, userID, domain.CommandDelete)
+		h.offerBanks(ctx, b, chatID, userID, st, domain.CommandDelete)
 		return
 	}
-	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, st, name)
 	if !ok {
 		return
 	}
-	h.askDeleteConfirm(ctx, b, chatID, userID, bank)
+	h.askDeleteConfirm(ctx, b, chatID, userID, st, bank)
 }
 
 func (h *Bot) askDeleteConfirm(
@@ -72,10 +77,18 @@ func (h *Bot) askDeleteConfirm(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
+	st fsmState,
 	bank domain.Bank,
 ) {
-	h.saveFSM(ctx, userID, deleteConfirmState(bank))
-	reply(ctx, b, chatID, text.AskDeleteConfirm(bank.Name), deleteConfirmKeyboard(bank.ID))
+	h.prompt(
+		ctx,
+		b,
+		chatID,
+		userID,
+		st.withDeleteConfirm(bank),
+		text.AskDeleteConfirm(bank.Name),
+		deleteConfirmKeyboard(bank.ID),
+	)
 }
 
 func (h *Bot) deleteBankAndReply(
@@ -83,25 +96,19 @@ func (h *Bot) deleteBankAndReply(
 	b *bot.Bot,
 	chatID int64,
 	userID domain.UserID,
-	name string,
-	bankID int64,
+	st fsmState,
 ) {
-	err := h.svc.Delete(ctx, userID, bankID)
-	h.clearFSM(ctx, userID)
+	err := h.svc.Delete(ctx, userID, st.BankID)
 	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
+		h.done(ctx, b, chatID, userID, st, text.UnknownBank(st.Name))
 		return
 	}
 	if err != nil {
-		replyErr(ctx, b, chatID, "delete bank", err)
+		slog.Error("delete bank", slog.Any("err", err))
+		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
 		return
 	}
-	reply(ctx, b, chatID, text.BankDeleted(name), nil)
-}
-
-func (h *Bot) cancelDelete(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
-	h.clearFSM(ctx, userID)
-	reply(ctx, b, chatID, text.DeleteCancelled, nil)
+	h.done(ctx, b, chatID, userID, st, text.BankDeleted(st.Name))
 }
 
 func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -114,6 +121,9 @@ func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *mode
 	}
 	st, ok := h.loadCallbackFSM(ctx, b, update)
 	if !ok || st.Flow != domain.CommandDelete {
+		if ok {
+			h.stripStale(ctx, b, update, st)
+		}
 		return
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
@@ -127,17 +137,17 @@ func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *mode
 		if !ok {
 			return
 		}
-		h.askDeleteConfirm(ctx, b, chatID, userID, bank)
+		h.askDeleteConfirm(ctx, b, chatID, userID, st, bank)
 	case domain.Yes:
 		if st.Step != stepConfirm || st.BankID != bankID {
 			return
 		}
-		h.deleteBankAndReply(ctx, b, chatID, userID, st.Name, bankID)
+		h.deleteBankAndReply(ctx, b, chatID, userID, st)
 	case domain.No:
 		if st.Step != stepConfirm || st.BankID != bankID {
 			return
 		}
-		h.cancelDelete(ctx, b, chatID, userID)
+		h.done(ctx, b, chatID, userID, st, text.DeleteCancelled)
 	}
 }
 
@@ -170,5 +180,5 @@ func deleteConfirmKeyboard(bankID int64) *models.InlineKeyboardMarkup {
 }
 
 func deleteConfirmState(bank domain.Bank) fsmState {
-	return fsmState{Flow: domain.CommandDelete, Step: stepConfirm, Name: bank.Name, BankID: bank.ID}
+	return fsmState{}.withDeleteConfirm(bank)
 }

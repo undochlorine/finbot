@@ -75,11 +75,23 @@ func TestSpendReplacesPendingAdd(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+		gets := 0
+		cache.EXPECT().Get(ctx, key).RunAndReturn(func(context.Context, string) ([]byte, bool, error) {
+			gets++
+			if gets == 1 {
+				return nil, false, nil
+			}
+			return mustFSM(t, fsmState{
+				Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID,
+			}), true, nil
+		}).Times(2)
 		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandAdd, Step: stepBank})
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID})
 		expectSendMessage(t, client, &sent)
+		expectDeleteMessages(t, client)
+		cache.EXPECT().Delete(ctx, key).Return(nil)
 		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
-		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandSpend, Step: stepBank})
+		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandSpend, Step: stepBank, PromptID: testPromptID})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("/add"))
@@ -97,6 +109,7 @@ func TestStaleCallbackIgnored(t *testing.T) {
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandSpend, Step: stepBank}), true, nil)
 		expectAnswerCallbackQuery(t, client)
+		expectDeleteMessages(t, client)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackAddPrefix+"7"))
 }
@@ -126,7 +139,7 @@ func TestExpiredCallbackAsksToStartOver(t *testing.T) {
 			b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				cache.EXPECT().Get(ctx, key).Return(nil, false, nil)
 				expectAnswerCallbackQuery(t, client)
-				expectSendMessage(t, client, &sent)
+				expectEditMessage(t, client, &sent)
 			})
 			b.ProcessUpdate(ctx, callbackUpdate(tt.data))
 			require.Contains(t, sent, text.FlowExpired)
