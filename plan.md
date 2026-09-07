@@ -8,7 +8,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 | --- | --- |
 | **Current step** | `3.1` |
 | **Last done** | `2.9` conversation FSM polish |
-| **MVP target** | private-use Telegram finance bot in Go + SQLite |
+| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
 | **Path** | `/Users/a.sicaci/Projects/finbot` |
@@ -36,9 +36,67 @@ Say: `let's move to step 3.1` (next). Or any other id, e.g. `let's move to step 
 
 Telegram bot that lets a user split money into named **banks** (Travelling, Gifts, Live, Unplanned, …), change balances, and see totals. Some banks count toward the global total; some do not.
 
-**Stage 1 (MVP):** clean Go, per-user SQLite persistence, full bank CRUD/ops via Telegram.
+**Stages 0–2 (done):** clean Go, per-user SQLite persistence, full bank CRUD/ops via Telegram.
 
-**Stage 2 (designed now, built later):** PostgreSQL, Redis, cheap scalable hosting, inactivity notify+delete, configurable trial (default 1 week), payment strategy, billing, admin-controlled whitelist privileges (free / % off), load resistance.
+**Stage 3 (now):** harden the private MVP (lint, persistence, docs), then feedback, chat hygiene, write-path foundations, and same-currency `/transfer`. Everyone still has **full banks**. No paywall.
+
+**Stage 4 (public product):** Postgres, Redis, hosting, trial → limited free tier, payments, Telegram admin, history/tips, i18n, multi-currency, growth programs, dashboards, landing + web admin + channel, then a modular monolith (`cmd/bot`, `cmd/worker`, `cmd/web`). Extract network microservices only if load or team size requires it.
+
+Step numbering: `2.x` is the Telegram MVP stage. Product “stage 2” is `4.x`.
+
+### Stage 3 vs Stage 4 (placement)
+
+- **Stage 3:** private-use bot still has **full banks**. No paywall. Add UX polish plus schema/ports that are painful to retrofit (especially an operations log).
+- **Stage 4, with a Stage 3 stub:** product feature later; Stage 3 only stores the field / writes the row / keeps a no-op checker.
+- **Stage 4 only:** needs billing, a public site, or a second surface (web admin, dashboards, channel).
+- **Do not split into microservices in Stage 3 or early Stage 4.** Hexagonal packages already are the seam. Last Stage 4 step is a **modular monolith** (extra `cmd/` binaries). Real service extraction is optional after load/team pain.
+
+```mermaid
+flowchart TB
+  subgraph stage3 [Stage 3 hardened private MVP]
+    lint[3.1-3.3 quality]
+    fb[3.4 feedback forward]
+    hygiene[3.5 edit or delete bot prompts]
+    hooks[3.6 write-path foundations]
+    xfer[3.7 same-currency transfer]
+  end
+  subgraph stage4infra [Stage 4 infra and money]
+    pg[4.1-4.3 Postgres Redis hosting]
+    retain[4.4 inactivity paid kept longer]
+    free[4.5 trial then limited free tier]
+    pay[4.6-4.7 payments]
+    adm[4.8 Telegram admin]
+  end
+  subgraph stage4product [Stage 4 product]
+    hist[4.10-4.11 history and tips]
+    i18n[4.12 language]
+    fx[4.13-4.14 multi-currency and FX transfer]
+    growth[4.15-4.16 referral and contributors]
+    ops[4.17 dashboards]
+    web[4.18-4.20 landing web admin channel]
+    split[4.21 modular binaries]
+  end
+  stage3 --> stage4infra --> stage4product
+```
+
+| Idea | Stage 3 | Stage 4 |
+| --- | --- | --- |
+| Feedback | `/feedback` forwards to `ADMIN_TELEGRAM_ID` via existing `Notifier`. No inbox table. | Persist feedback; admin inbox (Telegram first, web when `4.19` exists). |
+| Chat flooding | Edit/delete **bot** prompts after the step finishes; store last `message_id` on FSM. Do not delete user messages. | Only if hygiene needs a second pass. |
+| Transaction history | Append-only `operations` on add/spend/set/delete/(transfer). **No `/history`.** | `/history` (pagination/filters). |
+| Finance tips | Nothing (needs history UX + enough data). | Rule-based tips from operations. LLM optional later, not required. |
+| Language | `users.locale` default `en`; `internal/text` becomes locale-keyed with **only English**. No `/language`. | `/language` with a short list (languages chosen at that step). |
+| Currencies | `banks.currency` + `DEFAULT_CURRENCY`. UX still one currency; totals still sum. | Per-bank currency from a short list; totals grouped; mixed-currency grand total later. |
+| Internal transfers | `/transfer` same currency, two-leg + one operation. | Cross-currency + hardcoded rates, then optional HTTP FX API. |
+| Free tier | `Entitlement` helper always **full**. | After trial: unpaid = one bank named `Total`, only `/add` `/spend` `/set` (+ help/start/feedback/cancel). `/newbank` etc. promote paid. Trial / paid / 100% whitelist stay full. |
+| Paid inactivity | Nothing extra (`Plan` / `LastActivityAt` already exist). | Amend `4.4`: paid and 100% whitelist kept longer (or exempt). Free/trial use the short window. Exact TTLs at that step. |
+| Referral | Parse `/start <payload>` on **first** upsert; store `referred_by`. No rewards. | Codes, rewards (extra trial / discount) after billing. |
+| Admin panel | `ADMIN_TELEGRAM_ID` (feedback + future admin). No panel. | `4.8` stays Telegram admin (whitelist, inspect). `4.19` web admin (feedback inbox, users, later dashboards). |
+| Dashboards | Consistent `slog` fields (`user_id`, command). No metrics stack. | Usage, Bot API, payments. Backend TBD at the step (Prometheus/Grafana vs admin pages). |
+| Landing site | Nothing. | Marketing site: product, plans (after `4.6`), bot link, channel link. |
+| Telegram channel | Nothing. | Human: channel + discussion group, comments in the group only. Bot: link in `/start` `/help`. |
+| Contributors | Nothing (`discount_percent` already covers manual 100% off). | Manual via admin first; optional GitHub link later. |
+| Microservices | Keep one `cmd/bot`. Do not split. | `4.21` `cmd/bot`, `cmd/worker`, `cmd/web` sharing `internal/`. Extract network services only if `4.9`/`4.17` show a need. |
 
 ---
 
@@ -51,19 +109,22 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **MVP database:** SQLite file on disk (server reload must not lose data)
 - **Isolation:** every row scoped by Telegram user ID; never leak another user’s banks
 - **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`. Bank names may contain spaces. Command-line args after `/newbank` are the **entire name**; include-in-total is never parsed from that line.
-- **Bot language:** English. All user-facing strings live in `internal/text` so i18n can be added later
+- **Bot language:** English through Stage 3. All user-facing strings live in `internal/text`. Step `3.6` keys the catalog by locale with **only `en` loaded** and stores `users.locale` (default `en`). `/language` and extra catalogs are `4.12`.
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
-- **Money:** `int64` minor units (cents). Display as `123.45`. No FX / multi-currency in MVP (implicit single currency)
+- **Money:** `int64` minor units (cents). Display as `123.45`. No multi-currency **UX** until `4.13`. Step `3.6` adds `banks.currency` + `DEFAULT_CURRENCY` (hidden in copy; totals still sum as today). FX / cross-currency transfer is `4.13`–`4.14`.
 - **Negative balances:** allowed (personal tracking, not a hard wallet). **Negative add/spend amounts are invalid** (`ErrInvalidAmount`); use `/spend` / `/set` instead
 - **Bank names:** unique per user, compared case-insensitively. Unicode allowed. Store the name as the user typed it
-- **No operation/transaction history in MVP.** Domain should stay easy to add an `Operation` log later
+- **Operations log:** write in `3.6` (append-only on add/spend/set/delete/transfer). **No `/history` until `4.10`.** Finance tips are `4.11`.
 - **Auth:** Telegram user ID is identity. No extra login
 - **GitHub:** local git only until the user asks to create a private repo
-- **Stage 2 database:** PostgreSQL preferred over MongoDB (relational users + banks)
-- **Trial (stage 2, schema from MVP):** duration is configurable (`TRIAL_DURATION`, default **7 days**). `0` means no trial. Negative values are rejected. `trial_ends_at` is **frozen at first signup** so changing the default later does not rewrite existing users.
-- **Whitelist (stage 2, schema from MVP):** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, `30` = 30% off, or any 0–100. `NULL` = not on the whitelist (pays full price after trial)
-- **Payment strategy (stage 2):** dedicated step `4.6`. Provider, prices, and checkout flow are **TBD with the user** before that step is implemented. Do not pick Stripe vs Telegram Stars vs something else in MVP
+- **Stage 4 database:** PostgreSQL preferred over MongoDB (relational users + banks)
+- **Trial (schema from MVP, enforce in `4.5`):** duration is configurable (`TRIAL_DURATION`, default **7 days**). `0` means no trial. Negative values are rejected. `trial_ends_at` is **frozen at first signup** so changing the default later does not rewrite existing users.
+- **Whitelist (schema from MVP, enforce in `4.5`+):** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, `30` = 30% off, or any 0–100. `NULL` = not on the whitelist (pays full price after trial, or stays on the limited free tier until they pay)
+- **Post-trial UX (`4.5`):** unpaid users get a **limited free tier**, not a hard block. One bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`. Extra-bank commands promote paid. Trial, paid, and 100% whitelist stay full. `Entitlement` in `3.6` always returns full access.
+- **Paid inactivity (`4.4`):** paid users and 100% whitelist are kept longer (or exempt). Free/trial use the short warn-then-delete window. Exact TTLs at that step.
+- **Payment strategy:** dedicated step `4.6`. Provider, prices, and checkout flow are **TBD with the user** before that step is implemented. Do not pick Stripe vs Telegram Stars vs something else in Stage 3.
+- **Deployment shape:** one `cmd/bot` through Stage 3. Stay a **modular monolith** through `4.21` (`cmd/bot`, `cmd/worker`, `cmd/web` sharing `internal/`) unless `4.9`/`4.17` show a need to extract network services.
 - **Log level:** `LOG_LEVEL` is `debug`, `info`, `warn`, or `error` (default `info`). Invalid values fail startup.
 - **Mocks:** mockery on the **consumer’s** interfaces (`internal/service/mocks`, `internal/adapter/memorycache/mocks`, `internal/adapter/telegram/mocks`, `internal/ports/mocks`, …). Service tests must not import `ports/mocks`. Hand-written stubs/fakes need a written reason **and explicit user approval**. If mockery can generate it, use mockery.
 
@@ -78,9 +139,9 @@ The **service** layer depends on **domain + its own interfaces**, never on `port
 **FSM** means **Finite State Machine**: the bot’s per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). It is stored in `Cache` with a short TTL so Redis can replace RAM later. TTL is 10 minutes.
 
 ```text
-cmd/bot/main.go
+cmd/bot/main.go          # only binary through Stage 3; worker/web in 4.21
 internal/
-  domain/            User, Bank, Money, errors
+  domain/            User, Bank, Money, Operation, errors, entitlement
   service/           use cases + BankRepository, UserRepository, Clock
   ports/             Cache, Notifier (until telegram, their consumer, exists)
   adapter/
@@ -89,7 +150,7 @@ internal/
     memorycache/     in-process Cache; owns Clock
     clock/           real clock
   config/            env-based config
-  text/              English strings
+  text/              locale-keyed strings (`en` only until 4.12)
 ```
 
 ```mermaid
@@ -124,22 +185,36 @@ Owned by **telegram**:
 
 Still in **ports** until telegram is the consumer (step `2.x`); then move them to that package:
 
-- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in MVP, Redis in stage 2
-- `Notifier` — send a message to a Telegram user (used by handlers now; inactivity job in stage 2)
+- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in Stage 3, Redis in `4.2`. From `3.5`, FSM also stores the last **bot** `message_id` for chat hygiene.
+- `Notifier` — send a message to a Telegram user (handlers now; `/feedback` forward in `3.4`; inactivity job in `4.4`)
 
-### Stage-2 hooks that must exist in MVP (unused or no-op is OK)
+### Stage-4 hooks that already exist (unused or no-op is OK)
 
 - `User.LastActivityAt` updated on every successful interaction
-- `User.Plan` stored (e.g. `trial` / `free` in MVP; paid plans later). **Do not enforce a paywall in MVP**
+- `User.Plan` stored (e.g. `trial` / `free` now; paid plans in `4.7`). **Do not enforce a paywall until `4.5`**
 - `User.TrialEndsAt` set **once** on first upsert (`now + TRIAL_DURATION`). Never refresh it on later messages
-- `User.DiscountPercent` optional (`*int`): `nil` = not whitelisted; `100` = free; `50` / `30` / custom = that % off after trial. Unused in MVP
+- `User.DiscountPercent` optional (`*int`): `nil` = not whitelisted; `100` = free; `50` / `30` / custom = that % off after trial. Unused until `4.5`+
 - Config `TRIAL_DURATION` (default `168h` / 7 days) loaded in `0.2` even though trial is not enforced until `4.5`
-- `ports.Cache` with memory implementation (telegram will own `Cache` once handlers exist)
+- `ports.Cache` with memory implementation (telegram owns `Cache`; `ports.Cache` remains so memorycache does not import telegram)
 - `Clock` interface on each consumer that needs time (`service`, `memorycache`)
-- Env config + Dockerfile (12-factor; hosting is stage 2)
+- Env config + Dockerfile (12-factor; hosting is `4.3`)
 - Every SQL query filtered by `user_id`
 
-Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`–`4.7`.
+Do **not** add a Billing port in Stage 3. Entitlement **enforcement** and payment ports belong to `4.5`–`4.7`. An always-allow `Entitlement` helper is added in `3.6`.
+
+### Stage 3 foundations (`3.6`, write-path only)
+
+Painful to retrofit; Telegram UX stays the same except `/start` may persist a referral payload.
+
+- Append-only `operations` written inside existing mutators (and `/transfer` in `3.7`)
+- `users.locale` default `en`; `internal/text` keyed by locale, **English only**
+- `banks.currency` NOT NULL default from `DEFAULT_CURRENCY`; still hidden in copy
+- `users.referred_by` nullable Telegram id; set **once** from `/start` payload
+- `Entitlement` always returns full access; tests: always-allow
+- Structured `slog` fields (`user_id`, command). No metrics stack
+- Do **not** add `/history`, `/language`, currency picker, or paywall
+
+`/feedback` (`3.4`) and chat hygiene (`3.5`) are Stage 3 UX, not schema.
 
 ### Tech choices (MVP)
 
@@ -154,17 +229,19 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 | Tests | table-driven unit tests with mockery on **that package’s** interfaces; temp SQLite integration | Matches DoD without docker-compose |
 | Mocks | mockery on each consumer’s interfaces; hand-written stubs/fakes only with a written reason **and** explicit user approval | Interface per consumer; tests do not import another layer’s mocks |
 
-### What not to do in MVP
+### What not to do in Stage 3 (wait for `4.x`)
 
-- No Redis, Postgres, paywall, payments, admin bot, inactivity sweeper, rate limiter, horizontal DB partitioning
-- Trial and whitelist **columns/config exist**; they are not enforced until stage 2 (`4.5`+)
-- No docker-compose required (SQLite file is enough). A Dockerfile is still added so stage 2 hosting is not a rewrite
+- No Redis, Postgres, paywall, payments, admin bot/panel, inactivity sweeper, rate limiter, horizontal DB partitioning
+- No website, Prometheus/Grafana, extra languages, currency picker, `/history`, referral **rewards**, contributor automation, Telegram channel, extra `cmd/` binaries, network microservice split
+- Trial and whitelist **columns/config exist**; they are not enforced until `4.5`+
+- No docker-compose required (SQLite file is enough). A Dockerfile is still added so `4.3` hosting is not a rewrite
 - Do not put Telegram `Update` types inside `service/`
 - Do not store money as `float64`
+- Do not delete **user** messages for chat hygiene — only bot prompts
 
 ---
 
-## Data model (MVP)
+## Data model (MVP + Stage 3 foundations)
 
 ### users
 
@@ -175,6 +252,8 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 - `trial_ends_at` TEXT (RFC3339 UTC); set once at insert
 - `discount_percent` INTEGER NULL — `NULL` = not whitelisted; `0`–`100` = admin privilege (`100` = free)
 - `created_at`, `updated_at` TEXT (RFC3339 UTC)
+- **`3.6`:** `locale` TEXT NOT NULL DEFAULT `'en'`
+- **`3.6`:** `referred_by` INTEGER NULL — Telegram id of the referrer; set once on first `/start` payload
 
 ### banks
 
@@ -185,6 +264,20 @@ Do **not** add a Billing port in MVP. Entitlement/payment ports belong to `4.5`�
 - `include_in_total` INTEGER NOT NULL
 - `created_at`, `updated_at`
 - UNIQUE `(user_id, name_normalized)` extra column (not a generated `lower(name)`), filled by the app with `NormalizeBankName` so Unicode case-folding matches the domain
+- **`3.6`:** `currency` TEXT NOT NULL — default from `DEFAULT_CURRENCY` (e.g. `USD`); hidden in Stage 3 copy
+
+### operations (`3.6`)
+
+Append-only. Written by service mutators; **no user-facing `/history` until `4.10`**.
+
+- `id` INTEGER PRIMARY KEY AUTOINCREMENT
+- `user_id` INTEGER NOT NULL REFERENCES users
+- `bank_id` INTEGER NULL — nullable when the bank was deleted
+- `type` TEXT NOT NULL — `add` / `spend` / `set` / `delete` / `transfer`
+- `amount_cents` INTEGER NOT NULL
+- `balance_after_cents` INTEGER NULL — N/A for delete
+- `meta` TEXT — e.g. counterpart bank id for transfer
+- `created_at` TEXT (RFC3339 UTC)
 
 ### Total
 
@@ -194,7 +287,7 @@ FROM banks
 WHERE user_id = ? AND include_in_total = 1;
 ```
 
-### Domain sketches (implement in 1.1)
+### Domain sketches (`1.1`; locale / referred_by / currency in `3.6`)
 
 ```go
 type UserID int64
@@ -207,6 +300,7 @@ type Bank struct {
     Name           string
     Balance        Money
     IncludeInTotal bool
+    Currency       string // 3.6; unused in copy until 4.13
     CreatedAt      time.Time
     UpdatedAt      time.Time
 }
@@ -215,9 +309,11 @@ type User struct {
     TelegramID      UserID
     Username        string
     LastActivityAt  time.Time
-    Plan            string // "trial" in MVP; paid plans in 4.7
+    Plan            string // "trial" now; paid plans in 4.7
     TrialEndsAt     time.Time
     DiscountPercent *int // nil = not whitelisted; 100 = free; 50 = 50% off
+    Locale          string // 3.6; default "en"
+    ReferredBy      *UserID // 3.6; set once from /start payload
     CreatedAt       time.Time
     UpdatedAt       time.Time
 }
@@ -225,46 +321,55 @@ type User struct {
 
 Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 decimal places.
 
-### Entitlement (stage 2 — document now, enforce in `4.5`+)
+### Entitlement
 
-Access after MVP is decided in this order:
+Access after Stage 3 is decided in this order:
 
 1. **In trial** (`now < TrialEndsAt`) → full access, free
 2. **Whitelist 100%** (`DiscountPercent == 100`) → full access, free, no time limit
-3. **Whitelist 1–99%** → after trial, pays the discounted price from the payment strategy (`4.6` / `4.7`)
-4. **No whitelist, trial over** → must pay full price (or be blocked / limited). Exact post-trial UX (hard block vs nag vs read-only) is decided with the user in `4.5`
+3. **Paid** (active plan from `4.7`) → full access
+4. **Whitelist 1–99%** → after trial, limited free tier until they pay the discounted price from `4.6` / `4.7`; then full access
+5. **No whitelist, trial over, not paid** → **limited free tier** (not a hard block): one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`. Commands that need extra banks (`/newbank`, `/delete`, `/toggle`, `/transfer`, …) promote paid features.
+
+`Entitlement` in `3.6` always returns full access. Owner must whitelist themselves at 100% before enabling `4.5`.
 
 Admin can add, change, or revoke a user’s discount at any time (`4.8`).
 
 ---
 
-## Telegram surface (MVP)
+## Telegram surface (MVP + Stage 3)
 
 The process registers these with Telegram `setMyCommands` on startup so clients show the Commands menu and `/` autocomplete. BotFather `/setcommands` is not required.
 
-| Command | Flow |
-| --- | --- |
-| `/start` | Upsert user, short intro, point to `/help` |
-| `/help` | List commands |
-| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no`). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
-| `/add` | Pick bank (buttons or arg) → amount. Adds to balance |
-| `/spend` | Same as add, subtracts (negative allowed) |
-| `/set` | Pick bank → amount. Sets absolute balance |
-| `/delete` | Pick bank → confirm button → delete bank |
-| `/bank` | Pick bank or arg → show one bank |
-| `/toggle` | Pick bank → flip `include_in_total` → confirm new state |
-| `/banks` | List all banks (name, balance, whether in total) |
-| `/total` | Sum of included banks only |
-| `/all` | Full list + total |
-| `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. |
+| Command | Flow | From |
+| --- | --- | --- |
+| `/start` | Upsert user, short intro, point to `/help`. **`3.6`:** if the message has a payload and this is the first upsert, store `referred_by`. No rewards until `4.15`. | `2.3` / `3.6` |
+| `/help` | List commands | `2.3` |
+| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no`). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. | `2.4` |
+| `/add` | Pick bank (buttons or arg) → amount. Adds to balance | `2.5` |
+| `/spend` | Same as add, subtracts (negative allowed) | `2.5` |
+| `/set` | Pick bank → amount. Sets absolute balance | `2.5` |
+| `/delete` | Pick bank → confirm button → delete bank | `2.6` |
+| `/bank` | Pick bank or arg → show one bank | `2.7` |
+| `/toggle` | Pick bank → flip `include_in_total` → confirm new state | `2.8` |
+| `/banks` | List all banks (name, balance, whether in total) | `2.7` |
+| `/total` | Sum of included banks only | `2.7` |
+| `/all` | Full list + total | `2.7` |
+| `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. | `2.9` |
+| `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. | `3.4` |
+| `/transfer` | Pick from-bank → to-bank → amount. Same currency only. Reject same bank / invalid amount. | `3.7` |
+
+**Later (`4.x`, not Stage 3):** `/history`, `/language`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`.
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`. `/transfer` shortcuts should match `/add` style (details at `3.7`).
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
-**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, so stage 2 can change without colliding.
+**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, so Stage 4 can change without colliding.
+
+**Chat hygiene (`3.5`):** FSM stores the last **bot** `message_id` for the in-flight flow. On success, cancel, or stale callback: edit that message (strip buttons) and/or delete the prompt. Final confirmation stays as a new message (or one edited summary). Do not delete user messages.
 
 ### Error / edge cases (handlers + service)
 
@@ -273,9 +378,10 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 - Invalid amount (empty, `abc`, `1.234`, overflow, **negative add/spend**) → error, ask again
 - Negative add/spend is invalid; negative **balances** are still allowed (`/spend` below zero, `/set` to a negative)
 - Delete last bank → allowed
-- Concurrent updates from the same user → last SQLite write wins; acceptable for MVP
+- Concurrent updates from the same user → last SQLite write wins; acceptable for Stage 3
 - Very large amounts → reject if cents would overflow `int64`
 - User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
+- `/transfer` (`3.7`): reject different currency, same bank, invalid amount; empty state same as `/add`
 
 ---
 
@@ -287,7 +393,7 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 - Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
-- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`). Handler-only names (`start`, `help`, `cancel`) stay in telegram.
+- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
@@ -306,6 +412,11 @@ export LOG_LEVEL=info         # debug | info | warn | error
 export TRIAL_DURATION=168h    # optional; 0 = no trial; default 7 days; enforced only in 4.5
 go run ./cmd/bot
 ```
+
+Added in later Stage 3 steps (document in README when those steps land):
+
+- `ADMIN_TELEGRAM_ID` — `3.4`; required for `/feedback` to work
+- `DEFAULT_CURRENCY` — `3.6`; default bank currency (e.g. `USD`)
 
 ```bash
 make test-unit          # all tests except SQLite (//go:build integration)
@@ -357,6 +468,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | Empty `/total` replies `Total: 0.00`. `/banks`, `/all`, and `/bank` with no banks still hint `/newbank`. |
 | 2026-09-07 | FSM polish: TTL stays 10 minutes. `/cancel` is telegram-local. Expired callbacks (cache miss) ask to start over; stale callbacks (wrong in-flight flow) are ignored. Starting another flow command replaces the pending FSM. Read-only commands leave it in place. Plain text with no FSM stays silent. |
 | 2026-09-07 | Slash command menu (`/` hint / Commands button) is registered via Bot API `setMyCommands` when the bot process starts. BotFather `/setcommands` is optional, not required. |
+| 2026-09-08 | Stage 3 vs Stage 4 placement: private MVP stays full-banks / no paywall through `3.7`. Operations **write** in `3.6`, `/history` in `4.10`. Locale column + `en`-only catalog in `3.6`, picker in `4.12`. Currency column in `3.6`, picker/FX in `4.13`–`4.14`. Post-trial UX is a limited free tier (one `Total` bank, add/spend/set only), not a hard block. Paid and 100% whitelist kept longer on inactivity (`4.4`). Referral payload stored in `3.6`, rewards in `4.15`. Stay a modular monolith through `4.21` unless load forces a split. `/feedback` forwards to admin in `3.4`; web admin is `4.19`. |
 
 ---
 
@@ -555,20 +667,51 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 - **Files:** `README.md`
 - **DoD:** a new machine can run MVP from README + a token.
 
-**MVP is complete when 0.1–3.3 are `done`.**
+#### 3.4 Feedback (forward)
+
+- **Status:** `todo`
+- **Goal:** `/feedback` asks for text, then forwards user id + username + body to `ADMIN_TELEGRAM_ID` via `Notifier`, then thanks the user.
+- **Files:** `internal/config`; `internal/text`; `internal/adapter/telegram/`; `internal/ports` (`Notifier` already exists)
+- **DoD:** if `ADMIN_TELEGRAM_ID` is unset, `/feedback` says it is unavailable. No `feedback` table. Command is registered in the slash menu. Unit tests cover the forward payload and the unset-admin path.
+
+#### 3.5 Chat hygiene
+
+- **Status:** `todo`
+- **Goal:** lower chat flooding by editing or deleting **bot** prompts after a flow step finishes.
+- **Notes:** FSM stores the last bot `message_id`. On success, `/cancel`, or stale callback: edit that message (strip buttons) and/or delete the prompt. Final confirmation stays as a new message (or one edited summary). **Do not delete user messages.**
+- **DoD:** completing `/add` (picker → amount) does not leave a live keyboard on the old prompt. `/cancel` clears the prompt. Tests cover message_id stored on FSM and edit/delete on completion.
+
+#### 3.6 Write-path foundations
+
+- **Status:** `todo`
+- **Goal:** one SQLite migration + domain/service hooks that Stage 4 will read. Telegram UX unchanged except `/start` may persist a referral payload.
+- **Schema:** `operations` (append-only: `add`/`spend`/`set`/`delete`/`transfer`); `users.locale` default `en`; `users.referred_by` nullable; `banks.currency` NOT NULL default from `DEFAULT_CURRENCY`.
+- **Also:** locale-keyed `internal/text` with **only English**; always-allow `Entitlement` helper; structured `slog` fields (`user_id`, command).
+- **DoD:** add/spend/set/delete write an operation row. First `/start <payload>` stores `referred_by` once and does not overwrite later. Existing users get locale `en` and default currency on new banks. Entitlement tests: always full access. **No** `/history`, `/language`, currency picker, or paywall.
+
+#### 3.7 Same-currency `/transfer`
+
+- **Status:** `todo`
+- **Goal:** move money between the user’s own banks in the same currency.
+- **Flow:** pick from-bank → to-bank → amount. Shortcuts consistent with `/add`. Empty state hints `/newbank`.
+- **DoD:** atomic in service (two balance updates + operation rows). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
+
+**Hardened private MVP is complete when 0.1–3.7 are `done`.** Through `3.3` the bot is already usable privately; `3.4`–`3.7` are still Stage 3 (no paywall, full banks for everyone).
 
 ---
 
 ### Stage 4 — Product stage 2 (not MVP)
 
-Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage.
+Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage. High-level tech stays out of these steps (same bar as `4.6`: details when that step starts).
 
 Monetization sequence (do not skip `4.6`):
 
-1. `4.5` trial enforcement
+1. `4.5` trial enforcement + limited free tier
 2. `4.6` payment strategy (blocked on a conversation with the user)
 3. `4.7` billing against that strategy
-4. `4.8` admin whitelist privileges (`100` / `50` / `30` / custom % off)
+4. `4.8` Telegram admin whitelist privileges (`100` / `50` / `30` / custom % off)
+
+Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`–`4.21`.
 
 #### 4.1 PostgreSQL adapter
 
@@ -585,19 +728,21 @@ Monetization sequence (do not skip `4.6`):
 
 - **Status:** `todo`
 - **Goal:** run app + DB with a low bill (Fly.io / Railway / Hetzner-class VPS — choose at the time). Dockerfile already exists. Stateless app, mounted or managed DB.
+- **Note:** a “product + bot link” page may ship with this step if a public URL is needed before prices exist. Landing with real plans is `4.18` and waits for `4.6`.
 
 #### 4.4 Inactivity notify and delete
 
 - **Status:** `todo`
-- **Goal:** job uses `LastActivityAt`: warn (e.g. 1 week to deletion), then delete that user’s banks + user row. `Notifier` sends the warning via Telegram.
-- **Note:** whether 100% whitelist or paid users are exempt is decided with the user at the start of this step (see also `4.8`).
+- **Goal:** job uses `LastActivityAt`: warn, then delete that user’s banks + user row. `Notifier` sends the warning via Telegram.
+- **Retention:** paid users and 100% whitelist are kept **longer** (or exempt). Free / expired-trial users use the short window. Exact TTLs (warn-after / delete-after / paid-after) are decided with the user at the start of this step.
+- **Depends on:** `Plan` / `LastActivityAt` already exist; paid plan values from `4.7` if paid exemption should distinguish “currently paid” vs “ever paid”.
 
 #### 4.5 Trial period (enforce)
 
 - **Status:** `todo`
-- **Goal:** the bot is free during the user’s trial (`now < TrialEndsAt`). Duration comes from `TRIAL_DURATION` (default 7 days) and was frozen at signup. After the trial, access follows the [entitlement order](#entitlement-stage-2--document-now-enforce-in-45): whitelist 100% stays free; discounted whitelist pays less; everyone else must pay or lose full access.
-- **DoD:** config change only affects **new** users. Existing `trial_ends_at` is never rewritten by config. Unit tests cover in-trial / expired / 100% off / % off / no whitelist. **Ask the user** before choosing hard-block vs nag vs read-only after expiry.
-- **Depends on:** schema already in MVP; payment collection itself is `4.6` / `4.7`.
+- **Goal:** the bot is free with **full banks** during the user’s trial (`now < TrialEndsAt`). Duration comes from `TRIAL_DURATION` (default 7 days) and was frozen at signup. After the trial, access follows the [entitlement order](#entitlement): whitelist 100% stays full and free; paid stays full; everyone else gets the **limited free tier** (one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`). Extra-bank commands promote paid features. Not a hard block, nag-only, or read-only mode.
+- **DoD:** config change only affects **new** users. Existing `trial_ends_at` is never rewritten by config. Unit tests cover in-trial full / expired limited / 100% full / paid full / % off still limited until they pay. **Owner must whitelist themselves at 100% before enabling this.**
+- **Depends on:** schema already in MVP; `Entitlement` from `3.6`; payment collection itself is `4.6` / `4.7`.
 
 #### 4.6 Payment strategy
 
@@ -610,20 +755,93 @@ Monetization sequence (do not skip `4.6`):
 
 - **Status:** `todo`
 - **Goal:** wire `User.Plan` (and paid-through dates if needed) to the strategy from `4.6`. Trial + whitelist + paid state must compose using the entitlement order. Webhooks/reconciliation as required by the chosen provider.
-- **DoD:** a user can move trial → paid (full or discounted) → (optional) lapsed, with tests. No paywall holes for expired non-whitelisted users once `4.5` UX is chosen.
+- **DoD:** a user can move trial → paid (full or discounted) → (optional) lapsed back to limited free tier, with tests. Expired non-whitelisted users cannot keep full banks without paying.
 - **Depends on:** `4.5`, `4.6`. Can land in the same iteration as `4.6` if the user wants, but keep the payment **strategy** decision explicit.
 
 #### 4.8 Admin and whitelist privileges
 
 - **Status:** `todo`
-- **Goal:** admin can inspect users/data and **set whitelist privileges per user**: totally free (`100`), `50`% off, `30`% off, any other 0–100, or revoke (`NULL`). Privileges are stored as `discount_percent`, not a boolean. Admin UX TBD at the start of this step (gated commands vs a separate admin bot vs allowlist of Telegram admin IDs).
-- **DoD:** admin can add / change / remove a privilege; the user’s next billing or access check uses the new percent. Changing privilege does not by itself rewrite `trial_ends_at`. Document whether 100% off also skips inactivity deletion (`4.4`) — **ask the user** if unclear.
+- **Goal:** **Telegram-only** admin. Admin can inspect users/data and **set whitelist privileges per user**: totally free (`100`), `50`% off, `30`% off, any other 0–100, or revoke (`NULL`). Privileges are stored as `discount_percent`, not a boolean. Use `ADMIN_TELEGRAM_ID` from `3.4` (gated commands vs a separate admin bot — choose at the start of this step). Web UI is `4.19`.
+- **DoD:** admin can add / change / remove a privilege; the user’s next billing or access check uses the new percent. Changing privilege does not by itself rewrite `trial_ends_at`. 100% off follows `4.4` retention (longer / exempt). Feedback stays forwarded messages until `4.19` (optional persist-to-table then).
 - **Depends on:** `4.5`–`4.7` for paid/discounted behavior; admin CRUD of the field can be built as soon as the schema exists, but charging must wait for `4.6`.
 
 #### 4.9 Load resistance
 
 - **Status:** `todo`
-- **Goal:** token bucket / rate limit per user, cache, app replicas, Postgres (later partitioning if needed). Don’t pre-build this in MVP.
+- **Goal:** token bucket / rate limit per user, cache, app replicas, Postgres (later partitioning if needed). Don’t pre-build this in Stage 3.
+
+#### 4.10 Transaction history
+
+- **Status:** `todo`
+- **Goal:** `/history` reads the `operations` log from `3.6`. Pagination / filters at this step (keep it high-level until start).
+- **DoD:** a user sees their own operations only. Empty log has a clear copy. Slash menu + `/help` updated.
+
+#### 4.11 Finance tips
+
+- **Status:** `todo`
+- **Goal:** rule-based advice from transaction history (spend vs add over a window, empty banks, etc.). LLM is optional later, not required.
+- **Depends on:** `4.10`.
+
+#### 4.12 Language picker
+
+- **Status:** `todo`
+- **Goal:** `/language` with a **short** list of catalogs. Languages chosen with the user at the start of this step (not every language).
+- **Depends on:** locale column + keyed `internal/text` from `3.6`.
+
+#### 4.13 Multi-currency banks
+
+- **Status:** `todo`
+- **Goal:** currency on `/newbank` from a short list; totals grouped by currency. Mixed-currency grand total can wait.
+- **Depends on:** `banks.currency` from `3.6`.
+
+#### 4.14 Cross-currency transfer
+
+- **Status:** `todo`
+- **Goal:** `/transfer` across currencies. Hardcoded rates are enough for the first version; optional HTTP FX API later.
+- **Depends on:** `3.7`, `4.13`.
+
+#### 4.15 Referral program
+
+- **Status:** `todo`
+- **Goal:** referral codes and rewards (extra trial / discount — choose at the step). Uses `referred_by` captured in `3.6`.
+- **Depends on:** `4.6` / `4.7` so a reward has something to give.
+
+#### 4.16 Contributors program
+
+- **Status:** `todo`
+- **Goal:** offer promotions to users who contribute to the project’s source code. **Admin-granted first** (`discount_percent` / whitelist via `4.8`). Optional GitHub identity link later.
+- **Depends on:** `4.8`.
+
+#### 4.17 Dashboards / metrics
+
+- **Status:** `todo`
+- **Goal:** usage, Bot API / RPC, payments. Backend TBD at the step (Prometheus/Grafana vs admin pages). Uses structured `slog` fields from `3.6`.
+- **Depends on:** hosting (`4.3`); payments data after `4.7` for the payments view.
+
+#### 4.18 Landing website
+
+- **Status:** `todo`
+- **Goal:** marketing site with product description, offer plans, bot link, channel link.
+- **Note:** real prices wait until `4.6`. A stub “product + bot link” page may already exist from `4.3`.
+- **Depends on:** `4.6` for plan copy; `4.20` for channel URL if that ships first — order with the user at the time.
+
+#### 4.19 Web admin
+
+- **Status:** `todo`
+- **Goal:** strong featured admin on the web: users, whitelist, feedback inbox; optional embed of `4.17` dashboards. Persist feedback (mature inbox) if not already done in `4.8`.
+- **Depends on:** `4.8`; landing/hosting from `4.3` / `4.18`.
+
+#### 4.20 Telegram channel
+
+- **Status:** `todo`
+- **Goal:** human ops — channel for updates, release notes, promotions, plus a linked discussion group where members can comment only (channel itself comment-restricted). Bot and landing link to it (`/start`, `/help`).
+- **DoD:** links in bot copy; no requirement to automate posting in the first version.
+
+#### 4.21 Modular binaries (not a microservice rewrite)
+
+- **Status:** `todo`
+- **Goal:** split processes `cmd/bot`, `cmd/worker`, `cmd/web` sharing `internal/`. Still one Go module. Extract network microservices only if `4.9` / `4.17` show a need.
+- **DoD:** worker can run the inactivity job; web can serve landing/admin without embedding them in the bot process. No k8s-per-service rewrite unless explicitly started as a later stage.
 
 ---
 
