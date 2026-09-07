@@ -29,7 +29,12 @@ type Cache interface {
 type Service interface {
 	UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error)
 	GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)
+	Get(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)
+	List(ctx context.Context, userID domain.UserID) ([]domain.Bank, error)
 	CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error)
+	Add(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
+	Spend(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
+	Set(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 }
 
 var _ HTTPClient = (*http.Client)(nil)

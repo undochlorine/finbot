@@ -38,6 +38,84 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// Add provides a mock function for the type MockService
+func (_mock *MockService) Add(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Add")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID, amount)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, domain.Money) error); ok {
+		r1 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Add_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Add'
+type MockService_Add_Call struct {
+	*mock.Call
+}
+
+// Add is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+//   - amount domain.Money
+func (_e *MockService_Expecter) Add(ctx interface{}, userID interface{}, bankID interface{}, amount interface{}) *MockService_Add_Call {
+	return &MockService_Add_Call{Call: _e.mock.On("Add", ctx, userID, bankID, amount)}
+}
+
+func (_c *MockService_Add_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money)) *MockService_Add_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 domain.Money
+		if args[3] != nil {
+			arg3 = args[3].(domain.Money)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Add_Call) Return(bank domain.Bank, err error) *MockService_Add_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Add_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)) *MockService_Add_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateBank provides a mock function for the type MockService
 func (_mock *MockService) CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error) {
 	ret := _mock.Called(ctx, userID, name, includeInTotal)
@@ -116,6 +194,78 @@ func (_c *MockService_CreateBank_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// Get provides a mock function for the type MockService
+func (_mock *MockService) Get(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Get")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64) error); ok {
+		r1 = returnFunc(ctx, userID, bankID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Get_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
+type MockService_Get_Call struct {
+	*mock.Call
+}
+
+// Get is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+func (_e *MockService_Expecter) Get(ctx interface{}, userID interface{}, bankID interface{}) *MockService_Get_Call {
+	return &MockService_Get_Call{Call: _e.mock.On("Get", ctx, userID, bankID)}
+}
+
+func (_c *MockService_Get_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64)) *MockService_Get_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Get_Call) Return(bank domain.Bank, err error) *MockService_Get_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Get_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)) *MockService_Get_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetByName provides a mock function for the type MockService
 func (_mock *MockService) GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error) {
 	ret := _mock.Called(ctx, userID, name)
@@ -184,6 +334,230 @@ func (_c *MockService_GetByName_Call) Return(bank domain.Bank, err error) *MockS
 }
 
 func (_c *MockService_GetByName_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)) *MockService_GetByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// List provides a mock function for the type MockService
+func (_mock *MockService) List(ctx context.Context, userID domain.UserID) ([]domain.Bank, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for List")
+	}
+
+	var r0 []domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.Bank, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) []domain.Bank); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Bank)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
+type MockService_List_Call struct {
+	*mock.Call
+}
+
+// List is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+func (_e *MockService_Expecter) List(ctx interface{}, userID interface{}) *MockService_List_Call {
+	return &MockService_List_Call{Call: _e.mock.On("List", ctx, userID)}
+}
+
+func (_c *MockService_List_Call) Run(run func(ctx context.Context, userID domain.UserID)) *MockService_List_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_List_Call) Return(banks []domain.Bank, err error) *MockService_List_Call {
+	_c.Call.Return(banks, err)
+	return _c
+}
+
+func (_c *MockService_List_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) ([]domain.Bank, error)) *MockService_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Set provides a mock function for the type MockService
+func (_mock *MockService) Set(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Set")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID, amount)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, domain.Money) error); ok {
+		r1 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Set_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Set'
+type MockService_Set_Call struct {
+	*mock.Call
+}
+
+// Set is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+//   - amount domain.Money
+func (_e *MockService_Expecter) Set(ctx interface{}, userID interface{}, bankID interface{}, amount interface{}) *MockService_Set_Call {
+	return &MockService_Set_Call{Call: _e.mock.On("Set", ctx, userID, bankID, amount)}
+}
+
+func (_c *MockService_Set_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money)) *MockService_Set_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 domain.Money
+		if args[3] != nil {
+			arg3 = args[3].(domain.Money)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Set_Call) Return(bank domain.Bank, err error) *MockService_Set_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Set_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)) *MockService_Set_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Spend provides a mock function for the type MockService
+func (_mock *MockService) Spend(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Spend")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID, amount)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, domain.Money) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, domain.Money) error); ok {
+		r1 = returnFunc(ctx, userID, bankID, amount)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Spend_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Spend'
+type MockService_Spend_Call struct {
+	*mock.Call
+}
+
+// Spend is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+//   - amount domain.Money
+func (_e *MockService_Expecter) Spend(ctx interface{}, userID interface{}, bankID interface{}, amount interface{}) *MockService_Spend_Call {
+	return &MockService_Spend_Call{Call: _e.mock.On("Spend", ctx, userID, bankID, amount)}
+}
+
+func (_c *MockService_Spend_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money)) *MockService_Spend_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 domain.Money
+		if args[3] != nil {
+			arg3 = args[3].(domain.Money)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Spend_Call) Return(bank domain.Bank, err error) *MockService_Spend_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Spend_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)) *MockService_Spend_Call {
 	_c.Call.Return(run)
 	return _c
 }

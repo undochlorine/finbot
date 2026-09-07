@@ -15,11 +15,32 @@ func (h *Bot) registerHandlers() {
 	h.inner.RegisterHandlerMatchFunc(commandAtStart("start"), handleStart)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart("help"), handleHelp)
 	h.inner.RegisterHandlerMatchFunc(commandAtStart("newbank"), h.handleNewBank)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("add"), h.handleAdd)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("spend"), h.handleSpend)
+	h.inner.RegisterHandlerMatchFunc(commandAtStart("set"), h.handleSet)
 	h.inner.RegisterHandler(
 		bot.HandlerTypeCallbackQueryData,
 		callbackNewBankPrefix,
 		bot.MatchTypePrefix,
 		h.handleNewBankCallback,
+	)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackAddPrefix,
+		bot.MatchTypePrefix,
+		h.handleMoneyCallback,
+	)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackSpendPrefix,
+		bot.MatchTypePrefix,
+		h.handleMoneyCallback,
+	)
+	h.inner.RegisterHandler(
+		bot.HandlerTypeCallbackQueryData,
+		callbackSetPrefix,
+		bot.MatchTypePrefix,
+		h.handleMoneyCallback,
 	)
 }
 

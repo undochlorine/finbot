@@ -43,6 +43,15 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	if !strings.Contains(Help, "spaces") {
 		t.Fatal("help should mention that bank names may contain spaces")
 	}
+	if !strings.Contains(Help, "/add Holiday 100") {
+		t.Fatal("help should show an /add shortcut")
+	}
+	if !strings.Contains(Help, "/spend Gifts 12.50") {
+		t.Fatal("help should show a /spend shortcut")
+	}
+	if !strings.Contains(Help, "/set Live 0") {
+		t.Fatal("help should show a /set shortcut")
+	}
 }
 
 func TestBankCreated(t *testing.T) {
@@ -72,5 +81,30 @@ func TestBankNameTaken(t *testing.T) {
 	got := BankNameTaken("Holiday")
 	if !strings.Contains(got, "Holiday") {
 		t.Fatalf("missing name: %q", got)
+	}
+}
+
+func TestMoneyCopy(t *testing.T) {
+	tests := []struct {
+		name string
+		got  string
+		want []string
+	}{
+		{name: "unknown", got: UnknownBank("Holiday"), want: []string{"Holiday", "/banks"}},
+		{name: "ask add", got: AskAddAmount("Holiday"), want: []string{"Holiday"}},
+		{name: "ask spend", got: AskSpendAmount("Gifts"), want: []string{"Gifts"}},
+		{name: "ask set", got: AskSetAmount("Live"), want: []string{"Live"}},
+		{name: "added", got: Added("Holiday", "100.00", "150.00"), want: []string{"Holiday", "100.00", "150.00"}},
+		{name: "spent", got: Spent("Gifts", "12.50", "87.50"), want: []string{"Gifts", "12.50", "87.50"}},
+		{name: "set", got: SetTo("Live", "0.00"), want: []string{"Live", "0.00"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, w := range tt.want {
+				if !strings.Contains(tt.got, w) {
+					t.Errorf("missing %q in %q", w, tt.got)
+				}
+			}
+		})
 	}
 }
