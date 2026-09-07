@@ -6,4 +6,8 @@ const (
 	CommandSpend   = "spend"
 	CommandSet     = "set"
 	CommandDelete  = "delete"
+	CommandBank    = "bank"
+	CommandBanks   = "banks"
+	CommandTotal   = "total"
+	CommandAll     = "all"
 )

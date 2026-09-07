@@ -55,6 +55,9 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	if !strings.Contains(Help, "/delete Holiday") {
 		t.Fatal("help should show a /delete shortcut")
 	}
+	if !strings.Contains(Help, "/bank Holiday") {
+		t.Fatal("help should show a /bank shortcut")
+	}
 }
 
 func TestBankCreated(t *testing.T) {
@@ -102,6 +105,15 @@ func TestMoneyCopy(t *testing.T) {
 		{name: "set", got: SetTo("Live", "0.00"), want: []string{"Live", "0.00"}},
 		{name: "ask delete", got: AskDeleteConfirm("Holiday"), want: []string{"Holiday"}},
 		{name: "deleted", got: BankDeleted("Holiday"), want: []string{"Holiday"}},
+		{name: "bank included", got: BankCard("Holiday", "50.00", true), want: []string{"Holiday", "50.00", "in total"}},
+		{name: "bank excluded", got: BankCard("Gifts", "12.50", false), want: []string{"Gifts", "12.50", "not in total"}},
+		{name: "total", got: Total("123.45"), want: []string{"123.45"}},
+		{name: "empty total", got: Total("0.00"), want: []string{"0.00"}},
+		{
+			name: "all",
+			got:  All("Holiday: 50.00 (in total)\nGifts: 12.50 (not in total)", Total("50.00")),
+			want: []string{"Holiday", "50.00", "in total", "Gifts", "12.50", "not in total", "50.00"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

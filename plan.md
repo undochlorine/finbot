@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `2.6` |
-| **Last done** | `2.5` `/add` `/spend` `/set` |
+| **Current step** | `2.8` |
+| **Last done** | `2.7` `/bank`, `/banks`, `/total`, `/all` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 2.7` (next). Or any other id, e.g. `let's move to step 2.8`.
+Say: `let's move to step 2.8` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -274,7 +274,7 @@ Register these with BotFather when running locally (step `3.3`).
 - Delete last bank → allowed
 - Concurrent updates from the same user → last SQLite write wins; acceptable for MVP
 - Very large amounts → reject if cents would overflow `int64`
-- User with zero banks asking `/total` → `0.00` (or “no banks yet” — pick one in `2.7` and document in decisions log)
+- User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
 
 ---
 
@@ -286,7 +286,7 @@ Register these with BotFather when running locally (step `3.3`).
 - Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
-- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`). Handler-only names (`start`, `help`) stay in telegram.
+- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`). Handler-only names (`start`, `help`) stay in telegram.
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
@@ -353,6 +353,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | Telegram owns `Cache`; `ports.Cache` remains so memorycache does not import the telegram adapter. FSM TTL is 10 minutes until `2.9`. |
 | 2026-09-07 | **FSM** = Finite State Machine (conversation step in Cache). `/newbank` args are the full bank name (spaces allowed). Include yes/no is only after the name is accepted (buttons or typing `yes`/`no`). Duplicate names error as soon as the name is entered; the user stays on the name step and can type another. Document command shortcuts in `/start` and `/help`. |
 | 2026-09-07 | Reusable answer/command tokens (`yes`/`no`, `newbank`, `add`, `spend`, `set`, `delete`) are domain consts. `/start` and `/help` stay telegram-local. User-facing labels stay in `internal/text`. |
+| 2026-09-07 | Empty `/total` replies `Total: 0.00`. `/banks`, `/all`, and `/bank` with no banks still hint `/newbank`. |
 
 ---
 
@@ -512,7 +513,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 2.7 `/bank`, `/banks`, `/total`, `/all`
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** read-only views; `/all` = list + total of included banks.
 - **DoD:** excluded banks show in list but not in total.
 
@@ -625,4 +626,4 @@ Monetization sequence (do not skip `4.6`):
 
 ## Suggested next message
 
-`let's move to step 2.7`
+`let's move to step 2.8`

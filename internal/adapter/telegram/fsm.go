@@ -26,6 +26,7 @@ const (
 	callbackDeletePrefix = "v1:" + domain.CommandDelete + ":"
 	callbackDeleteYes    = callbackDeletePrefix + domain.Yes + ":"
 	callbackDeleteNo     = callbackDeletePrefix + domain.No + ":"
+	callbackBankPrefix   = "v1:" + domain.CommandBank + ":"
 )
 
 type fsmState struct {
