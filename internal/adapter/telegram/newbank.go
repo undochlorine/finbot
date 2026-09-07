@@ -2,9 +2,7 @@ package telegram
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -42,37 +40,6 @@ func (h *Bot) handleNewBank(ctx context.Context, b *bot.Bot, update *models.Upda
 	h.progressNewBank(ctx, b, messageChatID(update), domain.UserID(from.ID), commandPayload(update.Message.Text), false)
 }
 
-func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.Message == nil {
-		return
-	}
-	if strings.HasPrefix(update.Message.Text, "/") {
-		return
-	}
-	from := sender(update)
-	if from == nil {
-		return
-	}
-	userID := domain.UserID(from.ID)
-	st, ok := h.loadFSM(ctx, userID)
-	if !ok {
-		return
-	}
-	chatID := messageChatID(update)
-	switch st.Flow {
-	case domain.CommandNewBank:
-		h.continueNewBank(ctx, b, chatID, userID, st, update.Message.Text)
-	case domain.CommandAdd, domain.CommandSpend, domain.CommandSet:
-		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
-	case domain.CommandDelete:
-		h.continueDelete(ctx, b, chatID, userID, st, update.Message.Text)
-	case domain.CommandBank:
-		h.continueBank(ctx, b, chatID, userID, st, update.Message.Text)
-	case domain.CommandToggle:
-		h.continueToggle(ctx, b, chatID, userID, st, update.Message.Text)
-	}
-}
-
 func (h *Bot) continueNewBank(
 	ctx context.Context,
 	b *bot.Bot,
@@ -95,16 +62,15 @@ func (h *Bot) continueNewBank(
 }
 
 func (h *Bot) handleNewBankCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.CallbackQuery == nil {
+	if !h.beginCallback(ctx, b, update) {
 		return
 	}
-	h.answerCallback(ctx, b, update)
 	include, ok := parseIncludeCallback(update.CallbackQuery.Data)
 	if !ok {
 		return
 	}
-	st, ok := h.loadCallbackFSM(ctx, b, update)
-	if !ok || st.Flow != domain.CommandNewBank || st.Step != stepInclude || st.Name == "" {
+	st, ok := h.callbackFSM(ctx, b, update, domain.CommandNewBank, stepInclude)
+	if !ok || st.Name == "" {
 		return
 	}
 	h.createBankAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), st.Name, include)
@@ -140,8 +106,7 @@ func (h *Bot) progressNewBank(
 		return
 	}
 	if !errors.Is(err, domain.ErrBankNotFound) {
-		slog.Error("check bank name", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "check bank name", err)
 		return
 	}
 	h.saveFSM(ctx, userID, fsmState{Flow: domain.CommandNewBank, Step: stepInclude, Name: name})
@@ -165,68 +130,9 @@ func (h *Bot) createBankAndReply(
 		case errors.Is(err, domain.ErrInvalidBankName):
 			reply(ctx, b, chatID, text.InvalidBankName, nil)
 		default:
-			slog.Error("create bank", slog.Any("err", err))
-			reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+			replyErr(ctx, b, chatID, "create bank", err)
 		}
 		return
 	}
 	reply(ctx, b, chatID, text.BankCreated(bank.Name, bank.IncludeInTotal), nil)
-}
-
-func (h *Bot) answerCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	}); err != nil {
-		slog.Error("answer callback query", slog.Any("err", err))
-	}
-}
-
-func (h *Bot) loadCallbackFSM(ctx context.Context, b *bot.Bot, update *models.Update) (fsmState, bool) {
-	st, ok := h.loadFSM(ctx, domain.UserID(update.CallbackQuery.From.ID))
-	if !ok {
-		reply(ctx, b, callbackChatID(update), text.FlowExpired, nil)
-		return fsmState{}, false
-	}
-	return st, true
-}
-
-func (h *Bot) loadFSM(ctx context.Context, userID domain.UserID) (fsmState, bool) {
-	raw, ok, err := h.cache.Get(ctx, fsmKey(userID))
-	if err != nil {
-		slog.Error("fsm get", slog.Any("err", err))
-		return fsmState{}, false
-	}
-	if !ok {
-		return fsmState{}, false
-	}
-	var st fsmState
-	if err := json.Unmarshal(raw, &st); err != nil {
-		slog.Error("fsm decode", slog.Any("err", err))
-		return fsmState{}, false
-	}
-	return st, true
-}
-
-func (h *Bot) saveFSM(ctx context.Context, userID domain.UserID, st fsmState) {
-	raw, err := json.Marshal(st)
-	if err != nil {
-		slog.Error("fsm encode", slog.Any("err", err))
-		return
-	}
-	if err := h.cache.Set(ctx, fsmKey(userID), raw, fsmTTL); err != nil {
-		slog.Error("fsm set", slog.Any("err", err))
-	}
-}
-
-func (h *Bot) clearFSM(ctx context.Context, userID domain.UserID) {
-	if err := h.cache.Delete(ctx, fsmKey(userID)); err != nil {
-		slog.Error("fsm delete", slog.Any("err", err))
-	}
-}
-
-func callbackChatID(update *models.Update) int64 {
-	if update == nil || update.CallbackQuery == nil || update.CallbackQuery.Message.Message == nil {
-		return 0
-	}
-	return update.CallbackQuery.Message.Message.Chat.ID
 }

@@ -1,7 +1,6 @@
 package telegram
 
 import (
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -94,27 +93,4 @@ func TestNewSetMyCommandsError(t *testing.T) {
 	_, err := New("123:token", mocks.NewMockService(t), mocks.NewMockCache(t), client)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "register telegram commands")
-}
-
-func expectSetMyCommands(t *testing.T, client *mocks.MockHTTPClient, body *string) {
-	t.Helper()
-	resp := jsonResponse(http.StatusOK, `{"ok":true,"result":true}`)
-	t.Cleanup(func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Errorf("close setMyCommands body: %v", err)
-		}
-	})
-
-	exp := client.EXPECT().
-		Do(mock.MatchedBy(func(req *http.Request) bool {
-			return strings.Contains(req.URL.Path, "setMyCommands")
-		}))
-	if body != nil {
-		exp.Run(func(req *http.Request) {
-			b, err := io.ReadAll(req.Body)
-			require.NoError(t, err)
-			*body = string(b)
-		})
-	}
-	exp.Return(resp, nil).Once()
 }

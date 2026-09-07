@@ -3,7 +3,6 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -61,14 +60,8 @@ func (h *Bot) progressDelete(
 		h.offerBanks(ctx, b, chatID, userID, domain.CommandDelete)
 		return
 	}
-	bank, err := h.svc.GetByName(ctx, userID, name)
-	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
-		return
-	}
-	if err != nil {
-		slog.Error("get bank by name", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	if !ok {
 		return
 	}
 	h.askDeleteConfirm(ctx, b, chatID, userID, bank)
@@ -81,7 +74,7 @@ func (h *Bot) askDeleteConfirm(
 	userID domain.UserID,
 	bank domain.Bank,
 ) {
-	h.saveFSM(ctx, userID, confirmState(bank))
+	h.saveFSM(ctx, userID, deleteConfirmState(bank))
 	reply(ctx, b, chatID, text.AskDeleteConfirm(bank.Name), deleteConfirmKeyboard(bank.ID))
 }
 
@@ -100,8 +93,7 @@ func (h *Bot) deleteBankAndReply(
 		return
 	}
 	if err != nil {
-		slog.Error("delete bank", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "delete bank", err)
 		return
 	}
 	reply(ctx, b, chatID, text.BankDeleted(name), nil)
@@ -113,10 +105,9 @@ func (h *Bot) cancelDelete(ctx context.Context, b *bot.Bot, chatID int64, userID
 }
 
 func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.CallbackQuery == nil {
+	if !h.beginCallback(ctx, b, update) {
 		return
 	}
-	h.answerCallback(ctx, b, update)
 	action, bankID, ok := parseDeleteCallback(update.CallbackQuery.Data)
 	if !ok {
 		return
@@ -132,10 +123,8 @@ func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *mode
 		if st.Step != stepBank {
 			return
 		}
-		bank, err := h.svc.Get(ctx, userID, bankID)
-		if err != nil {
-			slog.Error("get bank", slog.Any("err", err))
-			reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		bank, ok := h.bankByID(ctx, b, chatID, userID, bankID)
+		if !ok {
 			return
 		}
 		h.askDeleteConfirm(ctx, b, chatID, userID, bank)
@@ -161,13 +150,9 @@ func parseDeleteCallback(data string) (action string, bankID int64, ok bool) {
 		{callbackDeleteNo, domain.No},
 		{callbackDeletePrefix, deleteActionPick},
 	} {
-		rest, found := strings.CutPrefix(data, p.prefix)
+		id, found := parsePrefixedID(data, p.prefix)
 		if !found {
 			continue
-		}
-		id, err := strconv.ParseInt(rest, 10, 64)
-		if err != nil {
-			return "", 0, false
 		}
 		return p.action, id, true
 	}
@@ -184,6 +169,6 @@ func deleteConfirmKeyboard(bankID int64) *models.InlineKeyboardMarkup {
 	}
 }
 
-func confirmState(bank domain.Bank) fsmState {
+func deleteConfirmState(bank domain.Bank) fsmState {
 	return fsmState{Flow: domain.CommandDelete, Step: stepConfirm, Name: bank.Name, BankID: bank.ID}
 }

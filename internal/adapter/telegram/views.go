@@ -2,9 +2,6 @@ package telegram
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -73,14 +70,8 @@ func (h *Bot) progressBank(
 		h.offerBanks(ctx, b, chatID, userID, domain.CommandBank)
 		return
 	}
-	bank, err := h.svc.GetByName(ctx, userID, name)
-	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
-		return
-	}
-	if err != nil {
-		slog.Error("get bank by name", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	if !ok {
 		return
 	}
 	h.replyBankCard(ctx, b, chatID, userID, bank, fromFSM)
@@ -101,14 +92,8 @@ func (h *Bot) replyBankCard(
 }
 
 func (h *Bot) replyBanks(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
-	banks, err := h.svc.List(ctx, userID)
-	if err != nil {
-		slog.Error("list banks", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
-		return
-	}
-	if len(banks) == 0 {
-		reply(ctx, b, chatID, text.NoBanks, nil)
+	banks, ok := h.loadBanks(ctx, b, chatID, userID)
+	if !ok {
 		return
 	}
 	reply(ctx, b, chatID, formatBanks(banks), nil)
@@ -117,8 +102,7 @@ func (h *Bot) replyBanks(ctx context.Context, b *bot.Bot, chatID int64, userID d
 func (h *Bot) replyTotal(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
 	total, err := h.svc.Total(ctx, userID)
 	if err != nil {
-		slog.Error("total", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "total", err)
 		return
 	}
 	reply(ctx, b, chatID, text.Total(total.Format()), nil)
@@ -127,8 +111,7 @@ func (h *Bot) replyTotal(ctx context.Context, b *bot.Bot, chatID int64, userID d
 func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
 	banks, total, err := h.svc.All(ctx, userID)
 	if err != nil {
-		slog.Error("all banks", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "all banks", err)
 		return
 	}
 	if len(banks) == 0 {
@@ -139,38 +122,23 @@ func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID dom
 }
 
 func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.CallbackQuery == nil {
+	if !h.beginCallback(ctx, b, update) {
 		return
 	}
-	h.answerCallback(ctx, b, update)
-	bankID, ok := parseBankCallback(update.CallbackQuery.Data)
+	bankID, ok := parsePrefixedID(update.CallbackQuery.Data, callbackBankPrefix)
 	if !ok {
 		return
 	}
-	st, ok := h.loadCallbackFSM(ctx, b, update)
-	if !ok || st.Flow != domain.CommandBank || st.Step != stepBank {
+	if _, ok := h.callbackFSM(ctx, b, update, domain.CommandBank, stepBank); !ok {
 		return
 	}
 	userID := domain.UserID(update.CallbackQuery.From.ID)
-	bank, err := h.svc.Get(ctx, userID, bankID)
-	if err != nil {
-		slog.Error("get bank", slog.Any("err", err))
-		reply(ctx, b, callbackChatID(update), text.SomethingWentWrong, nil)
+	chatID := callbackChatID(update)
+	bank, ok := h.bankByID(ctx, b, chatID, userID, bankID)
+	if !ok {
 		return
 	}
-	h.replyBankCard(ctx, b, callbackChatID(update), userID, bank, true)
-}
-
-func parseBankCallback(data string) (int64, bool) {
-	rest, found := strings.CutPrefix(data, callbackBankPrefix)
-	if !found {
-		return 0, false
-	}
-	id, err := strconv.ParseInt(rest, 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return id, true
+	h.replyBankCard(ctx, b, chatID, userID, bank, true)
 }
 
 func formatBanks(banks []domain.Bank) string {

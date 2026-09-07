@@ -11,8 +11,6 @@ import (
 	"finbot/internal/text"
 )
 
-const testBankID int64 = 7
-
 func TestSplitBankAmount(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -238,7 +236,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
-			b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+			b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				tt.setup(svc, cache, client, &sent)
 			})
 			b.ProcessUpdate(ctx, commandUpdate(tt.text))
@@ -258,7 +256,7 @@ func TestMoneyPendingBankName(t *testing.T) {
 	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 0}
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
 		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
@@ -276,7 +274,7 @@ func TestMoneyPendingAmount(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
 		}), true, nil)
@@ -296,7 +294,7 @@ func TestMoneyPendingAmountInvalid(t *testing.T) {
 	key := fsmKey(userID)
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandSpend, Step: stepAmount, Name: "Gifts", BankID: testBankID,
 		}), true, nil)
@@ -316,7 +314,7 @@ func TestMoneyCallbackAsksAmount(t *testing.T) {
 	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 0}
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
 		svc.EXPECT().Get(ctx, userID, testBankID).Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
@@ -325,7 +323,7 @@ func TestMoneyCallbackAsksAmount(t *testing.T) {
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, includeCallbackUpdate(callbackAddPrefix+"7"))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackAddPrefix+"7"))
 	require.Contains(t, sent, text.AskAddAmount("Holiday"))
 }
 

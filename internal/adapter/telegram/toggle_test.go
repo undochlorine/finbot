@@ -116,7 +116,7 @@ func TestToggleCommandFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
-			b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+			b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				tt.setup(svc, cache, client, &sent)
 			})
 			b.ProcessUpdate(ctx, commandUpdate(tt.text))
@@ -140,7 +140,7 @@ func TestTogglePendingBankName(t *testing.T) {
 	out.IncludeInTotal = false
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
 		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
 		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
@@ -162,14 +162,14 @@ func TestToggleCallbackFlipsAndReplies(t *testing.T) {
 	out.IncludeInTotal = false
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
 		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
 		cache.EXPECT().Delete(ctx, key).Return(nil)
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, includeCallbackUpdate(callbackTogglePrefix+"7"))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackTogglePrefix+"7"))
 	require.Contains(t, sent, text.Toggled("Holiday", "50.00", false))
 }
 
@@ -180,7 +180,7 @@ func TestToggleNotFound(t *testing.T) {
 	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
 		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(domain.Bank{}, domain.ErrBankNotFound)
 		cache.EXPECT().Delete(ctx, key).Return(nil)
@@ -201,7 +201,7 @@ func TestToggleThenTotalUsesNewIncludedSet(t *testing.T) {
 	out.IncludeInTotal = false
 	var toggled, total string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
 		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
 		cache.EXPECT().Delete(ctx, key).Return(nil)

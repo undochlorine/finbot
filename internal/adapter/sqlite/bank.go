@@ -12,6 +12,10 @@ import (
 
 var _ service.BankRepository = (*BankRepository)(nil)
 
+const selectBank = `
+		SELECT id, user_id, name, balance_cents, include_in_total, created_at, updated_at
+		FROM banks`
+
 type BankRepository struct {
 	db *sql.DB
 }
@@ -50,9 +54,7 @@ func (r *BankRepository) Create(ctx context.Context, userID domain.UserID, bank 
 }
 
 func (r *BankRepository) GetByID(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error) {
-	row := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, balance_cents, include_in_total, created_at, updated_at
-		FROM banks
+	row := r.db.QueryRowContext(ctx, selectBank+`
 		WHERE id = ? AND user_id = ?`, bankID, userID)
 	return scanBankRow(row, "get bank")
 }
@@ -62,17 +64,13 @@ func (r *BankRepository) GetByName(ctx context.Context, userID domain.UserID, na
 	if err != nil {
 		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
 	}
-	row := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, balance_cents, include_in_total, created_at, updated_at
-		FROM banks
+	row := r.db.QueryRowContext(ctx, selectBank+`
 		WHERE user_id = ? AND name_normalized = ?`, userID, norm)
 	return scanBankRow(row, "get bank by name")
 }
 
 func (r *BankRepository) List(ctx context.Context, userID domain.UserID) (banks []domain.Bank, err error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, user_id, name, balance_cents, include_in_total, created_at, updated_at
-		FROM banks
+	rows, err := r.db.QueryContext(ctx, selectBank+`
 		WHERE user_id = ?
 		ORDER BY name_normalized`, userID)
 	if err != nil {

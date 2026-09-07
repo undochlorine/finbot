@@ -58,7 +58,7 @@ func TestCancel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
-			b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+			b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				tt.setup(cache, client, &sent)
 			})
 			b.ProcessUpdate(ctx, commandUpdate(tt.text))
@@ -74,7 +74,7 @@ func TestSpendReplacesPendingAdd(t *testing.T) {
 	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
 	var sent string
 
-	b := newNewBankBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandAdd, Step: stepBank})
 		expectSendMessage(t, client, &sent)
@@ -94,11 +94,11 @@ func TestStaleCallbackIgnored(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 
-	b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandSpend, Step: stepBank}), true, nil)
 		expectAnswerCallbackQuery(t, client)
 	})
-	b.ProcessUpdate(ctx, includeCallbackUpdate(callbackAddPrefix+"7"))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackAddPrefix+"7"))
 }
 
 func TestExpiredCallbackAsksToStartOver(t *testing.T) {
@@ -123,12 +123,12 @@ func TestExpiredCallbackAsksToStartOver(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
-			b := newNewBankBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
+			b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 				cache.EXPECT().Get(ctx, key).Return(nil, false, nil)
 				expectAnswerCallbackQuery(t, client)
 				expectSendMessage(t, client, &sent)
 			})
-			b.ProcessUpdate(ctx, includeCallbackUpdate(tt.data))
+			b.ProcessUpdate(ctx, callbackUpdate(tt.data))
 			require.Contains(t, sent, text.FlowExpired)
 		})
 	}

@@ -3,8 +3,6 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot"
@@ -48,14 +46,8 @@ func (h *Bot) progressToggle(
 		h.offerBanks(ctx, b, chatID, userID, domain.CommandToggle)
 		return
 	}
-	bank, err := h.svc.GetByName(ctx, userID, name)
-	if errors.Is(err, domain.ErrBankNotFound) {
-		reply(ctx, b, chatID, text.UnknownBank(name), nil)
-		return
-	}
-	if err != nil {
-		slog.Error("get bank by name", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+	bank, ok := h.bankByName(ctx, b, chatID, userID, name)
+	if !ok {
 		return
 	}
 	h.toggleAndReply(ctx, b, chatID, userID, bank.Name, bank.ID)
@@ -80,37 +72,22 @@ func (h *Bot) toggleAndReply(
 		return
 	}
 	if err != nil {
-		slog.Error("toggle bank", slog.Any("err", err))
-		reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+		replyErr(ctx, b, chatID, "toggle bank", err)
 		return
 	}
 	reply(ctx, b, chatID, text.Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal), nil)
 }
 
 func (h *Bot) handleToggleCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update == nil || update.CallbackQuery == nil {
+	if !h.beginCallback(ctx, b, update) {
 		return
 	}
-	h.answerCallback(ctx, b, update)
-	bankID, ok := parseToggleCallback(update.CallbackQuery.Data)
+	bankID, ok := parsePrefixedID(update.CallbackQuery.Data, callbackTogglePrefix)
 	if !ok {
 		return
 	}
-	st, ok := h.loadCallbackFSM(ctx, b, update)
-	if !ok || st.Flow != domain.CommandToggle || st.Step != stepBank {
+	if _, ok := h.callbackFSM(ctx, b, update, domain.CommandToggle, stepBank); !ok {
 		return
 	}
 	h.toggleAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), "", bankID)
-}
-
-func parseToggleCallback(data string) (int64, bool) {
-	rest, found := strings.CutPrefix(data, callbackTogglePrefix)
-	if !found {
-		return 0, false
-	}
-	id, err := strconv.ParseInt(rest, 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return id, true
 }

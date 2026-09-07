@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"path"
 	"sort"
 	"strings"
@@ -132,9 +134,8 @@ func closeWith(db *sql.DB, err error) error {
 }
 
 func rollbackTx(tx *sql.Tx) {
-	err := tx.Rollback()
-	if err == nil || err == sql.ErrTxDone {
-		return
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		slog.Error("rollback migration", slog.Any("err", err))
 	}
 }
 

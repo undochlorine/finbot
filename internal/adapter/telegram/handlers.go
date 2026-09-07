@@ -13,61 +13,40 @@ import (
 )
 
 func (h *Bot) registerHandlers() {
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandStart), handleStart)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandHelp), handleHelp)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandNewBank), h.handleNewBank)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAdd), h.handleAdd)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSpend), h.handleSpend)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandSet), h.handleSet)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandDelete), h.handleDelete)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandBank), h.handleBank)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandToggle), h.handleToggle)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandBanks), h.handleBanks)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandTotal), h.handleTotal)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(domain.CommandAll), h.handleAll)
-	h.inner.RegisterHandlerMatchFunc(commandAtStart(commandCancel), h.handleCancel)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackNewBankPrefix,
-		bot.MatchTypePrefix,
-		h.handleNewBankCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackAddPrefix,
-		bot.MatchTypePrefix,
-		h.handleMoneyCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackSpendPrefix,
-		bot.MatchTypePrefix,
-		h.handleMoneyCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackSetPrefix,
-		bot.MatchTypePrefix,
-		h.handleMoneyCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackDeletePrefix,
-		bot.MatchTypePrefix,
-		h.handleDeleteCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackBankPrefix,
-		bot.MatchTypePrefix,
-		h.handleBankCallback,
-	)
-	h.inner.RegisterHandler(
-		bot.HandlerTypeCallbackQueryData,
-		callbackTogglePrefix,
-		bot.MatchTypePrefix,
-		h.handleToggleCallback,
-	)
+	for _, item := range []struct {
+		cmd string
+		fn  bot.HandlerFunc
+	}{
+		{commandStart, handleStart},
+		{commandHelp, handleHelp},
+		{domain.CommandNewBank, h.handleNewBank},
+		{domain.CommandAdd, h.handleAdd},
+		{domain.CommandSpend, h.handleSpend},
+		{domain.CommandSet, h.handleSet},
+		{domain.CommandDelete, h.handleDelete},
+		{domain.CommandBank, h.handleBank},
+		{domain.CommandToggle, h.handleToggle},
+		{domain.CommandBanks, h.handleBanks},
+		{domain.CommandTotal, h.handleTotal},
+		{domain.CommandAll, h.handleAll},
+		{commandCancel, h.handleCancel},
+	} {
+		h.inner.RegisterHandlerMatchFunc(commandAtStart(item.cmd), item.fn)
+	}
+	for _, item := range []struct {
+		prefix string
+		fn     bot.HandlerFunc
+	}{
+		{callbackNewBankPrefix, h.handleNewBankCallback},
+		{callbackAddPrefix, h.handleMoneyCallback},
+		{callbackSpendPrefix, h.handleMoneyCallback},
+		{callbackSetPrefix, h.handleMoneyCallback},
+		{callbackDeletePrefix, h.handleDeleteCallback},
+		{callbackBankPrefix, h.handleBankCallback},
+		{callbackTogglePrefix, h.handleToggleCallback},
+	} {
+		h.inner.RegisterHandler(bot.HandlerTypeCallbackQueryData, item.prefix, bot.MatchTypePrefix, item.fn)
+	}
 }
 
 func commandPayload(msg string) string {
@@ -118,6 +97,37 @@ func (h *Bot) handleCancel(ctx context.Context, b *bot.Bot, update *models.Updat
 	reply(ctx, b, messageChatID(update), text.Canceled, nil)
 }
 
+func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models.Update) {
+	if update == nil || update.Message == nil {
+		return
+	}
+	if strings.HasPrefix(update.Message.Text, "/") {
+		return
+	}
+	from := sender(update)
+	if from == nil {
+		return
+	}
+	userID := domain.UserID(from.ID)
+	st, ok := h.loadFSM(ctx, userID)
+	if !ok {
+		return
+	}
+	chatID := messageChatID(update)
+	switch st.Flow {
+	case domain.CommandNewBank:
+		h.continueNewBank(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandAdd, domain.CommandSpend, domain.CommandSet:
+		h.continueMoney(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandDelete:
+		h.continueDelete(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandBank:
+		h.continueBank(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandToggle:
+		h.continueToggle(ctx, b, chatID, userID, st, update.Message.Text)
+	}
+}
+
 func messageChatID(update *models.Update) int64 {
 	if update == nil || update.Message == nil {
 		return 0
@@ -136,4 +146,9 @@ func reply(ctx context.Context, b *bot.Bot, chatID int64, message string, markup
 	if _, err := b.SendMessage(ctx, params); err != nil {
 		slog.Error("send telegram message", slog.Any("err", err))
 	}
+}
+
+func replyErr(ctx context.Context, b *bot.Bot, chatID int64, op string, err error) {
+	slog.Error(op, slog.Any("err", err))
+	reply(ctx, b, chatID, text.SomethingWentWrong, nil)
 }
