@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -419,6 +420,83 @@ func TestRenameWritesOperation(t *testing.T) {
 	}
 }
 
+func TestTransferWritesOneOperation(t *testing.T) {
+	db := openTemp(t)
+	defer closeDB(t, db)
+	ctx := context.Background()
+	svc := testService(db, "USD")
+	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true)
+	if err != nil {
+		t.Fatalf("create holiday: %v", err)
+	}
+	if _, err := svc.Add(ctx, 1, holiday.ID, 5000); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	if err != nil {
+		t.Fatalf("create gifts: %v", err)
+	}
+
+	from, to, err := svc.Transfer(ctx, 1, holiday.ID, gifts.ID, 2500)
+	if err != nil {
+		t.Fatalf("transfer: %v", err)
+	}
+	if from.Balance != 2500 || to.Balance != 2500 {
+		t.Fatalf("balances from=%d to=%d", from.Balance, to.Balance)
+	}
+
+	var (
+		typ    string
+		amount int64
+		after  sql.NullInt64
+		bankID sql.NullInt64
+		meta   sql.NullString
+	)
+	if err := db.QueryRowContext(ctx, `
+		SELECT type, amount_cents, balance_after_cents, bank_id, meta
+		FROM operations WHERE type = 'transfer'`).Scan(&typ, &amount, &after, &bankID, &meta); err != nil {
+		t.Fatalf("transfer row: %v", err)
+	}
+	if typ != "transfer" || amount != 2500 || !after.Valid || after.Int64 != 2500 {
+		t.Fatalf("transfer op type=%s amount=%d after=%v", typ, amount, after)
+	}
+	if !bankID.Valid || bankID.Int64 != holiday.ID {
+		t.Fatalf("transfer bank_id %+v", bankID)
+	}
+	if !meta.Valid || meta.String != strconv.FormatInt(gifts.ID, 10) {
+		t.Fatalf("transfer meta %+v", meta)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM operations WHERE type = 'transfer'`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("transfer ops %d, want 1", n)
+	}
+
+	if _, _, err := svc.Transfer(ctx, 1, holiday.ID, holiday.ID, 100); !errors.Is(err, domain.ErrSameBank) {
+		t.Fatalf("same bank: %v", err)
+	}
+	if _, _, err := svc.Transfer(ctx, 1, holiday.ID, gifts.ID, 0); !errors.Is(err, domain.ErrInvalidAmount) {
+		t.Fatalf("zero: %v", err)
+	}
+
+	gotFrom, err := NewBankRepository(db).GetByID(ctx, 1, holiday.ID)
+	if err != nil {
+		t.Fatalf("get from: %v", err)
+	}
+	gotTo, err := NewBankRepository(db).GetByID(ctx, 1, gifts.ID)
+	if err != nil {
+		t.Fatalf("get to: %v", err)
+	}
+	if gotFrom.Balance != 2500 || gotTo.Balance != 2500 {
+		t.Fatalf("rejected transfer changed balances from=%d to=%d", gotFrom.Balance, gotTo.Balance)
+	}
+}
+
 func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 	db := openTemp(t)
 	defer closeDB(t, db)
@@ -466,5 +544,27 @@ func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 	}
 	if got.Name != "Live" {
 		t.Fatalf("rename left name %q", got.Name)
+	}
+
+	other, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	if err != nil {
+		t.Fatalf("create gifts: %v", err)
+	}
+	if _, _, err := svc.Transfer(ctx, 1, bank.ID, other.ID, 100); err == nil {
+		t.Fatal("transfer: want error")
+	}
+	got, err = NewBankRepository(db).GetByID(ctx, 1, bank.ID)
+	if err != nil {
+		t.Fatalf("get after transfer: %v", err)
+	}
+	if got.Balance != 0 {
+		t.Fatalf("transfer left balance %d", got.Balance)
+	}
+	got, err = NewBankRepository(db).GetByID(ctx, 1, other.ID)
+	if err != nil {
+		t.Fatalf("get to after transfer: %v", err)
+	}
+	if got.Balance != 0 {
+		t.Fatalf("transfer credited to %d", got.Balance)
 	}
 }

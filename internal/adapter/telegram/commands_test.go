@@ -28,6 +28,7 @@ func TestMenuCommandsListsMVPCommands(t *testing.T) {
 		{domain.CommandBank, text.CmdDescBank},
 		{domain.CommandToggle, text.CmdDescToggle},
 		{domain.CommandRename, text.CmdDescRename},
+		{domain.CommandTransfer, text.CmdDescTransfer},
 		{domain.CommandBanks, text.CmdDescBanks},
 		{domain.CommandTotal, text.CmdDescTotal},
 		{domain.CommandAll, text.CmdDescAll},

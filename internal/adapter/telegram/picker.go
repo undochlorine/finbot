@@ -109,7 +109,10 @@ func (h *Bot) bankByID(
 }
 
 func bankKeyboard(flow string, banks []domain.Bank) *models.InlineKeyboardMarkup {
-	prefix := callbackPrefix(flow)
+	return idKeyboard(callbackPrefix(flow), banks)
+}
+
+func idKeyboard(prefix string, banks []domain.Bank) *models.InlineKeyboardMarkup {
 	rows := make([][]models.InlineKeyboardButton, 0, len(banks))
 	for _, bank := range banks {
 		rows = append(rows, []models.InlineKeyboardButton{{

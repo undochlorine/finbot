@@ -17,6 +17,7 @@ type Catalog struct {
 	CmdDescBank     string
 	CmdDescToggle   string
 	CmdDescRename   string
+	CmdDescTransfer string
 	CmdDescBanks    string
 	CmdDescTotal    string
 	CmdDescAll      string
@@ -41,6 +42,10 @@ type Catalog struct {
 	FeedbackAsk         string
 	FeedbackThanks      string
 	FeedbackUnavailable string
+	NeedTwoBanks        string
+	AskTransferFrom     string
+	SameBank            string
+	CurrencyMismatch    string
 }
 
 func (c Catalog) BankCreated(name string, included bool) string {
@@ -127,6 +132,20 @@ func (c Catalog) BankRenamed(oldName, newName string) string {
 	return "✏️ Renamed \"" + oldName + "\" to \"" + newName + "\"."
 }
 
+func (c Catalog) AskTransferTo(fromName string) string {
+	return "Transfer from \"" + fromName + "\" to which bank?"
+}
+
+func (c Catalog) AskTransferAmount(fromName, toName string) string {
+	return "How much should I transfer from \"" + fromName + "\" to \"" + toName + "\"?"
+}
+
+func (c Catalog) Transferred(fromName, toName, amount, fromBalance, toBalance string) string {
+	return "💸 Transferred " + amount + " from \"" + fromName + "\" to \"" + toName + "\".\n" +
+		fromName + ": " + fromBalance + ".\n" +
+		toName + ": " + toBalance + "."
+}
+
 var en = Catalog{
 	CmdDescStart:    "welcome",
 	CmdDescHelp:     "this list",
@@ -138,6 +157,7 @@ var en = Catalog{
 	CmdDescBank:     "show one bank",
 	CmdDescToggle:   "include or exclude a bank from the total",
 	CmdDescRename:   "rename a bank",
+	CmdDescTransfer: "move money between banks",
 	CmdDescBanks:    "list all banks",
 	CmdDescTotal:    "sum of banks included in the total",
 	CmdDescAll:      "list banks and the total",
@@ -148,7 +168,7 @@ var en = Catalog{
 Some banks count toward your total; some do not.
 
 Send /help to see all commands. You can type a bank name after a command
-(names may contain spaces), for example /newbank Holiday or /rename Holiday.`,
+(names may contain spaces), for example /newbank Holiday, /rename Holiday, or /transfer Holiday Gifts 50.`,
 
 	Help: `Finbot commands:
 
@@ -162,6 +182,7 @@ Send /help to see all commands. You can type a bank name after a command
 /bank - show one bank
 /toggle - include or exclude a bank from the total
 /rename - rename a bank
+/transfer - move money between banks
 /banks - list all banks
 /total - sum of banks included in the total
 /all - list banks and the total
@@ -175,7 +196,8 @@ Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
 Delete still asks you to confirm: /delete Holiday.
 Show one bank: /bank Holiday.
 Toggle whether a bank counts in the total: /toggle Holiday.
-Rename a bank: /rename Holiday, or /rename Holiday Trips.`,
+Rename a bank: /rename Holiday, or /rename Holiday Trips.
+Transfer between banks: /transfer Holiday Gifts 50.`,
 
 	NewBankAskName:      "What should this bank be called?",
 	NewBankAskInclude:   "Count this bank in your total?",
@@ -193,6 +215,10 @@ Rename a bank: /rename Holiday, or /rename Holiday Trips.`,
 	FeedbackAsk:         "What's your feedback? Send it as a message.",
 	FeedbackThanks:      "🙏 Thanks, I sent that to the admin.",
 	FeedbackUnavailable: "Feedback is not available right now.",
+	NeedTwoBanks:        "You need at least two banks to transfer. Create another with /newbank.",
+	AskTransferFrom:     "Transfer from which bank?",
+	SameBank:            "Choose a different bank to transfer to.",
+	CurrencyMismatch:    "Those banks use different currencies. Transfers must be the same currency.",
 }
 
 var catalogs = map[string]Catalog{
@@ -218,6 +244,7 @@ var (
 	CmdDescBank     = en.CmdDescBank
 	CmdDescToggle   = en.CmdDescToggle
 	CmdDescRename   = en.CmdDescRename
+	CmdDescTransfer = en.CmdDescTransfer
 	CmdDescBanks    = en.CmdDescBanks
 	CmdDescTotal    = en.CmdDescTotal
 	CmdDescAll      = en.CmdDescAll
@@ -242,6 +269,10 @@ var (
 	FeedbackAsk         = en.FeedbackAsk
 	FeedbackThanks      = en.FeedbackThanks
 	FeedbackUnavailable = en.FeedbackUnavailable
+	NeedTwoBanks        = en.NeedTwoBanks
+	AskTransferFrom     = en.AskTransferFrom
+	SameBank            = en.SameBank
+	CurrencyMismatch    = en.CurrencyMismatch
 )
 
 func BankCreated(name string, included bool) string {
@@ -314,4 +345,16 @@ func AskRenameName(name string) string {
 
 func BankRenamed(oldName, newName string) string {
 	return en.BankRenamed(oldName, newName)
+}
+
+func AskTransferTo(fromName string) string {
+	return en.AskTransferTo(fromName)
+}
+
+func AskTransferAmount(fromName, toName string) string {
+	return en.AskTransferAmount(fromName, toName)
+}
+
+func Transferred(fromName, toName, amount, fromBalance, toBalance string) string {
+	return en.Transferred(fromName, toName, amount, fromBalance, toBalance)
 }

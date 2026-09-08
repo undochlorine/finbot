@@ -386,6 +386,172 @@ func TestRename(t *testing.T) {
 	}
 }
 
+func TestTransfer(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+	from := sampleBank(userA, 1, "Holiday", 10000, true)
+	to := sampleBank(userA, 2, "Gifts", 2500, false)
+	eur := from
+	eur.Currency = "EUR"
+
+	tests := []struct {
+		name     string
+		fromID   int64
+		toID     int64
+		amount   domain.Money
+		setup    func(*mocks.MockBankRepository, *mocks.MockOperationRepository, *mocks.MockClock)
+		wantFrom domain.Money
+		wantTo   domain.Money
+		wantErr  error
+	}{
+		{
+			name:   "moves money and writes one transfer row",
+			fromID: from.ID,
+			toID:   to.ID,
+			amount: 2500,
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(from, nil)
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(to, nil)
+				clock.EXPECT().Now().Return(now).Times(2)
+				debited := from
+				debited.Balance = 7500
+				debited.UpdatedAt = now
+				credited := to
+				credited.Balance = 5000
+				credited.UpdatedAt = now
+				banks.EXPECT().Update(ctx, userA, debited).Return(debited, nil)
+				banks.EXPECT().Update(ctx, userA, credited).Return(credited, nil)
+				after := domain.Money(7500)
+				ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationTransfer, 2500, from.ID, &after, "2", now)).Return(nil)
+			},
+			wantFrom: 7500,
+			wantTo:   5000,
+		},
+		{
+			name:   "overdraft allowed",
+			fromID: from.ID,
+			toID:   to.ID,
+			amount: 12500,
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(from, nil)
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(to, nil)
+				clock.EXPECT().Now().Return(now).Times(2)
+				debited := from
+				debited.Balance = -2500
+				debited.UpdatedAt = now
+				credited := to
+				credited.Balance = 15000
+				credited.UpdatedAt = now
+				banks.EXPECT().Update(ctx, userA, debited).Return(debited, nil)
+				banks.EXPECT().Update(ctx, userA, credited).Return(credited, nil)
+				after := domain.Money(-2500)
+				ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationTransfer, 12500, from.ID, &after, "2", now)).Return(nil)
+			},
+			wantFrom: -2500,
+			wantTo:   15000,
+		},
+		{
+			name:    "same bank",
+			fromID:  from.ID,
+			toID:    from.ID,
+			amount:  100,
+			wantErr: domain.ErrSameBank,
+		},
+		{
+			name:    "zero amount",
+			fromID:  from.ID,
+			toID:    to.ID,
+			amount:  0,
+			wantErr: domain.ErrInvalidAmount,
+		},
+		{
+			name:    "negative amount",
+			fromID:  from.ID,
+			toID:    to.ID,
+			amount:  -1,
+			wantErr: domain.ErrInvalidAmount,
+		},
+		{
+			name:   "different currency",
+			fromID: from.ID,
+			toID:   to.ID,
+			amount: 100,
+			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(from, nil)
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(eur, nil)
+			},
+			wantErr: domain.ErrCurrencyMismatch,
+		},
+		{
+			name:   "unknown from bank",
+			fromID: 99,
+			toID:   to.ID,
+			amount: 100,
+			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			wantErr: domain.ErrBankNotFound,
+		},
+		{
+			name:   "unknown to bank",
+			fromID: from.ID,
+			toID:   99,
+			amount: 100,
+			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(from, nil)
+				banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			wantErr: domain.ErrBankNotFound,
+		},
+		{
+			name:   "debit overflow rejected",
+			fromID: from.ID,
+			toID:   to.ID,
+			amount: 1,
+			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				start := from
+				start.Balance = math.MinInt64
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(start, nil)
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(to, nil)
+			},
+			wantErr: domain.ErrInvalidAmount,
+		},
+		{
+			name:   "credit overflow rejected",
+			fromID: from.ID,
+			toID:   to.ID,
+			amount: 1,
+			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				start := to
+				start.Balance = math.MaxInt64
+				banks.EXPECT().GetByID(ctx, userA, from.ID).Return(from, nil)
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(start, nil)
+			},
+			wantErr: domain.ErrInvalidAmount,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, banks, ops, clock := newBankSvc(t)
+			if tt.setup != nil {
+				tt.setup(banks, ops, clock)
+			}
+
+			gotFrom, gotTo, err := svc.Transfer(ctx, userA, tt.fromID, tt.toID, tt.amount)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.True(t, banks.AssertNotCalled(t, "Update"))
+				require.True(t, ops.AssertNotCalled(t, "Append"))
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantFrom, gotFrom.Balance)
+			require.Equal(t, tt.wantTo, gotTo.Balance)
+		})
+	}
+}
+
 func TestToggleUnknownBank(t *testing.T) {
 	svc, banks, _, _ := newBankSvc(t)
 	ctx := context.Background()
@@ -454,6 +620,16 @@ func TestBanksIsolatedByUser(t *testing.T) {
 			},
 			run: func(t *testing.T, svc *Service) {
 				_, err := svc.Rename(ctx, userB, a.ID, "Trips")
+				require.ErrorIs(t, err, domain.ErrBankNotFound)
+			},
+		},
+		{
+			name: "cannot transfer other user's bank",
+			setup: func(banks *mocks.MockBankRepository) {
+				banks.EXPECT().GetByID(ctx, userB, a.ID).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			run: func(t *testing.T, svc *Service) {
+				_, _, err := svc.Transfer(ctx, userB, a.ID, b.ID, 100)
 				require.ErrorIs(t, err, domain.ErrBankNotFound)
 			},
 		},

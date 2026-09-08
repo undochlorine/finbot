@@ -978,6 +978,96 @@ func (_c *MockService_Total_Call) RunAndReturn(run func(ctx context.Context, use
 	return _c
 }
 
+// Transfer provides a mock function for the type MockService
+func (_mock *MockService) Transfer(ctx context.Context, userID domain.UserID, fromID int64, toID int64, amount domain.Money) (domain.Bank, domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, fromID, toID, amount)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Transfer")
+	}
+
+	var r0 domain.Bank
+	var r1 domain.Bank
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, int64, domain.Money) (domain.Bank, domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, fromID, toID, amount)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, int64, domain.Money) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, fromID, toID, amount)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, int64, domain.Money) domain.Bank); ok {
+		r1 = returnFunc(ctx, userID, fromID, toID, amount)
+	} else {
+		r1 = ret.Get(1).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, domain.UserID, int64, int64, domain.Money) error); ok {
+		r2 = returnFunc(ctx, userID, fromID, toID, amount)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockService_Transfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Transfer'
+type MockService_Transfer_Call struct {
+	*mock.Call
+}
+
+// Transfer is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - fromID int64
+//   - toID int64
+//   - amount domain.Money
+func (_e *MockService_Expecter) Transfer(ctx interface{}, userID interface{}, fromID interface{}, toID interface{}, amount interface{}) *MockService_Transfer_Call {
+	return &MockService_Transfer_Call{Call: _e.mock.On("Transfer", ctx, userID, fromID, toID, amount)}
+}
+
+func (_c *MockService_Transfer_Call) Run(run func(ctx context.Context, userID domain.UserID, fromID int64, toID int64, amount domain.Money)) *MockService_Transfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 int64
+		if args[3] != nil {
+			arg3 = args[3].(int64)
+		}
+		var arg4 domain.Money
+		if args[4] != nil {
+			arg4 = args[4].(domain.Money)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Transfer_Call) Return(bank domain.Bank, bank1 domain.Bank, err error) *MockService_Transfer_Call {
+	_c.Call.Return(bank, bank1, err)
+	return _c
+}
+
+func (_c *MockService_Transfer_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, fromID int64, toID int64, amount domain.Money) (domain.Bank, domain.Bank, error)) *MockService_Transfer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpsertUser provides a mock function for the type MockService
 func (_mock *MockService) UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error) {
 	ret := _mock.Called(ctx, userID, username)
