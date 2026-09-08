@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.8` |
-| **Last done** | `3.7` per-user FIFO pending commands |
+| **Current step** | `3.9` |
+| **Last done** | `3.8` collapse redundant queued commands |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.8` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.9` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -574,6 +574,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-08 | Add/spend/set/delete are atomic via service `Transactor` (sqlite tx on the context). `3.11` `/transfer` reuses it. Supercedes the earlier “no unit of work in 3.6” cut. |
 | 2026-09-08 | Stage 3 grows before transfer: per-user FIFO pending commands (`3.7`), collapse obvious queued no-ops (`3.8`), sparse outcome emojis (`3.9`), `/rename` (`3.10`). Same-currency `/transfer` moves to `3.11`. Hardened private MVP completes at `3.11`. Production handlers must not race; `WithNotAsyncHandlers` is not the only fix. Collapse rules, burst cap 32 drop-oldest, consecutive identical `/newbank`/`/delete` extras dropped, and `/rename` with no two-name shortcut are locked. Recase of the same bank is allowed. `3.9` baseline emojis may be extended with other office/finance glyphs; still no emoji on help lines, errors, or wizard prompts. |
 | 2026-09-08 | `3.7`: RAM FIFO per Telegram user in the adapter. `New()` uses `WithNotAsyncHandlers` + one worker so enqueue matches send order; drain still runs handlers. Cap 32 drop-oldest. Collapse is `3.8`. |
+| 2026-09-08 | `3.8`: `compact` on the waiting slash list when a drain starts and after each job. Consecutive identical idempotent/empty-wizard/`/newbank`/`/delete` keep the first (still handled once). Empty wizard dropped when the next waiting slash is a flow-start. No extra skipped line. |
 
 ---
 
@@ -805,7 +806,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.8 Collapse redundant queued commands
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** still handle the burst, but drop only the obvious redundant/invalid **waiting** slash commands. Do not invent extra heuristics.
 - **Notes:** Pure `compact` on the waiting list. Rules are locked in [Pending commands](#pending-commands-37--38). No bank-state simulation. No extra “skipped” chat line. Depends on `3.7`.
 - **Files:** `internal/adapter/telegram/` (`compact` next to pending; table tests)
@@ -987,4 +988,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.8`
+`let's move to step 3.9`
