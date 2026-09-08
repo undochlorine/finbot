@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.10` |
-| **Last done** | `3.9` outcome emojis |
+| **Current step** | `3.11` |
+| **Last done** | `3.10` `/rename` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.10` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.11` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -120,7 +120,7 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **Command order:** one in-memory FIFO of pending updates **per Telegram user** in the telegram adapter (not Cache, not SQLite). A burst is handled in send order. `3.8` may drop only the locked obvious no-ops. See [Pending commands](#pending-commands-37--38).
 - **Emojis:** sparse, office/finance style. Baseline in [Emojis](#emojis-39); an implementer may add more of the same family. No emoji on errors, wizard prompts, or `/help` lines.
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
-- **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). No two-name shortcut — names may contain spaces. Unique per user stays case-insensitive. Recasing the same bank is allowed. See `3.10`.
+- **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). If the full arg is not a bank, `/rename Travelling Holiday` renames bank `Travelling` to `Holiday`. Unique per user stays case-insensitive. Recasing the same bank is allowed. See `3.10`.
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
 - **Money:** `int64` minor units (cents). Display as `123.45`. No multi-currency **UX** until `4.13`. Step `3.6` adds `banks.currency` + `DEFAULT_CURRENCY` (hidden in copy; totals still sum as today). FX / cross-currency transfer is `4.13`–`4.14`.
 - **Negative balances:** allowed (personal tracking, not a hard wallet). **Negative add/spend amounts are invalid** (`ErrInvalidAmount`); use `/spend` / `/set` instead
@@ -377,14 +377,14 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/all` | Full list + total | `2.7` |
 | `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. | `2.9` |
 | `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. | `3.4` |
-| `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. No `/rename Old New` — names may contain spaces. | `3.10` |
+| `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. If that full name is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. | `3.10` |
 | `/transfer` | Pick from-bank → to-bank → amount. Same currency only. Reject same bank / invalid amount. | `3.11` |
 
 **Later (`4.x`, not Stage 3):** `/history`, `/language`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`. `/transfer` shortcuts should match `/add` style (details at `3.11`).
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer` shortcuts should match `/add` style (details at `3.11`).
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
@@ -429,7 +429,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Concurrent updates from the **same** user → `3.7` runs them FIFO (not a SQLite race). Two different users may overlap.
 - Very large amounts → reject if cents would overflow `int64`
 - User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
-- `/rename` (`3.10`): unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds
+- `/rename` (`3.10`): unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds. Slash args try the full remainder as the current name first; if missing, first word is the old name and the rest is the new name.
 - `/transfer` (`3.11`): reject different currency, same bank, invalid amount; empty state same as `/add`
 
 ### Pending commands (`3.7`–`3.8`)
@@ -575,6 +575,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-08 | Stage 3 grows before transfer: per-user FIFO pending commands (`3.7`), collapse obvious queued no-ops (`3.8`), sparse outcome emojis (`3.9`), `/rename` (`3.10`). Same-currency `/transfer` moves to `3.11`. Hardened private MVP completes at `3.11`. Production handlers must not race; `WithNotAsyncHandlers` is not the only fix. Collapse rules, burst cap 32 drop-oldest, consecutive identical `/newbank`/`/delete` extras dropped, and `/rename` with no two-name shortcut are locked. Recase of the same bank is allowed. `3.9` baseline emojis may be extended with other office/finance glyphs; still no emoji on help lines, errors, or wizard prompts. |
 | 2026-09-08 | `3.7`: RAM FIFO per Telegram user in the adapter. `New()` uses `WithNotAsyncHandlers` + one worker so enqueue matches send order; drain still runs handlers. Cap 32 drop-oldest. Collapse is `3.8`. |
 | 2026-09-08 | `3.8`: `compact` on the waiting slash list when a drain starts and after each job. Consecutive identical idempotent/empty-wizard/`/newbank`/`/delete` keep the first (still handled once). Empty wizard dropped when the next waiting slash is a flow-start. No extra skipped line. |
+| 2026-09-08 | `/rename` args: try the full remainder as the current bank name (spaces allowed). If missing, first word is old name and the rest is the new name (`/rename Travelling Holiday` → rename `Travelling` to `Holiday`). If that first word is also missing → unknown-bank error. Wizard typed answers still use the full text as the current name. |
 
 ---
 
@@ -822,9 +823,9 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.10 `/rename`
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** rename one of the user’s banks without deleting it.
-- **Flow:** pick bank (buttons or `/rename Travelling`) → type the new name. Duplicate of **another** bank errors immediately and stays on the name step (same as `/newbank`). Recasing the same bank (`Holiday` → `holiday`) succeeds and stores the new spelling. Empty name re-prompts. No banks → empty-state hint `/newbank`. No `/rename Old New` shortcut (names may contain spaces). Chat hygiene: one edited prompt; typed new name is swept; outcome kept.
+- **Flow:** pick bank (buttons or `/rename Travelling`) → type the new name. Duplicate of **another** bank errors immediately and stays on the name step (same as `/newbank`). Recasing the same bank (`Holiday` → `holiday`) succeeds and stores the new spelling. Empty name re-prompts. No banks → empty-state hint `/newbank`. Slash args try the full remainder as the current name first; if that bank is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. Chat hygiene: one edited prompt; typed new name is swept; outcome kept.
 - **Service:** `Rename(ctx, userID, bankID, newName) (Bank, error)` uses existing `BankRepository.Update`, `Transactor`, and an `operations` row: type `rename`, `amount_cents` 0, `balance_after_cents` current balance, `meta` `Old -> New` (old stored name, new name as typed). SQLite `CHECK` on `operations.type` must allow `rename` (rebuild the table in a new numbered migration; SQLite cannot ALTER CHECK).
 - **Also:** `domain.CommandRename`, slash menu, `/help` `/start` mention, callback `v1:rename:<bankID>`. Outcome may use ✏️ or another office/finance emoji from `3.9`. Entitlement later (`4.5`) treats `/rename` as an extra-bank command.
 - **Files:** domain, service (+ mockery if the consumer interface grows), sqlite migration + repo tests, `internal/text`, telegram handlers/tests, `commands.go`
@@ -988,4 +989,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.10`
+`let's move to step 3.11`

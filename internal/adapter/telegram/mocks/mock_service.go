@@ -543,6 +543,84 @@ func (_c *MockService_List_Call) RunAndReturn(run func(ctx context.Context, user
 	return _c
 }
 
+// Rename provides a mock function for the type MockService
+func (_mock *MockService) Rename(ctx context.Context, userID domain.UserID, bankID int64, newName string) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID, newName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Rename")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, string) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID, newName)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, string) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID, newName)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, string) error); ok {
+		r1 = returnFunc(ctx, userID, bankID, newName)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_Rename_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Rename'
+type MockService_Rename_Call struct {
+	*mock.Call
+}
+
+// Rename is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+//   - newName string
+func (_e *MockService_Expecter) Rename(ctx interface{}, userID interface{}, bankID interface{}, newName interface{}) *MockService_Rename_Call {
+	return &MockService_Rename_Call{Call: _e.mock.On("Rename", ctx, userID, bankID, newName)}
+}
+
+func (_c *MockService_Rename_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64, newName string)) *MockService_Rename_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_Rename_Call) Return(bank domain.Bank, err error) *MockService_Rename_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_Rename_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64, newName string) (domain.Bank, error)) *MockService_Rename_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Set provides a mock function for the type MockService
 func (_mock *MockService) Set(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error) {
 	ret := _mock.Called(ctx, userID, bankID, amount)

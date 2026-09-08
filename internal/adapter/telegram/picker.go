@@ -58,21 +58,7 @@ func (h *Bot) bankByName(
 ) (domain.Bank, bool) {
 	bank, err := h.svc.GetByName(ctx, userID, name)
 	if errors.Is(err, domain.ErrBankNotFound) {
-		if st.PromptID == 0 {
-			reply(ctx, b, chatID, copyFrom(ctx).UnknownBank(name), nil)
-			return domain.Bank{}, false
-		}
-		banks, listErr := h.svc.List(ctx, userID)
-		if listErr != nil {
-			replyErr(ctx, b, chatID, "list banks", listErr)
-			return domain.Bank{}, false
-		}
-		var markup models.ReplyMarkup
-		if len(banks) > 0 {
-			st.Step = stepBank
-			markup = bankKeyboard(st.Flow, banks)
-		}
-		h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).UnknownBank(name), markup)
+		h.unknownBank(ctx, b, chatID, userID, st, name)
 		return domain.Bank{}, false
 	}
 	if err != nil {
@@ -80,6 +66,31 @@ func (h *Bot) bankByName(
 		return domain.Bank{}, false
 	}
 	return bank, true
+}
+
+func (h *Bot) unknownBank(
+	ctx context.Context,
+	b *bot.Bot,
+	chatID int64,
+	userID domain.UserID,
+	st fsmState,
+	name string,
+) {
+	if st.PromptID == 0 {
+		reply(ctx, b, chatID, copyFrom(ctx).UnknownBank(name), nil)
+		return
+	}
+	banks, listErr := h.svc.List(ctx, userID)
+	if listErr != nil {
+		replyErr(ctx, b, chatID, "list banks", listErr)
+		return
+	}
+	var markup models.ReplyMarkup
+	if len(banks) > 0 {
+		st.Step = stepBank
+		markup = bankKeyboard(st.Flow, banks)
+	}
+	h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).UnknownBank(name), markup)
 }
 
 func (h *Bot) bankByID(
@@ -121,6 +132,8 @@ func callbackPrefix(flow string) string {
 		return callbackBankPrefix
 	case domain.CommandToggle:
 		return callbackTogglePrefix
+	case domain.CommandRename:
+		return callbackRenamePrefix
 	default:
 		return callbackSetPrefix
 	}

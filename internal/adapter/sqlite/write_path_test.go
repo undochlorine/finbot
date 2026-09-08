@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -50,7 +51,10 @@ func TestWritePathMigrationIdempotent(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatalf("rows: %v", err)
 	}
-	if len(versions) != 2 || versions[0] != "001_init" || versions[1] != "002_write_path_foundations" {
+	if len(versions) != 3 ||
+		versions[0] != "001_init" ||
+		versions[1] != "002_write_path_foundations" ||
+		versions[2] != "003_rename_operation" {
 		t.Fatalf("versions %v", versions)
 	}
 }
@@ -271,6 +275,150 @@ func TestCreateEmptyCurrencyDefaultsUSD(t *testing.T) {
 	}
 }
 
+func TestRenameCheckMigrationPreservesRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "finbot.db")
+	ctx := context.Background()
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := pingAndPragma(ctx, db); err != nil {
+		t.Fatalf("pragma: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE schema_migrations (
+			version TEXT PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		)`); err != nil {
+		t.Fatalf("schema_migrations: %v", err)
+	}
+	for _, version := range []string{"001_init", "002_write_path_foundations"} {
+		body, err := migrationsFS.ReadFile("migrations/" + version + ".sql")
+		if err != nil {
+			t.Fatalf("read %s: %v", version, err)
+		}
+		if err := applyMigration(ctx, db, version, string(body)); err != nil {
+			t.Fatalf("apply %s: %v", version, err)
+		}
+	}
+	insertUser(t, db, 1, now)
+	insertBank(t, db, 1, "Live", "live", now)
+	var bankID int64
+	if err := db.QueryRowContext(ctx, `SELECT id FROM banks WHERE name = 'Live'`).Scan(&bankID); err != nil {
+		t.Fatalf("bank id: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO operations (user_id, bank_id, type, amount_cents, balance_after_cents, meta, created_at)
+		VALUES (1, ?, 'add', 2500, 2500, 'Live', ?)`, bankID, now); err != nil {
+		t.Fatalf("seed op: %v", err)
+	}
+	closeDB(t, db)
+
+	opened, err := Open(ctx, path)
+	if err != nil {
+		t.Fatalf("upgrade: %v", err)
+	}
+	defer closeDB(t, opened)
+
+	var (
+		typ   string
+		meta  string
+		after int64
+	)
+	if err := opened.QueryRowContext(ctx, `
+		SELECT type, meta, balance_after_cents FROM operations WHERE type = 'add'`).Scan(&typ, &meta, &after); err != nil {
+		t.Fatalf("preserved: %v", err)
+	}
+	if typ != "add" || meta != "Live" || after != 2500 {
+		t.Fatalf("preserved type=%s meta=%s after=%d", typ, meta, after)
+	}
+
+	if _, err := opened.ExecContext(ctx, `
+		INSERT INTO operations (user_id, bank_id, type, amount_cents, balance_after_cents, meta, created_at)
+		VALUES (1, ?, 'rename', 0, 2500, 'Live -> live', ?)`, bankID, now); err != nil {
+		t.Fatalf("insert rename: %v", err)
+	}
+}
+
+func TestRenameWritesOperation(t *testing.T) {
+	db := openTemp(t)
+	defer closeDB(t, db)
+	ctx := context.Background()
+	svc := testService(db, "USD")
+	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Add(ctx, 1, holiday.ID, 2500); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	if err != nil {
+		t.Fatalf("create gifts: %v", err)
+	}
+
+	renamed, err := svc.Rename(ctx, 1, holiday.ID, "holiday")
+	if err != nil {
+		t.Fatalf("recase: %v", err)
+	}
+	if renamed.Name != "holiday" || renamed.Balance != 2500 {
+		t.Fatalf("recase %+v", renamed)
+	}
+
+	var (
+		typ    string
+		amount int64
+		after  sql.NullInt64
+		bankID sql.NullInt64
+		meta   sql.NullString
+	)
+	if err := db.QueryRowContext(ctx, `
+		SELECT type, amount_cents, balance_after_cents, bank_id, meta
+		FROM operations WHERE type = 'rename'`).Scan(&typ, &amount, &after, &bankID, &meta); err != nil {
+		t.Fatalf("rename row: %v", err)
+	}
+	if typ != "rename" || amount != 0 || !after.Valid || after.Int64 != 2500 {
+		t.Fatalf("rename op type=%s amount=%d after=%v", typ, amount, after)
+	}
+	if !bankID.Valid || bankID.Int64 != holiday.ID {
+		t.Fatalf("rename bank_id %+v", bankID)
+	}
+	if !meta.Valid || meta.String != "Holiday -> holiday" {
+		t.Fatalf("rename meta %+v", meta)
+	}
+
+	if _, err := svc.Rename(ctx, 1, holiday.ID, "gifts"); !errors.Is(err, domain.ErrBankNameTaken) {
+		t.Fatalf("taken: %v", err)
+	}
+	got, err := NewBankRepository(db).GetByID(ctx, 1, holiday.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Name != "holiday" {
+		t.Fatalf("overwrote name %q", got.Name)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM operations WHERE type = 'rename'`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("rename ops %d, want 1", n)
+	}
+
+	got, err = svc.Rename(ctx, 1, gifts.ID, "Trips")
+	if err != nil {
+		t.Fatalf("rename gifts: %v", err)
+	}
+	if got.Name != "Trips" {
+		t.Fatalf("renamed %+v", got)
+	}
+}
+
 func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 	db := openTemp(t)
 	defer closeDB(t, db)
@@ -307,5 +455,16 @@ func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 	}
 	if _, err := NewBankRepository(db).GetByID(ctx, 1, bank.ID); err != nil {
 		t.Fatalf("delete removed bank: %v", err)
+	}
+
+	if _, err := svc.Rename(ctx, 1, bank.ID, "holiday"); err == nil {
+		t.Fatal("rename: want error")
+	}
+	got, err = NewBankRepository(db).GetByID(ctx, 1, bank.ID)
+	if err != nil {
+		t.Fatalf("get after rename: %v", err)
+	}
+	if got.Name != "Live" {
+		t.Fatalf("rename left name %q", got.Name)
 	}
 }

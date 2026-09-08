@@ -8,8 +8,6 @@ import (
 	"finbot/internal/domain"
 )
 
-const commandRename = "rename"
-
 func compact(jobs []pendingJob) []pendingJob {
 	return dropReplacedEmptyWizards(collapseIdenticalRuns(jobs))
 }
@@ -98,7 +96,7 @@ func isIdempotent(cmd, payload string) bool {
 func isEmptyWizardCmd(cmd string) bool {
 	switch cmd {
 	case domain.CommandNewBank, domain.CommandAdd, domain.CommandSpend, domain.CommandSet,
-		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, commandRename,
+		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, domain.CommandRename,
 		commandFeedback, commandCancel:
 		return true
 	default:
@@ -118,7 +116,7 @@ func isFlowStartSlash(job pendingJob) bool {
 	}
 	switch cmd {
 	case domain.CommandNewBank, domain.CommandAdd, domain.CommandSpend, domain.CommandSet,
-		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, commandRename, commandFeedback:
+		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, domain.CommandRename, commandFeedback:
 		return true
 	default:
 		return false

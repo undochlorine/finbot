@@ -284,6 +284,108 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 }
 
+func TestRename(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+	holiday := sampleBank(userA, 1, "Holiday", 10000, true)
+	gifts := sampleBank(userA, 2, "Gifts", 2500, false)
+
+	tests := []struct {
+		name    string
+		bankID  int64
+		newName string
+		setup   func(*mocks.MockBankRepository, *mocks.MockOperationRepository, *mocks.MockClock)
+		want    string
+		wantErr error
+	}{
+		{
+			name:    "persists typed spelling",
+			bankID:  holiday.ID,
+			newName: "Trips",
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, holiday.ID).Return(holiday, nil)
+				banks.EXPECT().GetByName(ctx, userA, "Trips").Return(domain.Bank{}, domain.ErrBankNotFound)
+				clock.EXPECT().Now().Return(now)
+				updated := holiday
+				updated.Name = "Trips"
+				updated.UpdatedAt = now
+				banks.EXPECT().Update(ctx, userA, updated).Return(updated, nil)
+				after := holiday.Balance
+				ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationRename, 0, holiday.ID, &after, "Holiday -> Trips", now)).Return(nil)
+			},
+			want: "Trips",
+		},
+		{
+			name:    "recases the same bank",
+			bankID:  holiday.ID,
+			newName: "holiday",
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, holiday.ID).Return(holiday, nil)
+				banks.EXPECT().GetByName(ctx, userA, "holiday").Return(holiday, nil)
+				clock.EXPECT().Now().Return(now)
+				updated := holiday
+				updated.Name = "holiday"
+				updated.UpdatedAt = now
+				banks.EXPECT().Update(ctx, userA, updated).Return(updated, nil)
+				after := holiday.Balance
+				ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationRename, 0, holiday.ID, &after, "Holiday -> holiday", now)).Return(nil)
+			},
+			want: "holiday",
+		},
+		{
+			name:    "name taken by another bank",
+			bankID:  holiday.ID,
+			newName: "gifts",
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, holiday.ID).Return(holiday, nil)
+				banks.EXPECT().GetByName(ctx, userA, "gifts").Return(gifts, nil)
+			},
+			wantErr: domain.ErrBankNameTaken,
+		},
+		{
+			name:    "unknown bank",
+			bankID:  99,
+			newName: "Trips",
+			setup: func(banks *mocks.MockBankRepository, ops *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			wantErr: domain.ErrBankNotFound,
+		},
+		{
+			name:    "empty name",
+			bankID:  holiday.ID,
+			newName: "",
+			wantErr: domain.ErrInvalidBankName,
+		},
+		{
+			name:    "whitespace name",
+			bankID:  holiday.ID,
+			newName: "   ",
+			wantErr: domain.ErrInvalidBankName,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, banks, ops, clock := newBankSvc(t)
+			if tt.setup != nil {
+				tt.setup(banks, ops, clock)
+			}
+
+			got, err := svc.Rename(ctx, userA, tt.bankID, tt.newName)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.True(t, banks.AssertNotCalled(t, "Update"))
+				require.True(t, ops.AssertNotCalled(t, "Append"))
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got.Name)
+			require.Equal(t, holiday.Balance, got.Balance)
+		})
+	}
+}
+
 func TestToggleUnknownBank(t *testing.T) {
 	svc, banks, _, _ := newBankSvc(t)
 	ctx := context.Background()
@@ -342,6 +444,16 @@ func TestBanksIsolatedByUser(t *testing.T) {
 			},
 			run: func(t *testing.T, svc *Service) {
 				err := svc.Delete(ctx, userB, a.ID)
+				require.ErrorIs(t, err, domain.ErrBankNotFound)
+			},
+		},
+		{
+			name: "cannot rename other user's bank",
+			setup: func(banks *mocks.MockBankRepository) {
+				banks.EXPECT().GetByID(ctx, userB, a.ID).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			run: func(t *testing.T, svc *Service) {
+				_, err := svc.Rename(ctx, userB, a.ID, "Trips")
 				require.ErrorIs(t, err, domain.ErrBankNotFound)
 			},
 		},

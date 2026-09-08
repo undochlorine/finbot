@@ -16,6 +16,7 @@ type Catalog struct {
 	CmdDescDelete   string
 	CmdDescBank     string
 	CmdDescToggle   string
+	CmdDescRename   string
 	CmdDescBanks    string
 	CmdDescTotal    string
 	CmdDescAll      string
@@ -118,6 +119,14 @@ func (c Catalog) Toggled(name, balance string, included bool) string {
 	return "✅ \"" + name + "\" now does not count toward your total. Balance is " + balance + "."
 }
 
+func (c Catalog) AskRenameName(name string) string {
+	return "What should \"" + name + "\" be called?"
+}
+
+func (c Catalog) BankRenamed(oldName, newName string) string {
+	return "✏️ Renamed \"" + oldName + "\" to \"" + newName + "\"."
+}
+
 var en = Catalog{
 	CmdDescStart:    "welcome",
 	CmdDescHelp:     "this list",
@@ -128,6 +137,7 @@ var en = Catalog{
 	CmdDescDelete:   "delete a bank",
 	CmdDescBank:     "show one bank",
 	CmdDescToggle:   "include or exclude a bank from the total",
+	CmdDescRename:   "rename a bank",
 	CmdDescBanks:    "list all banks",
 	CmdDescTotal:    "sum of banks included in the total",
 	CmdDescAll:      "list banks and the total",
@@ -138,7 +148,7 @@ var en = Catalog{
 Some banks count toward your total; some do not.
 
 Send /help to see all commands. You can type a bank name after a command
-(names may contain spaces), for example /newbank Holiday.`,
+(names may contain spaces), for example /newbank Holiday or /rename Holiday.`,
 
 	Help: `Finbot commands:
 
@@ -151,6 +161,7 @@ Send /help to see all commands. You can type a bank name after a command
 /delete - delete a bank
 /bank - show one bank
 /toggle - include or exclude a bank from the total
+/rename - rename a bank
 /banks - list all banks
 /total - sum of banks included in the total
 /all - list banks and the total
@@ -163,7 +174,8 @@ After the name is accepted, the bot asks whether the bank counts in your total.
 Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
 Delete still asks you to confirm: /delete Holiday.
 Show one bank: /bank Holiday.
-Toggle whether a bank counts in the total: /toggle Holiday.`,
+Toggle whether a bank counts in the total: /toggle Holiday.
+Rename a bank: /rename Holiday, or /rename Holiday Trips.`,
 
 	NewBankAskName:      "What should this bank be called?",
 	NewBankAskInclude:   "Count this bank in your total?",
@@ -205,6 +217,7 @@ var (
 	CmdDescDelete   = en.CmdDescDelete
 	CmdDescBank     = en.CmdDescBank
 	CmdDescToggle   = en.CmdDescToggle
+	CmdDescRename   = en.CmdDescRename
 	CmdDescBanks    = en.CmdDescBanks
 	CmdDescTotal    = en.CmdDescTotal
 	CmdDescAll      = en.CmdDescAll
@@ -293,4 +306,12 @@ func All(banks, total string) string {
 
 func Toggled(name, balance string, included bool) string {
 	return en.Toggled(name, balance, included)
+}
+
+func AskRenameName(name string) string {
+	return en.AskRenameName(name)
+}
+
+func BankRenamed(oldName, newName string) string {
+	return en.BankRenamed(oldName, newName)
 }
