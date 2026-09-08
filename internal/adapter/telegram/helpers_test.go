@@ -7,9 +7,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
-	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -65,6 +65,41 @@ func expectSetMyCommands(t *testing.T, client *mocks.MockHTTPClient, body *strin
 func expectSendMessage(t *testing.T, client *mocks.MockHTTPClient, sent *string) {
 	t.Helper()
 	expectAPI(t, client, "sendMessage", sendMessageOKBody, sent)
+}
+
+func expectSendMessageCapture(
+	t *testing.T,
+	client *mocks.MockHTTPClient,
+	mu *sync.Mutex,
+	sent *[]string,
+	started, release chan struct{},
+) {
+	t.Helper()
+	resp := jsonResponse(http.StatusOK, sendMessageOKBody)
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close sendMessage body: %v", err)
+		}
+	})
+	client.EXPECT().
+		Do(mock.MatchedBy(func(req *http.Request) bool {
+			return strings.Contains(req.URL.Path, "sendMessage")
+		})).
+		Run(func(req *http.Request) {
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			mu.Lock()
+			*sent = append(*sent, string(body))
+			mu.Unlock()
+			if started != nil {
+				close(started)
+			}
+			if release != nil {
+				<-release
+			}
+		}).
+		Return(resp, nil).
+		Once()
 }
 
 func expectEditMessage(t *testing.T, client *mocks.MockHTTPClient, sent *string) {
@@ -163,7 +198,7 @@ func newTestBot(
 
 	cache.EXPECT().Get(mock.Anything, mock.Anything).Return(nil, false, nil).Maybe()
 
-	b, err := New("123:token", svc, cache, client, bot.WithNotAsyncHandlers())
+	b, err := New("123:token", svc, cache, client)
 	require.NoError(t, err)
 	return b
 }
