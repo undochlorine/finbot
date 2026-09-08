@@ -32,6 +32,7 @@ type Notifier interface {
 
 type Service interface {
 	UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error)
+	SetReferredByIfEmpty(ctx context.Context, userID, referredBy domain.UserID) error
 	GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)
 	Get(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)
 	List(ctx context.Context, userID domain.UserID) ([]domain.Bank, error)

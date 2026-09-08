@@ -51,6 +51,9 @@ func TestBankRepositoryCRUD(t *testing.T) {
 	if created.ID == 0 || created.UserID != 1 || created.Name != "Live" || created.Balance != 1250 {
 		t.Fatalf("created %+v", created)
 	}
+	if created.Currency != "USD" {
+		t.Fatalf("currency %q, want USD", created.Currency)
+	}
 
 	byID, err := banks.GetByID(ctx, 1, created.ID)
 	if err != nil {

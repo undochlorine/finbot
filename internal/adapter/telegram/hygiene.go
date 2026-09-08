@@ -8,7 +8,6 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func uniqueIDs(ids []int) []int {
@@ -47,7 +46,7 @@ func sendMessage(
 	}
 	msg, err := b.SendMessage(ctx, params)
 	if err != nil {
-		slog.Error("send telegram message", slog.Any("err", err))
+		slog.Error("send telegram message", logAttrs(ctx, slog.Any("err", err))...)
 		return 0
 	}
 	return msg.ID
@@ -74,7 +73,7 @@ func editMessage(
 		ReplyMarkup: markup,
 	})
 	if err != nil {
-		slog.Error("edit telegram message", slog.Any("err", err))
+		slog.Error("edit telegram message", logAttrs(ctx, slog.Any("err", err))...)
 	}
 }
 
@@ -88,11 +87,11 @@ func deleteMessages(ctx context.Context, b *bot.Bot, chatID int64, ids []int) {
 		MessageIDs: ids,
 	})
 	if err != nil {
-		slog.Error("delete telegram messages", slog.Any("err", err))
+		slog.Error("delete telegram messages", logAttrs(ctx, slog.Any("err", err))...)
 		return
 	}
 	if !ok {
-		slog.Error("delete telegram messages returned false")
+		slog.Error("delete telegram messages returned false", logAttrs(ctx)...)
 	}
 }
 
@@ -158,10 +157,10 @@ func (h *Bot) expireCallback(ctx context.Context, b *bot.Bot, update *models.Upd
 	chatID := callbackChatID(update)
 	msgID := callbackMessageID(update)
 	if msgID != 0 {
-		editMessage(ctx, b, chatID, msgID, text.FlowExpired, nil)
+		editMessage(ctx, b, chatID, msgID, copyFrom(ctx).FlowExpired, nil)
 		return
 	}
-	reply(ctx, b, chatID, text.FlowExpired, nil)
+	reply(ctx, b, chatID, copyFrom(ctx).FlowExpired, nil)
 }
 
 func (h *Bot) stripStale(ctx context.Context, b *bot.Bot, update *models.Update, st fsmState) {

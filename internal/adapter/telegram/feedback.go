@@ -8,10 +8,10 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func (h *Bot) handleFeedback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, commandFeedback)
 	from := sender(update)
 	if from == nil || update == nil || update.Message == nil {
 		return
@@ -40,19 +40,19 @@ func (h *Bot) progressFeedback(
 	body string,
 ) {
 	if h.adminID == 0 || h.notify == nil {
-		reply(ctx, b, chatID, text.FeedbackUnavailable, nil)
+		reply(ctx, b, chatID, copyFrom(ctx).FeedbackUnavailable, nil)
 		return
 	}
 	body = strings.TrimSpace(body)
 	if body == "" {
 		st.Flow = commandFeedback
 		st.Step = stepText
-		h.prompt(ctx, b, chatID, userID, st, text.FeedbackAsk, nil)
+		h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).FeedbackAsk, nil)
 		return
 	}
-	if err := h.notify.Notify(ctx, h.adminID, text.FeedbackForward(int64(userID), username, body)); err != nil {
+	if err := h.notify.Notify(ctx, h.adminID, copyFrom(ctx).FeedbackForward(int64(userID), username, body)); err != nil {
 		replyErr(ctx, b, chatID, "forward feedback", err)
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, text.FeedbackThanks)
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).FeedbackThanks)
 }

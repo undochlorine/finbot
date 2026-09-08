@@ -28,7 +28,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			name: "no banks",
 			text: "/delete",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return(nil, nil)
+				svc.EXPECT().List(anyCtx, userID).Return(nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NoBanks,
@@ -37,7 +37,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			name: "picker",
 			text: "/delete",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandDelete, Step: stepBank})
 				expectSendMessage(t, client, sent)
 			},
@@ -48,7 +48,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			name: "name shortcut asks confirm",
 			text: "/delete Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 				expectSendMessage(t, client, sent)
 			},
@@ -60,7 +60,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			text: "/delete Holiday Fund",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund"}
-				svc.EXPECT().GetByName(ctx, userID, "Holiday Fund").Return(fund, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday Fund").Return(fund, nil)
 				expectFSMSet(t, cache, ctx, key, deleteConfirmState(fund))
 				expectSendMessage(t, client, sent)
 			},
@@ -71,7 +71,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			name: "unknown bank",
 			text: "/delete Missing",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
+				svc.EXPECT().GetByName(anyCtx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.UnknownBank("Missing"),
@@ -80,7 +80,7 @@ func TestDeleteCommandFlow(t *testing.T) {
 			name: "mention shortcut",
 			text: "/delete@finbot Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 				expectSendMessage(t, client, sent)
 			},
@@ -112,8 +112,8 @@ func TestDeletePendingBankName(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandDelete, Step: stepBank}), true, nil)
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandDelete, Step: stepBank}), true, nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 		expectSendMessage(t, client, &sent)
 	})
@@ -129,9 +129,9 @@ func TestDeletePendingConfirmYes(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
-		svc.EXPECT().Delete(ctx, userID, testBankID).Return(nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		svc.EXPECT().Delete(anyCtx, userID, testBankID).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate(domain.Yes))
@@ -146,8 +146,8 @@ func TestDeletePendingConfirmNo(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate(domain.No))
@@ -162,7 +162,7 @@ func TestDeletePendingConfirmInvalid(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
 		expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 		expectSendMessage(t, client, &sent)
 	})
@@ -178,8 +178,8 @@ func TestDeleteCallbackAsksConfirm(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandDelete, Step: stepBank}), true, nil)
-		svc.EXPECT().Get(ctx, userID, testBankID).Return(holiday, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandDelete, Step: stepBank}), true, nil)
+		svc.EXPECT().Get(anyCtx, userID, testBankID).Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, deleteConfirmState(holiday))
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
@@ -197,9 +197,9 @@ func TestDeleteCallbackYesDeletes(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
-		svc.EXPECT().Delete(ctx, userID, testBankID).Return(nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		svc.EXPECT().Delete(anyCtx, userID, testBankID).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
@@ -215,8 +215,8 @@ func TestDeleteCallbackNoCancels(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
@@ -232,9 +232,9 @@ func TestDeleteNotFound(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
-		svc.EXPECT().Delete(ctx, userID, testBankID).Return(domain.ErrBankNotFound)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, deleteConfirmState(holiday)), true, nil)
+		svc.EXPECT().Delete(anyCtx, userID, testBankID).Return(domain.ErrBankNotFound)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate(domain.Yes))

@@ -29,6 +29,7 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
+| `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check). Existing banks keep the migration default `USD`. Hidden in copy until later. |
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `.env`.
 
@@ -56,7 +57,7 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `SQLITE_PATH`, `LOG_LEVEL`, and `TRIAL_DURATION` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `SQLITE_PATH`, `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
 
 ### 3. Start the process
 

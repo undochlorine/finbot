@@ -18,11 +18,12 @@ func activityMiddleware(svc Service) bot.Middleware {
 				next(ctx, b, update)
 				return
 			}
-			if _, err := svc.UpsertUser(ctx, domain.UserID(from.ID), from.Username); err != nil {
-				slog.Error("upsert user", slog.Int64("telegram_id", from.ID), slog.Any("err", err))
+			user, err := svc.UpsertUser(ctx, domain.UserID(from.ID), from.Username)
+			if err != nil {
+				slog.Error("upsert user", slog.Int64("user_id", from.ID), slog.Any("err", err))
 				return
 			}
-			next(ctx, b, update)
+			next(withUser(ctx, user), b, update)
 		}
 	}
 }

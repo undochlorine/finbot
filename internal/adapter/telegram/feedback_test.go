@@ -58,8 +58,8 @@ func TestFeedbackAskAndShortcut(t *testing.T) {
 			name: "shortcut forwards payload",
 			text: "/feedback " + body,
 			setup: func(_ *testing.T, cache *mocks.MockCache, client *mocks.MockHTTPClient, notify *mocks.MockNotifier, sent *string) {
-				notify.EXPECT().Notify(ctx, testAdminID, forward).Return(nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				notify.EXPECT().Notify(anyCtx, testAdminID, forward).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.FeedbackThanks,
@@ -68,7 +68,7 @@ func TestFeedbackAskAndShortcut(t *testing.T) {
 			name: "notify error",
 			text: "/feedback " + body,
 			setup: func(_ *testing.T, _ *mocks.MockCache, client *mocks.MockHTTPClient, notify *mocks.MockNotifier, sent *string) {
-				notify.EXPECT().Notify(ctx, testAdminID, forward).Return(errors.New("boom"))
+				notify.EXPECT().Notify(anyCtx, testAdminID, forward).Return(errors.New("boom"))
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.SomethingWentWrong,
@@ -98,9 +98,9 @@ func TestFeedbackPendingText(t *testing.T) {
 	notify := mocks.NewMockNotifier(t)
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: commandFeedback, Step: stepText}), true, nil)
-		notify.EXPECT().Notify(ctx, testAdminID, text.FeedbackForward(telegramUserID, "alice", body)).Return(nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: commandFeedback, Step: stepText}), true, nil)
+		notify.EXPECT().Notify(anyCtx, testAdminID, text.FeedbackForward(telegramUserID, "alice", body)).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.SetAdmin(testAdminID, notify)
@@ -116,7 +116,7 @@ func TestFeedbackPendingEmptyReasks(t *testing.T) {
 	notify := mocks.NewMockNotifier(t)
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: commandFeedback, Step: stepText}), true, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: commandFeedback, Step: stepText}), true, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: commandFeedback, Step: stepText})
 		expectSendMessage(t, client, &sent)
 	})
@@ -134,9 +134,9 @@ func TestFeedbackForwardWithoutUsername(t *testing.T) {
 	notify := mocks.NewMockNotifier(t)
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().UpsertUser(ctx, userID, "").Return(domain.User{TelegramID: userID}, nil)
-		notify.EXPECT().Notify(ctx, testAdminID, text.FeedbackForward(telegramUserID, "", body)).Return(nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		svc.EXPECT().UpsertUser(anyCtx, userID, "").Return(domain.User{TelegramID: userID}, nil)
+		notify.EXPECT().Notify(anyCtx, testAdminID, text.FeedbackForward(telegramUserID, "", body)).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.SetAdmin(testAdminID, notify)

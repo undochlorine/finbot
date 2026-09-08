@@ -135,7 +135,7 @@ func closeWith(db *sql.DB, err error) error {
 
 func rollbackTx(tx *sql.Tx) {
 	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-		slog.Error("rollback migration", slog.Any("err", err))
+		slog.Error("rollback sqlite", slog.Any("err", err))
 	}
 }
 

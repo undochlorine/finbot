@@ -3,14 +3,12 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func parseIncludeCallback(data string) (bool, bool) {
@@ -24,16 +22,18 @@ func parseIncludeCallback(data string) (bool, bool) {
 	}
 }
 
-func includeKeyboard() *models.InlineKeyboardMarkup {
+func includeKeyboard(ctx context.Context) *models.InlineKeyboardMarkup {
+	c := copyFrom(ctx)
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{{
-			{Text: text.Yes, CallbackData: callbackNewBankIncludeYes},
-			{Text: text.No, CallbackData: callbackNewBankIncludeNo},
+			{Text: c.Yes, CallbackData: callbackNewBankIncludeYes},
+			{Text: c.No, CallbackData: callbackNewBankIncludeNo},
 		}},
 	}
 }
 
 func (h *Bot) handleNewBank(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandNewBank)
 	from := sender(update)
 	if from == nil {
 		return
@@ -58,7 +58,7 @@ func (h *Bot) continueNewBank(
 	case stepInclude:
 		include, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
 		if !parsed {
-			h.prompt(ctx, b, chatID, userID, st, text.NewBankAskInclude, includeKeyboard())
+			h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).NewBankAskInclude, includeKeyboard(ctx))
 			return
 		}
 		h.createBankAndReply(ctx, b, chatID, userID, st, include)
@@ -66,6 +66,7 @@ func (h *Bot) continueNewBank(
 }
 
 func (h *Bot) handleNewBankCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandNewBank)
 	if !h.beginCallback(ctx, b, update) {
 		return
 	}
@@ -93,22 +94,22 @@ func (h *Bot) progressNewBank(
 	st.Flow = domain.CommandNewBank
 	if name == "" {
 		st.Step = stepName
-		msg := text.NewBankAskName
+		msg := copyFrom(ctx).NewBankAskName
 		if askedName {
-			msg = text.InvalidBankName
+			msg = copyFrom(ctx).InvalidBankName
 		}
 		h.prompt(ctx, b, chatID, userID, st, msg, nil)
 		return
 	}
 	if _, err := domain.NormalizeBankName(name); err != nil {
 		st.Step = stepName
-		h.prompt(ctx, b, chatID, userID, st, text.InvalidBankName, nil)
+		h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).InvalidBankName, nil)
 		return
 	}
 	existing, err := h.svc.GetByName(ctx, userID, name)
 	if err == nil {
 		st.Step = stepName
-		h.prompt(ctx, b, chatID, userID, st, text.BankNameTaken(existing.Name), nil)
+		h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).BankNameTaken(existing.Name), nil)
 		return
 	}
 	if !errors.Is(err, domain.ErrBankNotFound) {
@@ -117,7 +118,7 @@ func (h *Bot) progressNewBank(
 	}
 	st.Step = stepInclude
 	st.Name = name
-	h.prompt(ctx, b, chatID, userID, st, text.NewBankAskInclude, includeKeyboard())
+	h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).NewBankAskInclude, includeKeyboard(ctx))
 }
 
 func (h *Bot) createBankAndReply(
@@ -132,14 +133,14 @@ func (h *Bot) createBankAndReply(
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrBankNameTaken):
-			h.done(ctx, b, chatID, userID, st, text.BankNameTaken(st.Name))
+			h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankNameTaken(st.Name))
 		case errors.Is(err, domain.ErrInvalidBankName):
-			h.done(ctx, b, chatID, userID, st, text.InvalidBankName)
+			h.done(ctx, b, chatID, userID, st, copyFrom(ctx).InvalidBankName)
 		default:
-			slog.Error("create bank", slog.Any("err", err))
-			h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
+			logHandlerErr(userID, domain.CommandNewBank, "create bank", err)
+			h.done(ctx, b, chatID, userID, st, copyFrom(ctx).SomethingWentWrong)
 		}
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, text.BankCreated(bank.Name, bank.IncludeInTotal))
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankCreated(bank.Name, bank.IncludeInTotal))
 }

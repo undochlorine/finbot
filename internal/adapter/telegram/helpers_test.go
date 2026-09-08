@@ -28,6 +28,8 @@ const (
 	apiOKBody               = `{"ok":true,"result":true}`
 )
 
+var anyCtx = mock.Anything
+
 func jsonResponse(status int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: status,
@@ -103,10 +105,10 @@ func expectAnswerCallbackQuery(t *testing.T, client *mocks.MockHTTPClient) {
 	expectAPI(t, client, "answerCallbackQuery", apiOKBody, nil)
 }
 
-func expectFSMSet(t *testing.T, cache *mocks.MockCache, ctx context.Context, key string, want fsmState) {
+func expectFSMSet(t *testing.T, cache *mocks.MockCache, _ context.Context, key string, want fsmState) {
 	t.Helper()
 	cache.EXPECT().
-		Set(ctx, key, mock.MatchedBy(func(v []byte) bool {
+		Set(anyCtx, key, mock.MatchedBy(func(v []byte) bool {
 			var got fsmState
 			if json.Unmarshal(v, &got) != nil {
 				return false
@@ -137,8 +139,8 @@ func equalInts(a, b []int) bool {
 	return true
 }
 
-func expectNameAvailable(svc *mocks.MockService, ctx context.Context, userID domain.UserID, name string) {
-	svc.EXPECT().GetByName(ctx, userID, name).Return(domain.Bank{}, domain.ErrBankNotFound)
+func expectNameAvailable(svc *mocks.MockService, _ context.Context, userID domain.UserID, name string) {
+	svc.EXPECT().GetByName(anyCtx, userID, name).Return(domain.Bank{}, domain.ErrBankNotFound)
 }
 
 func newTestBot(

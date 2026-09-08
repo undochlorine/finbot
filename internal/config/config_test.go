@@ -27,6 +27,7 @@ func TestLoad(t *testing.T) {
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
 			},
 		},
 		{
@@ -37,6 +38,7 @@ func TestLoad(t *testing.T) {
 				"LOG_LEVEL":         "DEBUG",
 				"TRIAL_DURATION":    "24h",
 				"ADMIN_TELEGRAM_ID": "12345",
+				"DEFAULT_CURRENCY":  "EUR",
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -44,6 +46,37 @@ func TestLoad(t *testing.T) {
 				LogLevel:        slog.LevelDebug,
 				TrialDuration:   24 * time.Hour,
 				AdminTelegramID: 12345,
+				DefaultCurrency: "EUR",
+			},
+		},
+		{
+			name: "empty currency uses USD",
+			env: map[string]string{
+				"BOT_TOKEN":        "tok",
+				"DEFAULT_CURRENCY": "   ",
+			},
+			want: Config{
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: "USD",
+			},
+		},
+		{
+			name: "currency kept as trimmed",
+			env: map[string]string{
+				"BOT_TOKEN":        "tok",
+				"DEFAULT_CURRENCY": " eur ",
+			},
+			want: Config{
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: "eur",
 			},
 		},
 		{
@@ -58,6 +91,7 @@ func TestLoad(t *testing.T) {
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   0,
 				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
 			},
 		},
 		{
@@ -72,6 +106,7 @@ func TestLoad(t *testing.T) {
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
 			},
 		},
 		{
@@ -123,6 +158,7 @@ func TestLoad(t *testing.T) {
 			t.Setenv("LOG_LEVEL", "")
 			t.Setenv("TRIAL_DURATION", "")
 			t.Setenv("ADMIN_TELEGRAM_ID", "")
+			t.Setenv("DEFAULT_CURRENCY", "")
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}

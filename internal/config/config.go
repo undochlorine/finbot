@@ -14,6 +14,7 @@ const (
 	defaultSQLitePath    = "./data/finbot.db"
 	defaultLogLevel      = "info"
 	defaultTrialDuration = 168 * time.Hour
+	defaultCurrency      = "USD"
 	dotEnvPath           = ".env"
 )
 
@@ -23,6 +24,7 @@ type Config struct {
 	LogLevel        slog.Level
 	TrialDuration   time.Duration
 	AdminTelegramID int64
+	DefaultCurrency string
 }
 
 func Load() (Config, error) {
@@ -61,7 +63,16 @@ func Load() (Config, error) {
 		LogLevel:        level,
 		TrialDuration:   trial,
 		AdminTelegramID: adminID,
+		DefaultCurrency: parseDefaultCurrency(os.Getenv("DEFAULT_CURRENCY")),
 	}, nil
+}
+
+func parseDefaultCurrency(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultCurrency
+	}
+	return raw
 }
 
 func parseLogLevel(raw string) (slog.Level, error) {

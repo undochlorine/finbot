@@ -26,8 +26,8 @@ func TestCancel(t *testing.T) {
 			name: "clears pending flow",
 			text: "/cancel",
 			setup: func(cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Canceled,
@@ -36,10 +36,10 @@ func TestCancel(t *testing.T) {
 			name: "mention form",
 			text: "/cancel@finbot",
 			setup: func(cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+				cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 					Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 				}), true, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Canceled,
@@ -48,7 +48,7 @@ func TestCancel(t *testing.T) {
 			name: "idle",
 			text: "/cancel",
 			setup: func(cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				cache.EXPECT().Get(ctx, key).Return(nil, false, nil)
+				cache.EXPECT().Get(anyCtx, key).Return(nil, false, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NothingToCancel,
@@ -76,7 +76,7 @@ func TestSpendReplacesPendingAdd(t *testing.T) {
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		gets := 0
-		cache.EXPECT().Get(ctx, key).RunAndReturn(func(context.Context, string) ([]byte, bool, error) {
+		cache.EXPECT().Get(anyCtx, key).RunAndReturn(func(context.Context, string) ([]byte, bool, error) {
 			gets++
 			if gets == 1 {
 				return nil, false, nil
@@ -85,12 +85,12 @@ func TestSpendReplacesPendingAdd(t *testing.T) {
 				Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID,
 			}), true, nil
 		}).Times(2)
-		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+		svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID})
 		expectSendMessage(t, client, &sent)
 		expectDeleteMessages(t, client)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
-		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
+		svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandSpend, Step: stepBank, PromptID: testPromptID})
 		expectSendMessage(t, client, &sent)
 	})
@@ -107,7 +107,7 @@ func TestStaleCallbackIgnored(t *testing.T) {
 	key := fsmKey(userID)
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandSpend, Step: stepBank}), true, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandSpend, Step: stepBank}), true, nil)
 		expectAnswerCallbackQuery(t, client)
 		expectDeleteMessages(t, client)
 	})
@@ -137,7 +137,7 @@ func TestExpiredCallbackAsksToStartOver(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var sent string
 			b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-				cache.EXPECT().Get(ctx, key).Return(nil, false, nil)
+				cache.EXPECT().Get(anyCtx, key).Return(nil, false, nil)
 				expectAnswerCallbackQuery(t, client)
 				expectEditMessage(t, client, &sent)
 			})

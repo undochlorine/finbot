@@ -11,6 +11,7 @@ type Bank struct {
 	Name           string
 	Balance        Money
 	IncludeInTotal bool
+	Currency       string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

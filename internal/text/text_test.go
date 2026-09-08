@@ -3,7 +3,23 @@ package text
 import (
 	"strings"
 	"testing"
+
+	"finbot/internal/domain"
 )
+
+func TestForFallsBackToEnglish(t *testing.T) {
+	en := For(domain.LocaleEN)
+	if en.Start == "" || en.Start != Start {
+		t.Fatalf("english catalog: %+v", en.Start)
+	}
+	got := For("fr")
+	if got != en {
+		t.Fatal("unknown locale should fall back to en")
+	}
+	if For("") != en {
+		t.Fatal("empty locale should fall back to en")
+	}
+}
 
 func TestHelpListsMVPCommands(t *testing.T) {
 	commands := []struct {

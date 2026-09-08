@@ -100,7 +100,7 @@ func parsePrefixedID(data, prefix string) (int64, bool) {
 func (h *Bot) loadFSM(ctx context.Context, userID domain.UserID) (fsmState, bool) {
 	raw, ok, err := h.cache.Get(ctx, fsmKey(userID))
 	if err != nil {
-		slog.Error("fsm get", slog.Any("err", err))
+		slog.Error("fsm get", logAttrs(ctx, slog.Any("err", err))...)
 		return fsmState{}, false
 	}
 	if !ok {
@@ -108,7 +108,7 @@ func (h *Bot) loadFSM(ctx context.Context, userID domain.UserID) (fsmState, bool
 	}
 	var st fsmState
 	if err := json.Unmarshal(raw, &st); err != nil {
-		slog.Error("fsm decode", slog.Any("err", err))
+		slog.Error("fsm decode", logAttrs(ctx, slog.Any("err", err))...)
 		return fsmState{}, false
 	}
 	return st, true
@@ -117,17 +117,17 @@ func (h *Bot) loadFSM(ctx context.Context, userID domain.UserID) (fsmState, bool
 func (h *Bot) saveFSM(ctx context.Context, userID domain.UserID, st fsmState) {
 	raw, err := json.Marshal(st)
 	if err != nil {
-		slog.Error("fsm encode", slog.Any("err", err))
+		slog.Error("fsm encode", logAttrs(ctx, slog.Any("err", err))...)
 		return
 	}
 	if err := h.cache.Set(ctx, fsmKey(userID), raw, fsmTTL); err != nil {
-		slog.Error("fsm set", slog.Any("err", err))
+		slog.Error("fsm set", logAttrs(ctx, slog.Any("err", err))...)
 	}
 }
 
 func (h *Bot) clearFSM(ctx context.Context, userID domain.UserID) {
 	if err := h.cache.Delete(ctx, fsmKey(userID)); err != nil {
-		slog.Error("fsm delete", slog.Any("err", err))
+		slog.Error("fsm delete", logAttrs(ctx, slog.Any("err", err))...)
 	}
 }
 
@@ -138,7 +138,7 @@ func (h *Bot) beginCallback(ctx context.Context, b *bot.Bot, update *models.Upda
 	if _, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
 	}); err != nil {
-		slog.Error("answer callback query", slog.Any("err", err))
+		slog.Error("answer callback query", logAttrs(ctx, slog.Any("err", err))...)
 	}
 	return true
 }

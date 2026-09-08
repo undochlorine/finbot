@@ -37,7 +37,7 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "no banks",
 			text: "/toggle",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return(nil, nil)
+				svc.EXPECT().List(anyCtx, userID).Return(nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NoBanks,
@@ -46,7 +46,7 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "picker",
 			text: "/toggle",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandToggle, Step: stepBank})
 				expectSendMessage(t, client, sent)
 			},
@@ -57,9 +57,9 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "name shortcut excludes without changing balance",
 			text: "/toggle Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
-				svc.EXPECT().Toggle(ctx, userID, testBankID).Return(holidayOut, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(holidayOut, nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Toggled("Holiday", "50.00", false),
@@ -68,9 +68,9 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "name shortcut includes without changing balance",
 			text: "/toggle Gifts",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Gifts").Return(gifts, nil)
-				svc.EXPECT().Toggle(ctx, userID, gifts.ID).Return(giftsIn, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Gifts").Return(gifts, nil)
+				svc.EXPECT().Toggle(anyCtx, userID, gifts.ID).Return(giftsIn, nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Toggled("Gifts", "12.50", true),
@@ -84,9 +84,9 @@ func TestToggleCommandFlow(t *testing.T) {
 				}
 				out := fund
 				out.IncludeInTotal = false
-				svc.EXPECT().GetByName(ctx, userID, "Holiday Fund").Return(fund, nil)
-				svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday Fund").Return(fund, nil)
+				svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(out, nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Toggled("Holiday Fund", "1.00", false),
@@ -95,7 +95,7 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "unknown bank",
 			text: "/toggle Missing",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
+				svc.EXPECT().GetByName(anyCtx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.UnknownBank("Missing"),
@@ -104,9 +104,9 @@ func TestToggleCommandFlow(t *testing.T) {
 			name: "mention shortcut",
 			text: "/toggle@finbot Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
-				svc.EXPECT().Toggle(ctx, userID, testBankID).Return(holidayOut, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(holidayOut, nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Toggled("Holiday", "50.00", false),
@@ -141,10 +141,10 @@ func TestTogglePendingBankName(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
-		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
+		svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(out, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday"))
@@ -163,9 +163,9 @@ func TestToggleCallbackFlipsAndReplies(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
-		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandToggle, Step: stepBank}), true, nil)
+		svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(out, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
@@ -181,9 +181,9 @@ func TestToggleNotFound(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
-		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(domain.Bank{}, domain.ErrBankNotFound)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
+		svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(domain.Bank{}, domain.ErrBankNotFound)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("/toggle Holiday"))
@@ -202,11 +202,11 @@ func TestToggleThenTotalUsesNewIncludedSet(t *testing.T) {
 	var toggled, total string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
-		svc.EXPECT().Toggle(ctx, userID, testBankID).Return(out, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
+		svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(out, nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &toggled)
-		svc.EXPECT().Total(ctx, userID).Return(domain.Money(0), nil)
+		svc.EXPECT().Total(anyCtx, userID).Return(domain.Money(0), nil)
 		expectSendMessage(t, client, &total)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("/toggle Holiday"))
