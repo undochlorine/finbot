@@ -55,6 +55,7 @@ type Bot struct {
 	cache   Cache
 	notify  Notifier
 	adminID domain.UserID
+	pending *PendingCommands
 }
 
 func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.Option) (*Bot, error) {
@@ -71,14 +72,16 @@ func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.
 		return nil, fmt.Errorf("http client is required")
 	}
 
-	h := &Bot{svc: svc, cache: cache}
+	h := &Bot{svc: svc, cache: cache, pending: newPendingCommands()}
 	defaults := []bot.Option{
 		bot.WithErrorsHandler(func(err error) {
 			slog.Error("telegram", slog.Any("err", err))
 		}),
 		bot.WithHTTPClient(pollTimeout, client),
-		bot.WithMiddlewares(activityMiddleware(svc)),
+		bot.WithMiddlewares(h.pending.middleware(), activityMiddleware(svc)),
 		bot.WithDefaultHandler(h.handlePendingInput),
+		bot.WithWorkers(1),
+		bot.WithNotAsyncHandlers(), // enqueue stays on the poll worker; drain still runs per-user FIFO
 	}
 	inner, err := bot.New(token, append(defaults, opts...)...)
 	if err != nil {
@@ -100,6 +103,11 @@ func (b *Bot) Start(ctx context.Context) {
 
 func (b *Bot) ProcessUpdate(ctx context.Context, update *models.Update) {
 	b.inner.ProcessUpdate(ctx, update)
+	from := sender(update)
+	if from == nil || from.IsBot || from.ID == 0 {
+		return
+	}
+	b.pending.wait(from.ID)
 }
 
 func (b *Bot) SetAdmin(id domain.UserID, n Notifier) {
