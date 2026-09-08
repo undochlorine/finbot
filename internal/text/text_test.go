@@ -35,6 +35,7 @@ func TestHelpListsMVPCommands(t *testing.T) {
 		{"/delete", CmdDescDelete},
 		{"/bank", CmdDescBank},
 		{"/toggle", CmdDescToggle},
+		{"/rename", CmdDescRename},
 		{"/banks", CmdDescBanks},
 		{"/total", CmdDescTotal},
 		{"/all", CmdDescAll},
@@ -62,6 +63,9 @@ func TestStartPointsToHelp(t *testing.T) {
 	if !strings.Contains(Start, "/newbank") {
 		t.Fatal("start should mention a command shortcut")
 	}
+	if !strings.Contains(Start, "/rename") {
+		t.Fatal("start should mention /rename")
+	}
 }
 
 func TestHelpMentionsCommandShortcuts(t *testing.T) {
@@ -88,6 +92,12 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	}
 	if !strings.Contains(Help, "/toggle Holiday") {
 		t.Fatal("help should show a /toggle shortcut")
+	}
+	if !strings.Contains(Help, "/rename Holiday") {
+		t.Fatal("help should show a /rename shortcut")
+	}
+	if !strings.Contains(Help, "/rename Holiday Trips") {
+		t.Fatal("help should show a /rename old-new shortcut")
 	}
 }
 
@@ -147,6 +157,11 @@ func TestOutcomeEmojis(t *testing.T) {
 			got:  FeedbackThanks,
 			want: "🙏 Thanks, I sent that to the admin.",
 		},
+		{
+			name: "renamed",
+			got:  BankRenamed("Holiday", "holiday"),
+			want: "✏️ Renamed \"Holiday\" to \"holiday\".",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -172,6 +187,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "cmd desc delete", got: CmdDescDelete},
 		{name: "cmd desc bank", got: CmdDescBank},
 		{name: "cmd desc toggle", got: CmdDescToggle},
+		{name: "cmd desc rename", got: CmdDescRename},
 		{name: "cmd desc banks", got: CmdDescBanks},
 		{name: "cmd desc total", got: CmdDescTotal},
 		{name: "cmd desc all", got: CmdDescAll},
@@ -196,6 +212,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "ask spend", got: AskSpendAmount("Gifts")},
 		{name: "ask set", got: AskSetAmount("Live")},
 		{name: "ask delete", got: AskDeleteConfirm("Holiday")},
+		{name: "ask rename", got: AskRenameName("Holiday")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -265,6 +282,8 @@ func TestMoneyCopy(t *testing.T) {
 		{name: "set", got: SetTo("Live", "0.00"), want: []string{"Live", "0.00"}},
 		{name: "ask delete", got: AskDeleteConfirm("Holiday"), want: []string{"Holiday"}},
 		{name: "deleted", got: BankDeleted("Holiday"), want: []string{"Holiday"}},
+		{name: "ask rename", got: AskRenameName("Holiday"), want: []string{"Holiday"}},
+		{name: "renamed", got: BankRenamed("Holiday", "Trips"), want: []string{"Holiday", "Trips"}},
 		{name: "bank included", got: BankCard("Holiday", "50.00", true), want: []string{"Holiday", "50.00", "in total"}},
 		{name: "bank excluded", got: BankCard("Gifts", "12.50", false), want: []string{"Gifts", "12.50", "not in total"}},
 		{

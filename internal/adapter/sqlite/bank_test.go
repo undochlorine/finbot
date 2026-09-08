@@ -110,6 +110,16 @@ func TestBankRepositoryCRUD(t *testing.T) {
 		t.Fatalf("updated %+v", updated)
 	}
 
+	created.Name = "live"
+	created.UpdatedAt = now.Add(2 * time.Minute)
+	recased, err := banks.Update(ctx, 1, created)
+	if err != nil {
+		t.Fatalf("recase: %v", err)
+	}
+	if recased.Name != "live" {
+		t.Fatalf("recase %+v", recased)
+	}
+
 	total, err := banks.TotalIncluded(ctx, 1)
 	if err != nil {
 		t.Fatalf("total: %v", err)

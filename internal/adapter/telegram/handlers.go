@@ -26,6 +26,7 @@ func (h *Bot) registerHandlers() {
 		{domain.CommandDelete, h.handleDelete},
 		{domain.CommandBank, h.handleBank},
 		{domain.CommandToggle, h.handleToggle},
+		{domain.CommandRename, h.handleRename},
 		{domain.CommandBanks, h.handleBanks},
 		{domain.CommandTotal, h.handleTotal},
 		{domain.CommandAll, h.handleAll},
@@ -45,6 +46,7 @@ func (h *Bot) registerHandlers() {
 		{callbackDeletePrefix, h.handleDeleteCallback},
 		{callbackBankPrefix, h.handleBankCallback},
 		{callbackTogglePrefix, h.handleToggleCallback},
+		{callbackRenamePrefix, h.handleRenameCallback},
 	} {
 		h.inner.RegisterHandler(bot.HandlerTypeCallbackQueryData, item.prefix, bot.MatchTypePrefix, item.fn)
 	}
@@ -147,6 +149,9 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 	case domain.CommandToggle:
 		st.note(msgID)
 		h.continueToggle(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandRename:
+		st.note(msgID)
+		h.continueRename(ctx, b, chatID, userID, st, update.Message.Text)
 	case commandFeedback:
 		h.progressFeedback(ctx, b, chatID, userID, st, from.Username, update.Message.Text)
 	}

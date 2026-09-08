@@ -8,6 +8,7 @@ const (
 	CommandDelete  = "delete"
 	CommandBank    = "bank"
 	CommandToggle  = "toggle"
+	CommandRename  = "rename"
 	CommandBanks   = "banks"
 	CommandTotal   = "total"
 	CommandAll     = "all"

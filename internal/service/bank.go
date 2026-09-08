@@ -177,6 +177,47 @@ func (s *Service) Toggle(ctx context.Context, userID domain.UserID, bankID int64
 	return s.save(ctx, userID, bank)
 }
 
+func (s *Service) Rename(ctx context.Context, userID domain.UserID, bankID int64, newName string) (domain.Bank, error) {
+	newName = strings.TrimSpace(newName)
+	if _, err := domain.NormalizeBankName(newName); err != nil {
+		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
+	}
+
+	var updated domain.Bank
+	err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		bank, err := s.banks.GetByID(ctx, userID, bankID)
+		if err != nil {
+			return fmt.Errorf("get bank: %w", err)
+		}
+		existing, err := s.banks.GetByName(ctx, userID, newName)
+		if err == nil && existing.ID != bank.ID {
+			return domain.ErrBankNameTaken
+		}
+		if err != nil && !errors.Is(err, domain.ErrBankNotFound) {
+			return fmt.Errorf("check bank name: %w", err)
+		}
+		oldName := bank.Name
+		bank.Name = newName
+		updated, err = s.save(ctx, userID, bank)
+		if err != nil {
+			return err
+		}
+		return s.appendOp(ctx, domain.Operation{
+			UserID:       userID,
+			BankID:       ptr(updated.ID),
+			Type:         domain.OperationRename,
+			Amount:       0,
+			BalanceAfter: ptr(updated.Balance),
+			Meta:         oldName + " -> " + newName,
+			CreatedAt:    updated.UpdatedAt,
+		})
+	})
+	if err != nil {
+		return domain.Bank{}, fmt.Errorf("rename: %w", err)
+	}
+	return updated, nil
+}
+
 func (s *Service) adjust(
 	ctx context.Context,
 	userID domain.UserID,
