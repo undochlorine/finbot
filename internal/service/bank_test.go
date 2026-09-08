@@ -66,7 +66,7 @@ func TestCreateBank(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, clock := newBankSvc(t)
+			svc, banks, ops, clock := newBankSvc(t)
 			if tt.setup != nil {
 				tt.setup(banks, clock)
 			}
@@ -79,6 +79,7 @@ func TestCreateBank(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
+			require.True(t, ops.AssertNotCalled(t, "Append"))
 		})
 	}
 }
@@ -98,7 +99,7 @@ func TestCreateBankDuplicate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _ := newBankSvc(t)
+			svc, banks, _, _ := newBankSvc(t)
 			found := existing
 			if tt.dup == "подарки" {
 				found = sampleBank(userA, 1, "Подарки", 10000, true)
@@ -143,7 +144,7 @@ func TestAddSpendSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, clock := newBankSvc(t)
+			svc, banks, ops, clock := newBankSvc(t)
 			start := sampleBank(userA, 1, "Live", tt.start, true)
 			id := start.ID
 			if !tt.noIO {
@@ -160,6 +161,8 @@ func TestAddSpendSet(t *testing.T) {
 					updated.Balance = tt.want
 					updated.UpdatedAt = now
 					banks.EXPECT().Update(ctx, userA, updated).Return(updated, nil)
+					after := tt.want
+					ops.EXPECT().Append(ctx, matchOp(userA, moneyOpType(tt.op), tt.amount, id, &after, start.Name, now)).Return(nil)
 				}
 			}
 
@@ -167,6 +170,7 @@ func TestAddSpendSet(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				require.True(t, banks.AssertNotCalled(t, "Update"))
+				require.True(t, ops.AssertNotCalled(t, "Append"))
 				return
 			}
 			require.NoError(t, err)
@@ -177,31 +181,28 @@ func TestAddSpendSet(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	ctx := context.Background()
+	now := fixedNow()
+	bank := sampleBank(userA, 1, "Live", 10000, true)
 
-	tests := []struct {
-		name    string
-		id      int64
-		repoErr error
-		wantErr error
-	}{
-		{name: "removes bank", id: 1},
-		{name: "last bank allowed", id: 1},
-		{name: "unknown bank", id: 99, repoErr: domain.ErrBankNotFound, wantErr: domain.ErrBankNotFound},
-	}
+	t.Run("removes bank and appends delete", func(t *testing.T) {
+		svc, banks, ops, clock := newBankSvc(t)
+		banks.EXPECT().GetByID(ctx, userA, bank.ID).Return(bank, nil)
+		clock.EXPECT().Now().Return(now)
+		ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationDelete, bank.Balance, bank.ID, nil, bank.Name, now)).Return(nil)
+		banks.EXPECT().Delete(ctx, userA, bank.ID).Return(nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _ := newBankSvc(t)
-			banks.EXPECT().Delete(ctx, userA, tt.id).Return(tt.repoErr)
+		require.NoError(t, svc.Delete(ctx, userA, bank.ID))
+	})
 
-			err := svc.Delete(ctx, userA, tt.id)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+	t.Run("unknown bank does not append", func(t *testing.T) {
+		svc, banks, ops, _ := newBankSvc(t)
+		banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
+
+		err := svc.Delete(ctx, userA, 99)
+		require.ErrorIs(t, err, domain.ErrBankNotFound)
+		require.True(t, ops.AssertNotCalled(t, "Append"))
+		require.True(t, banks.AssertNotCalled(t, "Delete"))
+	})
 }
 
 func TestTotalToggleAndEmptyList(t *testing.T) {
@@ -211,7 +212,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	excluded := sampleBank(userA, 2, "Gifts", 2500, false)
 
 	t.Run("empty list and total", func(t *testing.T) {
-		svc, banks, _ := newBankSvc(t)
+		svc, banks, _, _ := newBankSvc(t)
 		banks.EXPECT().List(ctx, userA).Return([]domain.Bank{}, nil).Twice()
 		banks.EXPECT().TotalIncluded(ctx, userA).Return(domain.Money(0), nil).Twice()
 
@@ -230,7 +231,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("excluded omitted from total", func(t *testing.T) {
-		svc, banks, _ := newBankSvc(t)
+		svc, banks, _, _ := newBankSvc(t)
 		list := []domain.Bank{included, excluded}
 		banks.EXPECT().List(ctx, userA).Return(list, nil)
 		banks.EXPECT().TotalIncluded(ctx, userA).Return(included.Balance, nil)
@@ -242,7 +243,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("only excluded is zero total", func(t *testing.T) {
-		svc, banks, _ := newBankSvc(t)
+		svc, banks, _, _ := newBankSvc(t)
 		banks.EXPECT().TotalIncluded(ctx, userA).Return(domain.Money(0), nil)
 
 		total, err := svc.Total(ctx, userA)
@@ -251,7 +252,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("toggle excluded into total without changing balance", func(t *testing.T) {
-		svc, banks, clock := newBankSvc(t)
+		svc, banks, ops, clock := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, excluded.ID).Return(excluded, nil)
 		clock.EXPECT().Now().Return(now)
 		updated := excluded
@@ -263,10 +264,11 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, got.IncludeInTotal)
 		require.Equal(t, excluded.Balance, got.Balance)
+		require.True(t, ops.AssertNotCalled(t, "Append"))
 	})
 
 	t.Run("toggle included out of total without changing balance", func(t *testing.T) {
-		svc, banks, clock := newBankSvc(t)
+		svc, banks, ops, clock := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, included.ID).Return(included, nil)
 		clock.EXPECT().Now().Return(now)
 		updated := included
@@ -278,11 +280,12 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, got.IncludeInTotal)
 		require.Equal(t, included.Balance, got.Balance)
+		require.True(t, ops.AssertNotCalled(t, "Append"))
 	})
 }
 
 func TestToggleUnknownBank(t *testing.T) {
-	svc, banks, _ := newBankSvc(t)
+	svc, banks, _, _ := newBankSvc(t)
 	ctx := context.Background()
 	banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
 
@@ -335,7 +338,7 @@ func TestBanksIsolatedByUser(t *testing.T) {
 		{
 			name: "cannot delete other user's bank",
 			setup: func(banks *mocks.MockBankRepository) {
-				banks.EXPECT().Delete(ctx, userB, a.ID).Return(domain.ErrBankNotFound)
+				banks.EXPECT().GetByID(ctx, userB, a.ID).Return(domain.Bank{}, domain.ErrBankNotFound)
 			},
 			run: func(t *testing.T, svc *Service) {
 				err := svc.Delete(ctx, userB, a.ID)
@@ -361,7 +364,7 @@ func TestBanksIsolatedByUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _ := newBankSvc(t)
+			svc, banks, _, _ := newBankSvc(t)
 			tt.setup(banks)
 			tt.run(t, svc)
 		})
@@ -385,5 +388,16 @@ func applyMoneyOp(
 		return svc.Set(ctx, user, id, amount)
 	default:
 		return domain.Bank{}, errors.New("unknown op")
+	}
+}
+
+func moneyOpType(op string) domain.OperationType {
+	switch op {
+	case domain.CommandAdd:
+		return domain.OperationAdd
+	case domain.CommandSpend:
+		return domain.OperationSpend
+	default:
+		return domain.OperationSet
 	}
 }

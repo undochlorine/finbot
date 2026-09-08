@@ -3,13 +3,13 @@ package telegram
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func (h *Bot) registerHandlers() {
@@ -17,8 +17,8 @@ func (h *Bot) registerHandlers() {
 		cmd string
 		fn  bot.HandlerFunc
 	}{
-		{commandStart, handleStart},
-		{commandHelp, handleHelp},
+		{commandStart, h.handleStart},
+		{commandHelp, h.handleHelp},
 		{domain.CommandNewBank, h.handleNewBank},
 		{domain.CommandAdd, h.handleAdd},
 		{domain.CommandSpend, h.handleSpend},
@@ -76,15 +76,26 @@ func commandAtStart(name string) bot.MatchFunc {
 	}
 }
 
-func handleStart(ctx context.Context, b *bot.Bot, update *models.Update) {
-	reply(ctx, b, messageChatID(update), text.Start, nil)
+func (h *Bot) handleStart(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, commandStart)
+	from := sender(update)
+	if from != nil && update != nil && update.Message != nil {
+		if ref, ok := parseReferral(commandPayload(update.Message.Text), from.ID); ok {
+			if err := h.svc.SetReferredByIfEmpty(ctx, domain.UserID(from.ID), domain.UserID(ref)); err != nil {
+				logHandlerErr(domain.UserID(from.ID), commandStart, "set referred by", err)
+			}
+		}
+	}
+	reply(ctx, b, messageChatID(update), copyFrom(ctx).Start, nil)
 }
 
-func handleHelp(ctx context.Context, b *bot.Bot, update *models.Update) {
-	reply(ctx, b, messageChatID(update), text.Help, nil)
+func (h *Bot) handleHelp(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, commandHelp)
+	reply(ctx, b, messageChatID(update), copyFrom(ctx).Help, nil)
 }
 
 func (h *Bot) handleCancel(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, commandCancel)
 	from := sender(update)
 	if from == nil {
 		return
@@ -92,13 +103,13 @@ func (h *Bot) handleCancel(ctx context.Context, b *bot.Bot, update *models.Updat
 	userID := domain.UserID(from.ID)
 	st, ok := h.loadFSM(ctx, userID)
 	if !ok {
-		reply(ctx, b, messageChatID(update), text.NothingToCancel, nil)
+		reply(ctx, b, messageChatID(update), copyFrom(ctx).NothingToCancel, nil)
 		return
 	}
 	chatID := messageChatID(update)
 	h.drop(ctx, b, chatID, st)
 	h.clearFSM(ctx, userID)
-	reply(ctx, b, chatID, text.Canceled, nil)
+	reply(ctx, b, chatID, copyFrom(ctx).Canceled, nil)
 }
 
 func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -117,6 +128,7 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 	if !ok {
 		return
 	}
+	ctx = withCommand(ctx, st.Flow)
 	chatID := messageChatID(update)
 	msgID := userMessageID(update)
 	switch st.Flow {
@@ -152,6 +164,17 @@ func reply(ctx context.Context, b *bot.Bot, chatID int64, message string, markup
 }
 
 func replyErr(ctx context.Context, b *bot.Bot, chatID int64, op string, err error) {
-	slog.Error(op, slog.Any("err", err))
-	reply(ctx, b, chatID, text.SomethingWentWrong, nil)
+	slog.Error(op, logAttrs(ctx, slog.Any("err", err))...)
+	reply(ctx, b, chatID, copyFrom(ctx).SomethingWentWrong, nil)
+}
+
+func parseReferral(payload string, selfID int64) (int64, bool) {
+	if payload == "" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(payload, 10, 64)
+	if err != nil || id <= 0 || id == selfID {
+		return 0, false
+	}
+	return id, true
 }

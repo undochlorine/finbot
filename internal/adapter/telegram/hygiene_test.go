@@ -19,7 +19,7 @@ func TestHygieneStoresPromptID(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+		svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
 			Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID,
 		})
@@ -38,10 +38,10 @@ func TestHygieneAddCallbackEditsPrompt(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID,
 		}), true, nil)
-		svc.EXPECT().Get(ctx, userID, testBankID).Return(holiday, nil)
+		svc.EXPECT().Get(anyCtx, userID, testBankID).Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
 			Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID, PromptID: testPromptID,
 		})
@@ -60,7 +60,7 @@ func TestHygieneAddAmountEditsAndSweeps(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow:     domain.CommandAdd,
 			Step:     stepAmount,
 			Name:     "Holiday",
@@ -68,11 +68,11 @@ func TestHygieneAddAmountEditsAndSweeps(t *testing.T) {
 			PromptID: testPromptID,
 		}), true, nil)
 		svc.EXPECT().
-			Add(ctx, userID, testBankID, domain.Money(10000)).
+			Add(anyCtx, userID, testBankID, domain.Money(10000)).
 			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
 		expectDeleteMessages(t, client)
 		expectEditMessage(t, client, &sent)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 	})
 	b.ProcessUpdate(ctx, commandUpdateID("100", testUserMsgID))
 	require.Contains(t, sent, text.Added("Holiday", "100.00", "150.00"))
@@ -86,11 +86,11 @@ func TestHygieneCancelDeletesPrompt(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandAdd, Step: stepBank, PromptID: testPromptID,
 		}), true, nil)
 		expectDeleteMessages(t, client)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("/cancel"))
@@ -106,12 +106,12 @@ func TestHygieneKeepsFeedbackBody(t *testing.T) {
 	notify := mocks.NewMockNotifier(t)
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: commandFeedback, Step: stepText, PromptID: testPromptID,
 		}), true, nil)
-		notify.EXPECT().Notify(ctx, testAdminID, text.FeedbackForward(telegramUserID, "alice", body)).Return(nil)
+		notify.EXPECT().Notify(anyCtx, testAdminID, text.FeedbackForward(telegramUserID, "alice", body)).Return(nil)
 		expectEditMessage(t, client, &sent)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 	})
 	b.SetAdmin(testAdminID, notify)
 	b.ProcessUpdate(ctx, commandUpdateID(body, testUserMsgID))
@@ -127,11 +127,11 @@ func TestHygieneShortcutDoesNotDeleteCommand(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 		svc.EXPECT().
-			Add(ctx, userID, testBankID, domain.Money(10000)).
+			Add(anyCtx, userID, testBankID, domain.Money(10000)).
 			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdateID("/add Holiday 100", testUserMsgID))

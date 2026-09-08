@@ -17,13 +17,19 @@ func TestOpenCreatesSchema(t *testing.T) {
 	wantUsers := []string{
 		"telegram_id", "username", "last_activity_at", "plan",
 		"trial_ends_at", "discount_percent", "created_at", "updated_at",
+		"locale", "referred_by",
 	}
 	wantBanks := []string{
 		"id", "user_id", "name", "name_normalized", "balance_cents",
-		"include_in_total", "created_at", "updated_at",
+		"include_in_total", "created_at", "updated_at", "currency",
+	}
+	wantOps := []string{
+		"id", "user_id", "bank_id", "type", "amount_cents",
+		"balance_after_cents", "meta", "created_at",
 	}
 	assertColumns(t, db, "users", wantUsers)
 	assertColumns(t, db, "banks", wantBanks)
+	assertColumns(t, db, "operations", wantOps)
 }
 
 func TestOpenIdempotent(t *testing.T) {
@@ -46,8 +52,8 @@ func TestOpenIdempotent(t *testing.T) {
 	if err := second.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if n != 1 {
-		t.Fatalf("schema_migrations rows = %d, want 1", n)
+	if n != 2 {
+		t.Fatalf("schema_migrations rows = %d, want 2", n)
 	}
 }
 

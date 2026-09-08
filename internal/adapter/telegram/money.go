@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func splitBankAmount(payload string) (name, amount string) {
@@ -47,6 +45,7 @@ func (h *Bot) handleSet(ctx context.Context, b *bot.Bot, update *models.Update) 
 }
 
 func (h *Bot) startMoney(ctx context.Context, b *bot.Bot, update *models.Update, flow string) {
+	ctx = withCommand(ctx, flow)
 	from := sender(update)
 	if from == nil || update == nil || update.Message == nil {
 		return
@@ -91,7 +90,7 @@ func (h *Bot) progressMoney(
 		return
 	}
 	if amountRaw == "" {
-		h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), askAmountText(st.Flow, bank.Name), nil)
+		h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), askAmountText(ctx, st.Flow, bank.Name), nil)
 		return
 	}
 	st.Name = bank.Name
@@ -118,15 +117,15 @@ func (h *Bot) applyMoney(
 		return
 	}
 	if errors.Is(err, domain.ErrBankNotFound) {
-		h.done(ctx, b, chatID, userID, st, text.UnknownBank(st.Name))
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).UnknownBank(st.Name))
 		return
 	}
 	if err != nil {
-		slog.Error("change balance", slog.Any("err", err))
-		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
+		logHandlerErr(userID, st.Flow, "change balance", err)
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).SomethingWentWrong)
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, successText(st.Flow, bank, amount))
+	h.done(ctx, b, chatID, userID, st, successText(ctx, st.Flow, bank, amount))
 }
 
 func (h *Bot) repromptAmount(
@@ -137,7 +136,7 @@ func (h *Bot) repromptAmount(
 	st fsmState,
 ) {
 	bank := domain.Bank{ID: st.BankID, Name: st.Name}
-	h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), text.InvalidAmount, nil)
+	h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), copyFrom(ctx).InvalidAmount, nil)
 }
 
 func (h *Bot) changeBalance(
@@ -166,10 +165,16 @@ func (h *Bot) changeBalance(
 }
 
 func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if !h.beginCallback(ctx, b, update) {
+	if update == nil || update.CallbackQuery == nil {
 		return
 	}
 	flow, bankID, ok := parseMoneyCallback(update.CallbackQuery.Data)
+	if ok {
+		ctx = withCommand(ctx, flow)
+	}
+	if !h.beginCallback(ctx, b, update) {
+		return
+	}
 	if !ok {
 		return
 	}
@@ -183,7 +188,7 @@ func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *model
 	if !ok {
 		return
 	}
-	h.prompt(ctx, b, chatID, userID, st.withAmount(flow, bank), askAmountText(flow, bank.Name), nil)
+	h.prompt(ctx, b, chatID, userID, st.withAmount(flow, bank), askAmountText(ctx, flow, bank.Name), nil)
 }
 
 func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
@@ -204,24 +209,26 @@ func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
 	return "", 0, false
 }
 
-func askAmountText(flow, name string) string {
+func askAmountText(ctx context.Context, flow, name string) string {
+	c := copyFrom(ctx)
 	switch flow {
 	case domain.CommandAdd:
-		return text.AskAddAmount(name)
+		return c.AskAddAmount(name)
 	case domain.CommandSpend:
-		return text.AskSpendAmount(name)
+		return c.AskSpendAmount(name)
 	default:
-		return text.AskSetAmount(name)
+		return c.AskSetAmount(name)
 	}
 }
 
-func successText(flow string, bank domain.Bank, amount domain.Money) string {
+func successText(ctx context.Context, flow string, bank domain.Bank, amount domain.Money) string {
+	c := copyFrom(ctx)
 	switch flow {
 	case domain.CommandAdd:
-		return text.Added(bank.Name, amount.Format(), bank.Balance.Format())
+		return c.Added(bank.Name, amount.Format(), bank.Balance.Format())
 	case domain.CommandSpend:
-		return text.Spent(bank.Name, amount.Format(), bank.Balance.Format())
+		return c.Spent(bank.Name, amount.Format(), bank.Balance.Format())
 	default:
-		return text.SetTo(bank.Name, bank.Balance.Format())
+		return c.SetTo(bank.Name, bank.Balance.Format())
 	}
 }

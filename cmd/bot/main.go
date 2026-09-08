@@ -66,8 +66,11 @@ func run(ctx context.Context) error {
 	svc := service.New(
 		sqlite.NewBankRepository(db),
 		sqlite.NewUserRepository(db),
+		sqlite.NewOperationRepository(db),
+		sqlite.NewTransactor(db),
 		clk,
 		cfg.TrialDuration,
+		cfg.DefaultCurrency,
 	)
 
 	b, err := telegram.New(

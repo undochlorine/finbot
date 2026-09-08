@@ -44,6 +44,7 @@ func (s *Service) CreateBank(
 		Name:           name,
 		Balance:        0,
 		IncludeInTotal: includeInTotal,
+		Currency:       s.defaultCurrency,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	})
@@ -62,7 +63,9 @@ func (s *Service) Add(
 	if amount < 0 {
 		return domain.Bank{}, domain.ErrInvalidAmount
 	}
-	return s.adjust(ctx, userID, bankID, amount)
+	return s.changeBalance(ctx, userID, domain.OperationAdd, amount, func(ctx context.Context) (domain.Bank, error) {
+		return s.adjust(ctx, userID, bankID, amount)
+	})
 }
 
 func (s *Service) Spend(
@@ -74,7 +77,9 @@ func (s *Service) Spend(
 	if amount < 0 {
 		return domain.Bank{}, domain.ErrInvalidAmount
 	}
-	return s.adjust(ctx, userID, bankID, -amount)
+	return s.changeBalance(ctx, userID, domain.OperationSpend, amount, func(ctx context.Context) (domain.Bank, error) {
+		return s.adjust(ctx, userID, bankID, -amount)
+	})
 }
 
 func (s *Service) Set(
@@ -83,17 +88,38 @@ func (s *Service) Set(
 	bankID int64,
 	amount domain.Money,
 ) (domain.Bank, error) {
-	bank, err := s.banks.GetByID(ctx, userID, bankID)
-	if err != nil {
-		return domain.Bank{}, fmt.Errorf("get bank: %w", err)
-	}
-	bank.Balance = amount
-	return s.save(ctx, userID, bank)
+	return s.changeBalance(ctx, userID, domain.OperationSet, amount, func(ctx context.Context) (domain.Bank, error) {
+		bank, err := s.banks.GetByID(ctx, userID, bankID)
+		if err != nil {
+			return domain.Bank{}, fmt.Errorf("get bank: %w", err)
+		}
+		bank.Balance = amount
+		return s.save(ctx, userID, bank)
+	})
 }
 
 func (s *Service) Delete(ctx context.Context, userID domain.UserID, bankID int64) error {
-	if err := s.banks.Delete(ctx, userID, bankID); err != nil {
-		return fmt.Errorf("delete bank: %w", err)
+	if err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		bank, err := s.banks.GetByID(ctx, userID, bankID)
+		if err != nil {
+			return fmt.Errorf("get bank: %w", err)
+		}
+		if err := s.appendOp(ctx, domain.Operation{
+			UserID:    userID,
+			BankID:    ptr(bank.ID),
+			Type:      domain.OperationDelete,
+			Amount:    bank.Balance,
+			Meta:      bank.Name,
+			CreatedAt: s.clock.Now(),
+		}); err != nil {
+			return err
+		}
+		if err := s.banks.Delete(ctx, userID, bankID); err != nil {
+			return fmt.Errorf("delete bank: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("delete: %w", err)
 	}
 	return nil
 }
@@ -185,4 +211,45 @@ func addMoney(cur, delta domain.Money) (domain.Money, error) {
 		return 0, domain.ErrInvalidAmount
 	}
 	return domain.Money(sum), nil
+}
+
+func (s *Service) changeBalance(
+	ctx context.Context,
+	userID domain.UserID,
+	typ domain.OperationType,
+	amount domain.Money,
+	mutate func(ctx context.Context) (domain.Bank, error),
+) (domain.Bank, error) {
+	var updated domain.Bank
+	err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		updated, err = mutate(ctx)
+		if err != nil {
+			return err
+		}
+		return s.appendOp(ctx, domain.Operation{
+			UserID:       userID,
+			BankID:       ptr(updated.ID),
+			Type:         typ,
+			Amount:       amount,
+			BalanceAfter: ptr(updated.Balance),
+			Meta:         updated.Name,
+			CreatedAt:    updated.UpdatedAt,
+		})
+	})
+	if err != nil {
+		return domain.Bank{}, fmt.Errorf("change balance: %w", err)
+	}
+	return updated, nil
+}
+
+func (s *Service) appendOp(ctx context.Context, op domain.Operation) error {
+	if err := s.ops.Append(ctx, op); err != nil {
+		return fmt.Errorf("append operation: %w", err)
+	}
+	return nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

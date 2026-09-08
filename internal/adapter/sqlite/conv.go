@@ -47,6 +47,42 @@ func intPtr(n sql.NullInt64) *int {
 	return &v
 }
 
+func nullUserID(p *domain.UserID) sql.NullInt64 {
+	if p == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*p), Valid: true}
+}
+
+func userIDPtr(n sql.NullInt64) *domain.UserID {
+	if !n.Valid {
+		return nil
+	}
+	v := domain.UserID(n.Int64)
+	return &v
+}
+
+func nullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
+
+func nullMoney(p *domain.Money) sql.NullInt64 {
+	if p == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*p), Valid: true}
+}
+
+func nullBankID(p *int64) sql.NullInt64 {
+	if p == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: *p, Valid: true}
+}
+
 func isUniqueConstraint(err error) bool {
 	var se *moderncsqlite.Error
 	if !errors.As(err, &se) {

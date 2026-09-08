@@ -57,7 +57,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "add with no banks",
 			text: "/add",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return(nil, nil)
+				svc.EXPECT().List(anyCtx, userID).Return(nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NoBanks,
@@ -66,7 +66,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "spend with no banks",
 			text: "/spend",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return(nil, nil)
+				svc.EXPECT().List(anyCtx, userID).Return(nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NoBanks,
@@ -75,7 +75,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "set with no banks",
 			text: "/set",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return(nil, nil)
+				svc.EXPECT().List(anyCtx, userID).Return(nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.NoBanks,
@@ -84,7 +84,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "add picker",
 			text: "/add",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandAdd, Step: stepBank})
 				expectSendMessage(t, client, sent)
 			},
@@ -95,7 +95,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "spend picker",
 			text: "/spend",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandSpend, Step: stepBank})
 				expectSendMessage(t, client, sent)
 			},
@@ -106,7 +106,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "set picker",
 			text: "/set",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().List(ctx, userID).Return([]domain.Bank{holiday}, nil)
+				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{holiday}, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{Flow: domain.CommandSet, Step: stepBank})
 				expectSendMessage(t, client, sent)
 			},
@@ -117,7 +117,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "add name only asks amount",
 			text: "/add Holiday",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{
 					Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
 				})
@@ -129,11 +129,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "add name and amount",
 			text: "/add Holiday 100",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				svc.EXPECT().
-					Add(ctx, userID, testBankID, domain.Money(10000)).
+					Add(anyCtx, userID, testBankID, domain.Money(10000)).
 					Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Added("Holiday", "100.00", "150.00"),
@@ -143,11 +143,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			text: "/add Holiday Fund 100",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 0}
-				svc.EXPECT().GetByName(ctx, userID, "Holiday Fund").Return(fund, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday Fund").Return(fund, nil)
 				svc.EXPECT().
-					Add(ctx, userID, testBankID, domain.Money(10000)).
+					Add(anyCtx, userID, testBankID, domain.Money(10000)).
 					Return(domain.Bank{ID: testBankID, Name: "Holiday Fund", Balance: 10000}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Added("Holiday Fund", "100.00", "100.00"),
@@ -157,11 +157,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			text: "/spend Gifts 12.50",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				gifts := domain.Bank{ID: testBankID, UserID: userID, Name: "Gifts", Balance: 2000}
-				svc.EXPECT().GetByName(ctx, userID, "Gifts").Return(gifts, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Gifts").Return(gifts, nil)
 				svc.EXPECT().
-					Spend(ctx, userID, testBankID, domain.Money(1250)).
+					Spend(anyCtx, userID, testBankID, domain.Money(1250)).
 					Return(domain.Bank{ID: testBankID, Name: "Gifts", Balance: 750}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Spent("Gifts", "12.50", "7.50"),
@@ -171,11 +171,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			text: "/set Live 0",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				live := domain.Bank{ID: testBankID, UserID: userID, Name: "Live", Balance: 900}
-				svc.EXPECT().GetByName(ctx, userID, "Live").Return(live, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Live").Return(live, nil)
 				svc.EXPECT().
-					Set(ctx, userID, testBankID, domain.Money(0)).
+					Set(anyCtx, userID, testBankID, domain.Money(0)).
 					Return(domain.Bank{ID: testBankID, Name: "Live", Balance: 0}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.SetTo("Live", "0.00"),
@@ -185,11 +185,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			text: "/set Live -10",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				live := domain.Bank{ID: testBankID, UserID: userID, Name: "Live", Balance: 0}
-				svc.EXPECT().GetByName(ctx, userID, "Live").Return(live, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Live").Return(live, nil)
 				svc.EXPECT().
-					Set(ctx, userID, testBankID, domain.Money(-1000)).
+					Set(anyCtx, userID, testBankID, domain.Money(-1000)).
 					Return(domain.Bank{ID: testBankID, Name: "Live", Balance: -1000}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.SetTo("Live", "-10.00"),
@@ -198,7 +198,7 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "unknown bank",
 			text: "/add Missing",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
+				svc.EXPECT().GetByName(anyCtx, userID, "Missing").Return(domain.Bank{}, domain.ErrBankNotFound)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.UnknownBank("Missing"),
@@ -207,9 +207,9 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "add negative amount re-prompts",
 			text: "/add Holiday -1",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				svc.EXPECT().
-					Add(ctx, userID, testBankID, domain.Money(-100)).
+					Add(anyCtx, userID, testBankID, domain.Money(-100)).
 					Return(domain.Bank{}, domain.ErrInvalidAmount)
 				expectFSMSet(t, cache, ctx, key, fsmState{
 					Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
@@ -222,11 +222,11 @@ func TestMoneyCommandFlow(t *testing.T) {
 			name: "mention shortcut",
 			text: "/add@finbot Holiday 100",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				svc.EXPECT().
-					Add(ctx, userID, testBankID, domain.Money(10000)).
+					Add(anyCtx, userID, testBankID, domain.Money(10000)).
 					Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
-				cache.EXPECT().Delete(ctx, key).Return(nil)
+				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: text.Added("Holiday", "100.00", "150.00"),
@@ -257,8 +257,8 @@ func TestMoneyPendingBankName(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
-		svc.EXPECT().GetByName(ctx, userID, "Holiday").Return(holiday, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
+		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
 			Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
 		})
@@ -275,13 +275,13 @@ func TestMoneyPendingAmount(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
 		}), true, nil)
 		svc.EXPECT().
-			Add(ctx, userID, testBankID, domain.Money(10000)).
+			Add(anyCtx, userID, testBankID, domain.Money(10000)).
 			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
-		cache.EXPECT().Delete(ctx, key).Return(nil)
+		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("100"))
@@ -295,7 +295,7 @@ func TestMoneyPendingAmountInvalid(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(_ *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandSpend, Step: stepAmount, Name: "Gifts", BankID: testBankID,
 		}), true, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
@@ -315,8 +315,8 @@ func TestMoneyCallbackAsksAmount(t *testing.T) {
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
-		cache.EXPECT().Get(ctx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
-		svc.EXPECT().Get(ctx, userID, testBankID).Return(holiday, nil)
+		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{Flow: domain.CommandAdd, Step: stepBank}), true, nil)
+		svc.EXPECT().Get(anyCtx, userID, testBankID).Return(holiday, nil)
 		expectFSMSet(t, cache, ctx, key, fsmState{
 			Flow: domain.CommandAdd, Step: stepAmount, Name: "Holiday", BankID: testBankID,
 		})

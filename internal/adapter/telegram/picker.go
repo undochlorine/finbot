@@ -9,7 +9,6 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func (h *Bot) offerBanks(
@@ -28,7 +27,7 @@ func (h *Bot) offerBanks(
 	st.Step = stepBank
 	st.Name = ""
 	st.BankID = 0
-	h.prompt(ctx, b, chatID, userID, st, text.AskBank, bankKeyboard(flow, banks))
+	h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).AskBank, bankKeyboard(flow, banks))
 }
 
 func (h *Bot) loadBanks(
@@ -43,7 +42,7 @@ func (h *Bot) loadBanks(
 		return nil, false
 	}
 	if len(banks) == 0 {
-		reply(ctx, b, chatID, text.NoBanks, nil)
+		reply(ctx, b, chatID, copyFrom(ctx).NoBanks, nil)
 		return nil, false
 	}
 	return banks, true
@@ -60,7 +59,7 @@ func (h *Bot) bankByName(
 	bank, err := h.svc.GetByName(ctx, userID, name)
 	if errors.Is(err, domain.ErrBankNotFound) {
 		if st.PromptID == 0 {
-			reply(ctx, b, chatID, text.UnknownBank(name), nil)
+			reply(ctx, b, chatID, copyFrom(ctx).UnknownBank(name), nil)
 			return domain.Bank{}, false
 		}
 		banks, listErr := h.svc.List(ctx, userID)
@@ -73,7 +72,7 @@ func (h *Bot) bankByName(
 			st.Step = stepBank
 			markup = bankKeyboard(st.Flow, banks)
 		}
-		h.prompt(ctx, b, chatID, userID, st, text.UnknownBank(name), markup)
+		h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).UnknownBank(name), markup)
 		return domain.Bank{}, false
 	}
 	if err != nil {

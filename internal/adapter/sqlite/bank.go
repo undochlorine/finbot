@@ -13,7 +13,7 @@ import (
 var _ service.BankRepository = (*BankRepository)(nil)
 
 const selectBank = `
-		SELECT id, user_id, name, balance_cents, include_in_total, created_at, updated_at
+		SELECT id, user_id, name, balance_cents, include_in_total, currency, created_at, updated_at
 		FROM banks`
 
 type BankRepository struct {
@@ -29,14 +29,15 @@ func (r *BankRepository) Create(ctx context.Context, userID domain.UserID, bank 
 	if err != nil {
 		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
 	}
-	res, err := r.db.ExecContext(ctx, `
-		INSERT INTO banks (user_id, name, name_normalized, balance_cents, include_in_total, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	res, err := conn(ctx, r.db).ExecContext(ctx, `
+		INSERT INTO banks (user_id, name, name_normalized, balance_cents, include_in_total, currency, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), 'USD'), ?, ?)`,
 		userID,
 		bank.Name,
 		norm,
 		int64(bank.Balance),
 		boolToInt(bank.IncludeInTotal),
+		bank.Currency,
 		formatTime(bank.CreatedAt),
 		formatTime(bank.UpdatedAt),
 	)
@@ -54,7 +55,7 @@ func (r *BankRepository) Create(ctx context.Context, userID domain.UserID, bank 
 }
 
 func (r *BankRepository) GetByID(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error) {
-	row := r.db.QueryRowContext(ctx, selectBank+`
+	row := conn(ctx, r.db).QueryRowContext(ctx, selectBank+`
 		WHERE id = ? AND user_id = ?`, bankID, userID)
 	return scanBankRow(row, "get bank")
 }
@@ -64,13 +65,13 @@ func (r *BankRepository) GetByName(ctx context.Context, userID domain.UserID, na
 	if err != nil {
 		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
 	}
-	row := r.db.QueryRowContext(ctx, selectBank+`
+	row := conn(ctx, r.db).QueryRowContext(ctx, selectBank+`
 		WHERE user_id = ? AND name_normalized = ?`, userID, norm)
 	return scanBankRow(row, "get bank by name")
 }
 
 func (r *BankRepository) List(ctx context.Context, userID domain.UserID) (banks []domain.Bank, err error) {
-	rows, err := r.db.QueryContext(ctx, selectBank+`
+	rows, err := conn(ctx, r.db).QueryContext(ctx, selectBank+`
 		WHERE user_id = ?
 		ORDER BY name_normalized`, userID)
 	if err != nil {
@@ -102,7 +103,7 @@ func (r *BankRepository) Update(ctx context.Context, userID domain.UserID, bank 
 	if err != nil {
 		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
 	}
-	res, err := r.db.ExecContext(ctx, `
+	res, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE banks
 		SET name = ?, name_normalized = ?, balance_cents = ?, include_in_total = ?, updated_at = ?
 		WHERE id = ? AND user_id = ?`,
@@ -131,7 +132,7 @@ func (r *BankRepository) Update(ctx context.Context, userID domain.UserID, bank 
 }
 
 func (r *BankRepository) Delete(ctx context.Context, userID domain.UserID, bankID int64) error {
-	res, err := r.db.ExecContext(ctx, `
+	res, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM banks
 		WHERE id = ? AND user_id = ?`, bankID, userID)
 	if err != nil {
@@ -149,7 +150,7 @@ func (r *BankRepository) Delete(ctx context.Context, userID domain.UserID, bankI
 
 func (r *BankRepository) TotalIncluded(ctx context.Context, userID domain.UserID) (domain.Money, error) {
 	var cents int64
-	err := r.db.QueryRowContext(ctx, `
+	err := conn(ctx, r.db).QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(balance_cents), 0)
 		FROM banks
 		WHERE user_id = ? AND include_in_total = 1`, userID).Scan(&cents)
@@ -182,7 +183,7 @@ func scanBank(row rowScanner) (domain.Bank, error) {
 		createdAt string
 		updatedAt string
 	)
-	err := row.Scan(&b.ID, &b.UserID, &b.Name, &cents, &included, &createdAt, &updatedAt)
+	err := row.Scan(&b.ID, &b.UserID, &b.Name, &cents, &included, &b.Currency, &createdAt, &updatedAt)
 	if err != nil {
 		return domain.Bank{}, fmt.Errorf("scan bank: %w", err)
 	}

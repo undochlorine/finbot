@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.6` |
-| **Last done** | `3.5` chat hygiene |
+| **Current step** | `3.7` |
+| **Last done** | `3.6` write-path foundations |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.6` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.7` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -143,7 +143,7 @@ The **service** layer depends on **domain + its own interfaces**, never on `port
 cmd/bot/main.go          # only binary through Stage 3; worker/web in 4.21
 internal/
   domain/            User, Bank, Money, Operation, errors, entitlement
-  service/           use cases + BankRepository, UserRepository, Clock
+  service/           use cases + BankRepository, UserRepository, OperationRepository, Transactor, Clock
   ports/             Cache, Notifier (until telegram, their consumer, exists)
   adapter/
     telegram/        handlers, inline keyboards, conversation FSM; owns HTTPClient
@@ -161,9 +161,13 @@ flowchart LR
   Services --> Domain
   Services --> BankRepo
   Services --> UserRepo
+  Services --> OpRepo
+  Services --> Tx
   Services --> Clock
   BankRepo --> SQLite
   UserRepo --> SQLite
+  OpRepo --> SQLite
+  Tx --> SQLite
   Handlers --> Cache
   Cache --> Memory
 ```
@@ -174,6 +178,8 @@ Owned by **service** (what use cases call):
 
 - `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
 - `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
+- `OperationRepository` — append-only operations (`3.6`)
+- `Transactor` — `InTx` for add/spend/set/delete (`3.6`); `/transfer` reuses it in `3.7`
 - `Clock` — `Now()` for activity and tests
 
 Owned by **memorycache**:
@@ -208,9 +214,11 @@ Do **not** add a Billing port in Stage 3. Entitlement **enforcement** and paymen
 Painful to retrofit; Telegram UX stays the same except `/start` may persist a referral payload.
 
 - Append-only `operations` written inside existing mutators (and `/transfer` in `3.7`)
+- Add/spend/set/delete run in one `Transactor` transaction (balance change + operation row)
+- `meta` snapshots the bank name as typed so `/history` still has a name after `ON DELETE SET NULL`
 - `users.locale` default `en`; `internal/text` keyed by locale, **English only**
 - `banks.currency` NOT NULL default from `DEFAULT_CURRENCY`; still hidden in copy
-- `users.referred_by` nullable Telegram id; set **once** from `/start` payload
+- `users.referred_by` nullable Telegram id; set **once** from `/start` payload (set-if-null)
 - `Entitlement` always returns full access; tests: always-allow
 - Structured `slog` fields (`user_id`, command). No metrics stack
 - Do **not** add `/history`, `/language`, currency picker, or paywall
@@ -277,7 +285,7 @@ Append-only. Written by service mutators; **no user-facing `/history` until `4.1
 - `type` TEXT NOT NULL — `add` / `spend` / `set` / `delete` / `transfer`
 - `amount_cents` INTEGER NOT NULL
 - `balance_after_cents` INTEGER NULL — N/A for delete
-- `meta` TEXT — e.g. counterpart bank id for transfer
+- `meta` TEXT — bank name as typed on add/spend/set/delete; counterpart bank id for transfer in `3.7`. Empty stored as SQL NULL.
 - `created_at` TEXT (RFC3339 UTC)
 
 ### Total
@@ -344,7 +352,7 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 
 | Command | Flow | From |
 | --- | --- | --- |
-| `/start` | Upsert user, short intro, point to `/help`. **`3.6`:** if the message has a payload and this is the first upsert, store `referred_by`. No rewards until `4.15`. | `2.3` / `3.6` |
+| `/start` | Upsert user, short intro, point to `/help`. **`3.6`:** first valid `/start <telegram-id>` stores `referred_by` if still null. Later payloads do not overwrite. Self-referral is ignored. No rewards until `4.15`. | `2.3` / `3.6` |
 | `/help` | List commands | `2.3` |
 | `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no`). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. | `2.4` |
 | `/add` | Pick bank (buttons or arg) → amount. Adds to balance | `2.5` |
@@ -498,6 +506,11 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-07 | Slash command menu (`/` hint / Commands button) is registered via Bot API `setMyCommands` when the bot process starts. BotFather `/setcommands` is optional, not required. |
 | 2026-09-08 | Stage 3 vs Stage 4 placement: private MVP stays full-banks / no paywall through `3.7`. Operations **write** in `3.6`, `/history` in `4.10`. Locale column + `en`-only catalog in `3.6`, picker in `4.12`. Currency column in `3.6`, picker/FX in `4.13`–`4.14`. Post-trial UX is a limited free tier (one `Total` bank, add/spend/set only), not a hard block. Paid and 100% whitelist kept longer on inactivity (`4.4`). Referral payload stored in `3.6`, rewards in `4.15`. Stay a modular monolith through `4.21` unless load forces a split. `/feedback` forwards to admin in `3.4`; web admin is `4.19`. |
 | 2026-09-08 | Chat hygiene (`3.5`): keep slash commands and outcomes; edit one bot prompt in place; delete typed wizard answers. Keep `/feedback` body and `Canceled.`. Do not delete `/start` `/help` or list/total replies. |
+| 2026-09-08 | Referral capture is set-if-null: first valid `/start <telegram-id>` wins; later payloads do not overwrite. Self-referral is ignored. |
+| 2026-09-08 | `DEFAULT_CURRENCY` missing/empty → `USD`; any other trimmed string is stored as-is (no ISO check). Existing banks get `USD` from the migration default; only new banks use config. |
+| 2026-09-08 | Delete operation: `amount_cents` is last balance, `balance_after_cents` null, `meta` is the bank name as typed. `operations.bank_id` SET NULL on bank delete. |
+| 2026-09-08 | Add/spend/set also snapshot the typed bank name in `meta`, so history survives `ON DELETE SET NULL`. Empty `meta` is still SQL NULL when unused. |
+| 2026-09-08 | Add/spend/set/delete are atomic via service `Transactor` (sqlite tx on the context). 3.7 `/transfer` reuses it. Supercedes the earlier “no unit of work in 3.6” cut. |
 
 ---
 
@@ -712,18 +725,18 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.6 Write-path foundations
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** one SQLite migration + domain/service hooks that Stage 4 will read. Telegram UX unchanged except `/start` may persist a referral payload.
 - **Schema:** `operations` (append-only: `add`/`spend`/`set`/`delete`/`transfer`); `users.locale` default `en`; `users.referred_by` nullable; `banks.currency` NOT NULL default from `DEFAULT_CURRENCY`.
-- **Also:** locale-keyed `internal/text` with **only English**; always-allow `Entitlement` helper; structured `slog` fields (`user_id`, command).
-- **DoD:** add/spend/set/delete write an operation row. First `/start <payload>` stores `referred_by` once and does not overwrite later. Existing users get locale `en` and default currency on new banks. Entitlement tests: always full access. **No** `/history`, `/language`, currency picker, or paywall.
+- **Also:** locale-keyed `internal/text` with **only English**; always-allow `Entitlement` helper; structured `slog` fields (`user_id`, command); `Transactor` for atomic mutators; `meta` snapshots the typed bank name.
+- **DoD:** add/spend/set/delete write an operation row **in the same transaction** as the bank change. First valid `/start <payload>` stores `referred_by` once (set-if-null) and does not overwrite later. Existing users get locale `en` and default currency on new banks. Entitlement tests: always full access. **No** `/history`, `/language`, currency picker, or paywall.
 
 #### 3.7 Same-currency `/transfer`
 
 - **Status:** `todo`
 - **Goal:** move money between the user’s own banks in the same currency.
 - **Flow:** pick from-bank → to-bank → amount. Shortcuts consistent with `/add`. Empty state hints `/newbank`.
-- **DoD:** atomic in service (two balance updates + operation rows). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
+- **DoD:** atomic in service via `Transactor` from `3.6` (two balance updates + operation rows). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
 
 **Hardened private MVP is complete when 0.1–3.7 are `done`.** Through `3.3` the bot is already usable privately; `3.4`–`3.7` are still Stage 3 (no paywall, full banks for everyone).
 
@@ -876,4 +889,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.6`
+`let's move to step 3.7`

@@ -8,10 +8,10 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func (h *Bot) handleBank(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandBank)
 	from := sender(update)
 	if from == nil || update == nil || update.Message == nil {
 		return
@@ -23,6 +23,7 @@ func (h *Bot) handleBank(ctx context.Context, b *bot.Bot, update *models.Update)
 }
 
 func (h *Bot) handleBanks(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandBanks)
 	from := sender(update)
 	if from == nil {
 		return
@@ -31,6 +32,7 @@ func (h *Bot) handleBanks(ctx context.Context, b *bot.Bot, update *models.Update
 }
 
 func (h *Bot) handleTotal(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandTotal)
 	from := sender(update)
 	if from == nil {
 		return
@@ -39,6 +41,7 @@ func (h *Bot) handleTotal(ctx context.Context, b *bot.Bot, update *models.Update
 }
 
 func (h *Bot) handleAll(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandAll)
 	from := sender(update)
 	if from == nil {
 		return
@@ -91,10 +94,10 @@ func (h *Bot) replyBankCard(
 	clear bool,
 ) {
 	if clear {
-		h.done(ctx, b, chatID, userID, st, bankCard(bank))
+		h.done(ctx, b, chatID, userID, st, bankCard(ctx, bank))
 		return
 	}
-	reply(ctx, b, chatID, bankCard(bank), nil)
+	reply(ctx, b, chatID, bankCard(ctx, bank), nil)
 }
 
 func (h *Bot) replyBanks(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
@@ -102,7 +105,7 @@ func (h *Bot) replyBanks(ctx context.Context, b *bot.Bot, chatID int64, userID d
 	if !ok {
 		return
 	}
-	reply(ctx, b, chatID, formatBanks(banks), nil)
+	reply(ctx, b, chatID, formatBanks(ctx, banks), nil)
 }
 
 func (h *Bot) replyTotal(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
@@ -111,7 +114,7 @@ func (h *Bot) replyTotal(ctx context.Context, b *bot.Bot, chatID int64, userID d
 		replyErr(ctx, b, chatID, "total", err)
 		return
 	}
-	reply(ctx, b, chatID, text.Total(total.Format()), nil)
+	reply(ctx, b, chatID, copyFrom(ctx).Total(total.Format()), nil)
 }
 
 func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
@@ -121,13 +124,15 @@ func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID dom
 		return
 	}
 	if len(banks) == 0 {
-		reply(ctx, b, chatID, text.NoBanks, nil)
+		reply(ctx, b, chatID, copyFrom(ctx).NoBanks, nil)
 		return
 	}
-	reply(ctx, b, chatID, text.All(formatBanks(banks), text.Total(total.Format())), nil)
+	c := copyFrom(ctx)
+	reply(ctx, b, chatID, c.All(formatBanks(ctx, banks), c.Total(total.Format())), nil)
 }
 
 func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandBank)
 	if !h.beginCallback(ctx, b, update) {
 		return
 	}
@@ -148,14 +153,14 @@ func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models
 	h.replyBankCard(ctx, b, chatID, userID, st, bank, true)
 }
 
-func formatBanks(banks []domain.Bank) string {
+func formatBanks(ctx context.Context, banks []domain.Bank) string {
 	lines := make([]string, 0, len(banks))
 	for _, bank := range banks {
-		lines = append(lines, bankCard(bank))
+		lines = append(lines, bankCard(ctx, bank))
 	}
 	return strings.Join(lines, "\n")
 }
 
-func bankCard(bank domain.Bank) string {
-	return text.BankCard(bank.Name, bank.Balance.Format(), bank.IncludeInTotal)
+func bankCard(ctx context.Context, bank domain.Bank) string {
+	return copyFrom(ctx).BankCard(bank.Name, bank.Balance.Format(), bank.IncludeInTotal)
 }

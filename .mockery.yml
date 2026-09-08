@@ -23,4 +23,6 @@ packages:
     interfaces:
       BankRepository: {}
       Clock: {}
+      OperationRepository: {}
+      Transactor: {}
       UserRepository: {}

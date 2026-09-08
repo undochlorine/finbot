@@ -2,11 +2,14 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/require"
 
+	"finbot/internal/adapter/telegram/mocks"
+	"finbot/internal/domain"
 	"finbot/internal/text"
 )
 
@@ -69,6 +72,42 @@ func TestStartAndHelpReply(t *testing.T) {
 			}
 			require.Contains(t, sent, tt.wantText)
 			require.Contains(t, sent, "42")
+		})
+	}
+}
+
+func TestStartReferral(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name    string
+		text    string
+		call    bool
+		ref     domain.UserID
+		callErr error
+	}{
+		{name: "valid payload", text: "/start 99", call: true, ref: 99},
+		{name: "self", text: "/start 42"},
+		{name: "zero", text: "/start 0"},
+		{name: "non numeric", text: "/start nope"},
+		{name: "repo error still welcomes", text: "/start 99", call: true, ref: 99, callErr: errors.New("boom")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var sent string
+			var svc *mocks.MockService
+			b := newTestBot(t, ctx, func(s *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient) {
+				svc = s
+				if tt.call {
+					s.EXPECT().SetReferredByIfEmpty(anyCtx, domain.UserID(telegramUserID), tt.ref).Return(tt.callErr)
+				}
+				expectSendMessage(t, client, &sent)
+			})
+			b.ProcessUpdate(ctx, commandUpdate(tt.text))
+			require.Contains(t, sent, text.Start)
+			if !tt.call {
+				require.True(t, svc.AssertNotCalled(t, "SetReferredByIfEmpty"))
+			}
 		})
 	}
 }

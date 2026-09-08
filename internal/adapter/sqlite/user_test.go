@@ -27,6 +27,7 @@ func TestUserRepositoryUpsertAndGet(t *testing.T) {
 		Plan:            domain.PlanTrial,
 		TrialEndsAt:     trial,
 		DiscountPercent: &pct,
+		Locale:          domain.LocaleEN,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	})
@@ -35,6 +36,12 @@ func TestUserRepositoryUpsertAndGet(t *testing.T) {
 	}
 	if created.TelegramID != 7 || created.Username != "alice" || created.Plan != domain.PlanTrial {
 		t.Fatalf("created %+v", created)
+	}
+	if created.Locale != domain.LocaleEN {
+		t.Fatalf("locale %q", created.Locale)
+	}
+	if created.ReferredBy != nil {
+		t.Fatalf("referred_by %+v", created.ReferredBy)
 	}
 	if created.DiscountPercent == nil || *created.DiscountPercent != pct {
 		t.Fatalf("discount %+v", created.DiscountPercent)
@@ -49,6 +56,7 @@ func TestUserRepositoryUpsertAndGet(t *testing.T) {
 		Plan:            domain.PlanFree,
 		TrialEndsAt:     later.Add(48 * time.Hour),
 		DiscountPercent: &newPct,
+		Locale:          "fr",
 		CreatedAt:       later,
 		UpdatedAt:       later,
 	})
@@ -69,6 +77,12 @@ func TestUserRepositoryUpsertAndGet(t *testing.T) {
 	}
 	if updated.DiscountPercent == nil || *updated.DiscountPercent != pct {
 		t.Fatalf("discount rewritten: %+v", updated.DiscountPercent)
+	}
+	if updated.Locale != domain.LocaleEN {
+		t.Fatalf("locale rewritten: %q", updated.Locale)
+	}
+	if updated.ReferredBy != nil {
+		t.Fatalf("referred_by rewritten: %+v", updated.ReferredBy)
 	}
 }
 
@@ -109,6 +123,55 @@ func TestUserRepositoryTouchActivity(t *testing.T) {
 	}
 }
 
+func TestUserRepositorySetReferredByIfEmpty(t *testing.T) {
+	db := openTemp(t)
+	defer closeDB(t, db)
+	users := NewUserRepository(db)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	if _, err := users.Upsert(ctx, testUser(1, now)); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	if err := users.SetReferredByIfEmpty(ctx, 1, 1); err != nil {
+		t.Fatalf("self: %v", err)
+	}
+	got, err := users.Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.ReferredBy != nil {
+		t.Fatalf("self wrote %+v", got.ReferredBy)
+	}
+
+	if err := users.SetReferredByIfEmpty(ctx, 1, 99); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	got, err = users.Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("get after first: %v", err)
+	}
+	if got.ReferredBy == nil || *got.ReferredBy != 99 {
+		t.Fatalf("referred_by %+v", got.ReferredBy)
+	}
+
+	if err := users.SetReferredByIfEmpty(ctx, 1, 100); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	got, err = users.Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("get after second: %v", err)
+	}
+	if got.ReferredBy == nil || *got.ReferredBy != 99 {
+		t.Fatalf("overwrote %+v", got.ReferredBy)
+	}
+
+	err = users.SetReferredByIfEmpty(ctx, 2, 99)
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		t.Fatalf("missing user: %v", err)
+	}
+}
+
 func testUser(id domain.UserID, now time.Time) domain.User {
 	return domain.User{
 		TelegramID:     id,
@@ -116,6 +179,7 @@ func testUser(id domain.UserID, now time.Time) domain.User {
 		LastActivityAt: now,
 		Plan:           domain.PlanTrial,
 		TrialEndsAt:    now.Add(24 * time.Hour),
+		Locale:         domain.LocaleEN,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}

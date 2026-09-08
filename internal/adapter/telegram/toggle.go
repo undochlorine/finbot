@@ -3,17 +3,16 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 func (h *Bot) handleToggle(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandToggle)
 	from := sender(update)
 	if from == nil || update == nil || update.Message == nil {
 		return
@@ -69,22 +68,23 @@ func (h *Bot) toggleAndReply(
 ) {
 	bank, err := h.svc.Toggle(ctx, userID, st.BankID)
 	if errors.Is(err, domain.ErrBankNotFound) {
-		msg := text.SomethingWentWrong
+		msg := copyFrom(ctx).SomethingWentWrong
 		if st.Name != "" {
-			msg = text.UnknownBank(st.Name)
+			msg = copyFrom(ctx).UnknownBank(st.Name)
 		}
 		h.done(ctx, b, chatID, userID, st, msg)
 		return
 	}
 	if err != nil {
-		slog.Error("toggle bank", slog.Any("err", err))
-		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
+		logHandlerErr(userID, domain.CommandToggle, "toggle bank", err)
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).SomethingWentWrong)
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, text.Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal))
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal))
 }
 
 func (h *Bot) handleToggleCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandToggle)
 	if !h.beginCallback(ctx, b, update) {
 		return
 	}

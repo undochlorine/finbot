@@ -3,7 +3,6 @@ package telegram
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -11,12 +10,12 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"finbot/internal/domain"
-	"finbot/internal/text"
 )
 
 const deleteActionPick = "pick"
 
 func (h *Bot) handleDelete(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandDelete)
 	from := sender(update)
 	if from == nil || update == nil || update.Message == nil {
 		return
@@ -41,14 +40,14 @@ func (h *Bot) continueDelete(
 	case stepConfirm:
 		yes, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
 		if !parsed {
-			h.prompt(ctx, b, chatID, userID, st, text.AskDeleteConfirm(st.Name), deleteConfirmKeyboard(st.BankID))
+			h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).AskDeleteConfirm(st.Name), deleteConfirmKeyboard(ctx, st.BankID))
 			return
 		}
 		if yes {
 			h.deleteBankAndReply(ctx, b, chatID, userID, st)
 			return
 		}
-		h.done(ctx, b, chatID, userID, st, text.DeleteCancelled)
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).DeleteCancelled)
 	}
 }
 
@@ -86,8 +85,8 @@ func (h *Bot) askDeleteConfirm(
 		chatID,
 		userID,
 		st.withDeleteConfirm(bank),
-		text.AskDeleteConfirm(bank.Name),
-		deleteConfirmKeyboard(bank.ID),
+		copyFrom(ctx).AskDeleteConfirm(bank.Name),
+		deleteConfirmKeyboard(ctx, bank.ID),
 	)
 }
 
@@ -100,18 +99,19 @@ func (h *Bot) deleteBankAndReply(
 ) {
 	err := h.svc.Delete(ctx, userID, st.BankID)
 	if errors.Is(err, domain.ErrBankNotFound) {
-		h.done(ctx, b, chatID, userID, st, text.UnknownBank(st.Name))
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).UnknownBank(st.Name))
 		return
 	}
 	if err != nil {
-		slog.Error("delete bank", slog.Any("err", err))
-		h.done(ctx, b, chatID, userID, st, text.SomethingWentWrong)
+		logHandlerErr(userID, domain.CommandDelete, "delete bank", err)
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).SomethingWentWrong)
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, text.BankDeleted(st.Name))
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankDeleted(st.Name))
 }
 
 func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
+	ctx = withCommand(ctx, domain.CommandDelete)
 	if !h.beginCallback(ctx, b, update) {
 		return
 	}
@@ -147,7 +147,7 @@ func (h *Bot) handleDeleteCallback(ctx context.Context, b *bot.Bot, update *mode
 		if st.Step != stepConfirm || st.BankID != bankID {
 			return
 		}
-		h.done(ctx, b, chatID, userID, st, text.DeleteCancelled)
+		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).DeleteCancelled)
 	}
 }
 
@@ -169,12 +169,13 @@ func parseDeleteCallback(data string) (action string, bankID int64, ok bool) {
 	return "", 0, false
 }
 
-func deleteConfirmKeyboard(bankID int64) *models.InlineKeyboardMarkup {
+func deleteConfirmKeyboard(ctx context.Context, bankID int64) *models.InlineKeyboardMarkup {
 	id := strconv.FormatInt(bankID, 10)
+	c := copyFrom(ctx)
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{{
-			{Text: text.Yes, CallbackData: callbackDeleteYes + id},
-			{Text: text.No, CallbackData: callbackDeleteNo + id},
+			{Text: c.Yes, CallbackData: callbackDeleteYes + id},
+			{Text: c.No, CallbackData: callbackDeleteNo + id},
 		}},
 	}
 }
