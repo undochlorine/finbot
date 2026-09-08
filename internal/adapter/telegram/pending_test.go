@@ -22,24 +22,24 @@ func TestPendingCommandsDrainsThreeJobsInOrder(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 
-	p.enqueue(telegramUserID, func() {
+	p.enqueue(telegramUserID, pendingJob{run: func() {
 		close(started)
 		<-release
 		mu.Lock()
 		got = append(got, 1)
 		mu.Unlock()
-	})
+	}})
 	<-started
-	p.enqueue(telegramUserID, func() {
+	p.enqueue(telegramUserID, pendingJob{run: func() {
 		mu.Lock()
 		got = append(got, 2)
 		mu.Unlock()
-	})
-	p.enqueue(telegramUserID, func() {
+	}})
+	p.enqueue(telegramUserID, pendingJob{run: func() {
 		mu.Lock()
 		got = append(got, 3)
 		mu.Unlock()
-	})
+	}})
 	close(release)
 	p.wait(telegramUserID)
 
@@ -55,18 +55,18 @@ func TestPendingCommandsDropsOldestWaitingWhenFull(t *testing.T) {
 	var mu sync.Mutex
 	got := make([]int, 0, pendingWaitingCap)
 
-	p.enqueue(telegramUserID, func() {
+	p.enqueue(telegramUserID, pendingJob{run: func() {
 		close(started)
 		<-release
-	})
+	}})
 	<-started
 	for i := 1; i <= pendingWaitingCap+1; i++ {
 		n := i
-		p.enqueue(telegramUserID, func() {
+		p.enqueue(telegramUserID, pendingJob{run: func() {
 			mu.Lock()
 			got = append(got, n)
 			mu.Unlock()
-		})
+		}})
 	}
 	close(release)
 	p.wait(telegramUserID)
@@ -87,12 +87,12 @@ func TestPendingCommandsDoesNotBlockOtherUsers(t *testing.T) {
 	aRelease := make(chan struct{})
 	bDone := make(chan struct{})
 
-	p.enqueue(userA, func() {
+	p.enqueue(userA, pendingJob{run: func() {
 		close(aStarted)
 		<-aRelease
-	})
+	}})
 	<-aStarted
-	p.enqueue(userB, func() { close(bDone) })
+	p.enqueue(userB, pendingJob{run: func() { close(bDone) }})
 
 	select {
 	case <-bDone:
@@ -101,6 +101,65 @@ func TestPendingCommandsDoesNotBlockOtherUsers(t *testing.T) {
 	}
 	close(aRelease)
 	p.wait(userA)
+}
+
+func TestPendingDrainCompactsHelpBurstToOneJob(t *testing.T) {
+	p := newPendingCommands()
+	p.mu.Lock()
+	p.users[telegramUserID] = &pendingUser{draining: true}
+	p.mu.Unlock()
+
+	var mu sync.Mutex
+	var ran int
+	for range 3 {
+		p.enqueue(telegramUserID, pendingJob{
+			update: commandUpdate("/help"),
+			run: func() {
+				mu.Lock()
+				ran++
+				mu.Unlock()
+			},
+		})
+	}
+	go p.drain(telegramUserID)
+	p.wait(telegramUserID)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 1, ran)
+}
+
+func TestPendingCompactsWaitingAfterProcessedItem(t *testing.T) {
+	p := newPendingCommands()
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var ran []string
+
+	p.enqueue(telegramUserID, pendingJob{run: func() {
+		close(started)
+		<-release
+		mu.Lock()
+		ran = append(ran, "block")
+		mu.Unlock()
+	}})
+	<-started
+	for range 3 {
+		p.enqueue(telegramUserID, pendingJob{
+			update: commandUpdate("/help"),
+			run: func() {
+				mu.Lock()
+				ran = append(ran, "help")
+				mu.Unlock()
+			},
+		})
+	}
+	close(release)
+	p.wait(telegramUserID)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, []string{"block", "help"}, ran)
 }
 
 func TestPendingMiddlewarePassesThroughWithoutUser(t *testing.T) {
@@ -256,25 +315,51 @@ func TestPendingBurstHelpAllHelpRepliesInSendOrder(t *testing.T) {
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient) {
 		svc.EXPECT().All(anyCtx, userID).Return([]domain.Bank{holiday}, holiday.Balance, nil)
-		for range 5 {
+		for range 3 {
 			expectSendMessageCapture(t, client, &mu, &sent, nil, nil)
 		}
 	})
 
+	b.pending.mu.Lock()
+	b.pending.users[telegramUserID] = &pendingUser{draining: true}
+	b.pending.mu.Unlock()
 	for _, cmd := range []string{"/help", "/help", "/help", "/all", "/help"} {
 		b.inner.ProcessUpdate(ctx, commandUpdate(cmd))
 	}
+	go b.pending.drain(telegramUserID)
 	b.pending.wait(telegramUserID)
 
 	mu.Lock()
 	defer mu.Unlock()
-	require.Len(t, sent, 5)
+	require.Len(t, sent, 3)
 	require.Contains(t, sent[0], text.Help)
-	require.Contains(t, sent[1], text.Help)
+	require.Contains(t, sent[1], "Holiday")
+	require.NotContains(t, sent[1], "Finbot commands:")
 	require.Contains(t, sent[2], text.Help)
-	require.Contains(t, sent[3], "Holiday")
-	require.NotContains(t, sent[3], "Finbot commands:")
-	require.Contains(t, sent[4], text.Help)
+}
+
+func TestPendingHelpBurstProducesOneReply(t *testing.T) {
+	ctx := context.Background()
+	var mu sync.Mutex
+	var sent []string
+
+	b := newTestBot(t, ctx, func(_ *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient) {
+		expectSendMessageCapture(t, client, &mu, &sent, nil, nil)
+	})
+
+	b.pending.mu.Lock()
+	b.pending.users[telegramUserID] = &pendingUser{draining: true}
+	b.pending.mu.Unlock()
+	for range 3 {
+		b.inner.ProcessUpdate(ctx, commandUpdate("/help"))
+	}
+	go b.pending.drain(telegramUserID)
+	b.pending.wait(telegramUserID)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, sent, 1)
+	require.Contains(t, sent[0], text.Help)
 }
 
 func TestPendingDoesNotBlockOtherUsers(t *testing.T) {

@@ -11,8 +11,13 @@ import (
 
 const pendingWaitingCap = 32
 
+type pendingJob struct {
+	update *models.Update
+	run    func()
+}
+
 type pendingUser struct {
-	waiting  []func()
+	waiting  []pendingJob
 	draining bool
 }
 
@@ -28,8 +33,8 @@ func newPendingCommands() *PendingCommands {
 	return p
 }
 
-func (p *PendingCommands) enqueue(userID int64, job func()) {
-	if p == nil || job == nil {
+func (p *PendingCommands) enqueue(userID int64, job pendingJob) {
+	if p == nil || job.run == nil {
 		return
 	}
 	p.mu.Lock()
@@ -57,11 +62,15 @@ func (p *PendingCommands) drain(userID int64) {
 	for {
 		p.mu.Lock()
 		u := p.users[userID]
-		if u == nil || len(u.waiting) == 0 {
-			if u != nil {
-				u.draining = false
-				delete(p.users, userID)
-			}
+		if u == nil {
+			p.idle.Broadcast()
+			p.mu.Unlock()
+			return
+		}
+		u.waiting = compact(u.waiting)
+		if len(u.waiting) == 0 {
+			u.draining = false
+			delete(p.users, userID)
 			p.idle.Broadcast()
 			p.mu.Unlock()
 			return
@@ -69,7 +78,7 @@ func (p *PendingCommands) drain(userID int64) {
 		job := u.waiting[0]
 		u.waiting = u.waiting[1:]
 		p.mu.Unlock()
-		job()
+		job.run()
 	}
 }
 
@@ -96,7 +105,10 @@ func (p *PendingCommands) middleware() bot.Middleware {
 				next(ctx, b, update)
 				return
 			}
-			p.enqueue(from.ID, func() { next(ctx, b, update) })
+			p.enqueue(from.ID, pendingJob{
+				update: update,
+				run:    func() { next(ctx, b, update) },
+			})
 		}
 	}
 }
