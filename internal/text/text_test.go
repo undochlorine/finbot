@@ -91,6 +91,135 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	}
 }
 
+func TestOutcomeEmojis(t *testing.T) {
+	tests := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{
+			name: "start first line",
+			got:  strings.SplitN(Start, "\n", 2)[0],
+			want: "👋 Welcome to Finbot. Split money into named banks and track balances.",
+		},
+		{
+			name: "bank created included",
+			got:  BankCreated("Holiday", true),
+			want: "✅ Created bank \"Holiday\". It counts toward your total.",
+		},
+		{
+			name: "bank created excluded",
+			got:  BankCreated("Gifts", false),
+			want: "✅ Created bank \"Gifts\". It does not count toward your total.",
+		},
+		{
+			name: "added",
+			got:  Added("Holiday", "100.00", "150.00"),
+			want: "💸 Added 100.00 to \"Holiday\". Balance is 150.00.",
+		},
+		{
+			name: "spent",
+			got:  Spent("Gifts", "12.50", "87.50"),
+			want: "💸 Spent 12.50 from \"Gifts\". Balance is 87.50.",
+		},
+		{
+			name: "set",
+			got:  SetTo("Live", "0.00"),
+			want: "✅ Set \"Live\" to 0.00.",
+		},
+		{
+			name: "deleted",
+			got:  BankDeleted("Holiday"),
+			want: "🗑️ Deleted bank \"Holiday\".",
+		},
+		{
+			name: "toggled in",
+			got:  Toggled("Gifts", "12.50", true),
+			want: "✅ \"Gifts\" now counts toward your total. Balance is 12.50.",
+		},
+		{
+			name: "toggled out",
+			got:  Toggled("Holiday", "50.00", false),
+			want: "✅ \"Holiday\" now does not count toward your total. Balance is 50.00.",
+		},
+		{
+			name: "feedback thanks",
+			got:  FeedbackThanks,
+			want: "🙏 Thanks, I sent that to the admin.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("got %q, want %q", tt.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestQuietCopyHasNoEmoji(t *testing.T) {
+	tests := []struct {
+		name string
+		got  string
+	}{
+		{name: "help", got: Help},
+		{name: "cmd desc start", got: CmdDescStart},
+		{name: "cmd desc help", got: CmdDescHelp},
+		{name: "cmd desc newbank", got: CmdDescNewBank},
+		{name: "cmd desc add", got: CmdDescAdd},
+		{name: "cmd desc spend", got: CmdDescSpend},
+		{name: "cmd desc set", got: CmdDescSet},
+		{name: "cmd desc delete", got: CmdDescDelete},
+		{name: "cmd desc bank", got: CmdDescBank},
+		{name: "cmd desc toggle", got: CmdDescToggle},
+		{name: "cmd desc banks", got: CmdDescBanks},
+		{name: "cmd desc total", got: CmdDescTotal},
+		{name: "cmd desc all", got: CmdDescAll},
+		{name: "cmd desc cancel", got: CmdDescCancel},
+		{name: "cmd desc feedback", got: CmdDescFeedback},
+		{name: "new bank ask name", got: NewBankAskName},
+		{name: "new bank ask include", got: NewBankAskInclude},
+		{name: "invalid bank name", got: InvalidBankName},
+		{name: "something went wrong", got: SomethingWentWrong},
+		{name: "no banks", got: NoBanks},
+		{name: "ask bank", got: AskBank},
+		{name: "invalid amount", got: InvalidAmount},
+		{name: "delete canceled", got: DeleteCancelled},
+		{name: "canceled", got: Canceled},
+		{name: "nothing to cancel", got: NothingToCancel},
+		{name: "flow expired", got: FlowExpired},
+		{name: "feedback ask", got: FeedbackAsk},
+		{name: "feedback unavailable", got: FeedbackUnavailable},
+		{name: "bank name taken", got: BankNameTaken("Holiday")},
+		{name: "unknown bank", got: UnknownBank("Holiday")},
+		{name: "ask add", got: AskAddAmount("Holiday")},
+		{name: "ask spend", got: AskSpendAmount("Gifts")},
+		{name: "ask set", got: AskSetAmount("Live")},
+		{name: "ask delete", got: AskDeleteConfirm("Holiday")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if pictograph := firstPictograph(tt.got); pictograph != -1 {
+				t.Errorf("quiet copy has emoji %q in %q", string(pictograph), tt.got)
+			}
+		})
+	}
+}
+
+func firstPictograph(s string) rune {
+	for _, r := range s {
+		switch {
+		case r >= 0x1F300 && r <= 0x1FAFF:
+			return r
+		case r >= 0x2600 && r <= 0x27BF:
+			return r
+		case r == 0xFE0F || r == 0x200D:
+			return r
+		}
+	}
+	return -1
+}
+
 func TestBankCreated(t *testing.T) {
 	tests := []struct {
 		name     string

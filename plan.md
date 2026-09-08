@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.9` |
-| **Last done** | `3.8` collapse redundant queued commands |
+| **Current step** | `3.10` |
+| **Last done** | `3.9` outcome emojis |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.9` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 3.10` (next). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -814,7 +814,7 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.9 Outcome emojis
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** a few office/finance emojis so chat feels less sterile. Not an emoji on every line.
 - **Notes:** Baseline in [Emojis](#emojis-39). An implementer **may add more** of the same family (📊 🏦 💼 💰 📁 🧾 📌, …) — do not treat the table as a closed list. All strings stay in `internal/text`. Do not change handler logic except copy. `/rename` copy can wait for `3.10` if that string does not exist yet.
 - **Files:** `internal/text`; tests that pin the strings that land
@@ -988,4 +988,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.9`
+`let's move to step 3.10`
