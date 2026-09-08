@@ -44,9 +44,9 @@ type Catalog struct {
 
 func (c Catalog) BankCreated(name string, included bool) string {
 	if included {
-		return "Created bank \"" + name + "\". It counts toward your total."
+		return "✅ Created bank \"" + name + "\". It counts toward your total."
 	}
-	return "Created bank \"" + name + "\". It does not count toward your total."
+	return "✅ Created bank \"" + name + "\". It does not count toward your total."
 }
 
 func (c Catalog) BankNameTaken(name string) string {
@@ -70,15 +70,15 @@ func (c Catalog) AskSetAmount(name string) string {
 }
 
 func (c Catalog) Added(name, amount, balance string) string {
-	return "Added " + amount + " to \"" + name + "\". Balance is " + balance + "."
+	return "💸 Added " + amount + " to \"" + name + "\". Balance is " + balance + "."
 }
 
 func (c Catalog) Spent(name, amount, balance string) string {
-	return "Spent " + amount + " from \"" + name + "\". Balance is " + balance + "."
+	return "💸 Spent " + amount + " from \"" + name + "\". Balance is " + balance + "."
 }
 
 func (c Catalog) SetTo(name, balance string) string {
-	return "Set \"" + name + "\" to " + balance + "."
+	return "✅ Set \"" + name + "\" to " + balance + "."
 }
 
 func (c Catalog) AskDeleteConfirm(name string) string {
@@ -86,7 +86,7 @@ func (c Catalog) AskDeleteConfirm(name string) string {
 }
 
 func (c Catalog) BankDeleted(name string) string {
-	return "Deleted bank \"" + name + "\"."
+	return "🗑️ Deleted bank \"" + name + "\"."
 }
 
 func (c Catalog) FeedbackForward(userID int64, username, body string) string {
@@ -113,9 +113,9 @@ func (c Catalog) All(banks, total string) string {
 
 func (c Catalog) Toggled(name, balance string, included bool) string {
 	if included {
-		return "\"" + name + "\" now counts toward your total. Balance is " + balance + "."
+		return "✅ \"" + name + "\" now counts toward your total. Balance is " + balance + "."
 	}
-	return "\"" + name + "\" now does not count toward your total. Balance is " + balance + "."
+	return "✅ \"" + name + "\" now does not count toward your total. Balance is " + balance + "."
 }
 
 var en = Catalog{
@@ -134,7 +134,7 @@ var en = Catalog{
 	CmdDescCancel:   "cancel the current step",
 	CmdDescFeedback: "send feedback to the admin",
 
-	Start: `Welcome to Finbot. Split money into named banks and track balances.
+	Start: `👋 Welcome to Finbot. Split money into named banks and track balances.
 Some banks count toward your total; some do not.
 
 Send /help to see all commands. You can type a bank name after a command
@@ -179,7 +179,7 @@ Toggle whether a bank counts in the total: /toggle Holiday.`,
 	NothingToCancel:     "Nothing to cancel.",
 	FlowExpired:         "This step expired. Start over with a command.",
 	FeedbackAsk:         "What's your feedback? Send it as a message.",
-	FeedbackThanks:      "Thanks, I sent that to the admin.",
+	FeedbackThanks:      "🙏 Thanks, I sent that to the admin.",
 	FeedbackUnavailable: "Feedback is not available right now.",
 }
 
