@@ -1,0 +1,62 @@
+# Persistence (current)
+
+SQLite on disk. Schema as the app uses it now. Trial/paywall **semantics** are [`billing.md`](billing.md). Postgres adapter is [`../steps/4.01-postgresql.md`](../steps/4.01-postgresql.md).
+
+## Tech
+
+| Concern | Choice |
+| --- | --- |
+| SQLite driver | `modernc.org/sqlite` (pure Go) |
+| SQLite mode | WAL |
+| Migrations | numbered SQL files applied at startup |
+| Timestamps | TEXT RFC3339 UTC |
+| Bank uniqueness | app-written `name_normalized` (Unicode-aware), not SQLite `lower()` |
+| User delete | `ON DELETE CASCADE` from banks to users; `operations.bank_id` SET NULL on bank delete |
+
+Every SQL query that is per-user is filtered by `user_id`.
+
+## users
+
+- `telegram_id` INTEGER PRIMARY KEY
+- `username` TEXT
+- `last_activity_at` TEXT (RFC3339 UTC)
+- `plan` TEXT NOT NULL DEFAULT `'trial'`
+- `trial_ends_at` TEXT (RFC3339 UTC); set once at insert
+- `discount_percent` INTEGER NULL — `NULL` = not whitelisted; `0`–`100` = admin privilege (`100` = free)
+- `created_at`, `updated_at` TEXT (RFC3339 UTC)
+- `locale` TEXT NOT NULL DEFAULT `'en'`
+- `referred_by` INTEGER NULL — Telegram id of the referrer; set once on first `/start` payload
+
+## banks
+
+- `id` INTEGER PRIMARY KEY AUTOINCREMENT
+- `user_id` INTEGER NOT NULL REFERENCES users
+- `name` TEXT NOT NULL
+- `balance_cents` INTEGER NOT NULL DEFAULT `0`
+- `include_in_total` INTEGER NOT NULL
+- `created_at`, `updated_at`
+- UNIQUE `(user_id, name_normalized)` extra column, filled by the app with `NormalizeBankName`
+- `currency` TEXT NOT NULL — default from `DEFAULT_CURRENCY` (e.g. `USD`); hidden in Stage 3 copy
+
+## operations
+
+Append-only. Written by service mutators; **no user-facing `/history` until `4.10`**.
+
+- `id` INTEGER PRIMARY KEY AUTOINCREMENT
+- `user_id` INTEGER NOT NULL REFERENCES users
+- `bank_id` INTEGER NULL — nullable when the bank was deleted
+- `type` TEXT NOT NULL — `add` / `spend` / `set` / `delete` / `transfer` / `rename`
+- `amount_cents` INTEGER NOT NULL
+- `balance_after_cents` INTEGER NULL — N/A for delete
+- `meta` TEXT — bank name as typed on add/spend/set/delete; `Old -> New` on rename; counterpart bank id for transfer. Empty stored as SQL NULL.
+- `created_at` TEXT (RFC3339 UTC)
+
+Delete operation: `amount_cents` is last balance, `balance_after_cents` null, `meta` is the bank name as typed.
+
+## Total
+
+```sql
+SELECT COALESCE(SUM(balance_cents), 0)
+FROM banks
+WHERE user_id = ? AND include_in_total = 1;
+```

@@ -235,10 +235,10 @@ Mockery on the consumer’s interfaces. Extend `.mockery.yml` for `OperationRepo
 ## Docs and plan
 
 - README env table + `.env.example`: `DEFAULT_CURRENCY`
-- `plan.md`: step 3.6 status `to review`; header Current step `3.6`; decisions log entries for set-if-null referral, self-referral ignored, `DEFAULT_CURRENCY` validation, delete operation meta/FK
+- Status for 3.6 was tracked in the former `plan.md` (now `AGENTS.md` + `docs/sdd/`); those decisions live in `docs/sdd/legacy/decisions-log.md`
 - No git commit unless asked
 
 ## Files (expected)
 
 - Create: `internal/adapter/sqlite/migrations/002_write_path_foundations.sql`; `internal/domain/operation.go`; `internal/domain/entitlement.go` (+ tests); `internal/adapter/sqlite/operation.go` (+ integration test); `internal/adapter/sqlite/tx.go`
-- Modify: domain user/bank; service `New`, bank mutators, user repo interface, `Transactor`; sqlite user/bank scan/insert + `tx.go`; config; `internal/text`; telegram middleware/handlers/bot Service interface; `.mockery.yml`; README; `.env.example`; `plan.md`
+- Modify: domain user/bank; service `New`, bank mutators, user repo interface, `Transactor`; sqlite user/bank scan/insert + `tx.go`; config; `internal/text`; telegram middleware/handlers/bot Service interface; `.mockery.yml`; README; `.env.example`; former `plan.md` (now `AGENTS.md` + `docs/sdd/`)
