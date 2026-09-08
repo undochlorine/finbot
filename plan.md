@@ -8,7 +8,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 | --- | --- |
 | **Current step** | `3.7` |
 | **Last done** | `3.6` write-path foundations |
-| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.7`) |
+| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
 | **Path** | `/Users/a.sicaci/Projects/finbot` |
@@ -38,7 +38,7 @@ Telegram bot that lets a user split money into named **banks** (Travelling, Gift
 
 **Stages 0–2 (done):** clean Go, per-user SQLite persistence, full bank CRUD/ops via Telegram.
 
-**Stage 3 (now):** harden the private MVP (lint, persistence, docs), then feedback, chat hygiene, write-path foundations, and same-currency `/transfer`. Everyone still has **full banks**. No paywall.
+**Stage 3 (now):** harden the private MVP (lint, persistence, docs), then feedback, chat hygiene, write-path foundations, a per-user command queue, sparse emojis, `/rename`, and same-currency `/transfer`. Everyone still has **full banks**. No paywall.
 
 **Stage 4 (public product):** Postgres, Redis, hosting, trial → limited free tier, payments, Telegram admin, history/tips, i18n, multi-currency, growth programs, dashboards, landing + web admin + channel, then a modular monolith (`cmd/bot`, `cmd/worker`, `cmd/web`). Extract network microservices only if load or team size requires it.
 
@@ -58,7 +58,10 @@ flowchart TB
     fb[3.4 feedback forward]
     hygiene[3.5 edit or delete bot prompts]
     hooks[3.6 write-path foundations]
-    xfer[3.7 same-currency transfer]
+    queue[3.7-3.8 per-user command queue]
+    emoji[3.9 outcome emojis]
+    rename[3.10 rename bank]
+    xfer[3.11 same-currency transfer]
   end
   subgraph stage4infra [Stage 4 infra and money]
     pg[4.1-4.3 Postgres Redis hosting]
@@ -83,11 +86,14 @@ flowchart TB
 | --- | --- | --- |
 | Feedback | `/feedback` forwards to `ADMIN_TELEGRAM_ID` via existing `Notifier`. No inbox table. | Persist feedback; admin inbox (Telegram first, web when `4.19` exists). |
 | Chat flooding | Wizard prompts are edited in place or deleted; typed answers in a flow are deleted. Slash commands and outcomes stay. See [Chat hygiene](#chat-hygiene-35). | Only if hygiene needs a second pass. |
-| Transaction history | Append-only `operations` on add/spend/set/delete/(transfer). **No `/history`.** | `/history` (pagination/filters). |
+| Command order | Per-user FIFO pending queue in the telegram adapter. Collapse only the obvious burst no-ops in `3.8`. See [Pending commands](#pending-commands-37--38). | Multi-replica locking if `4.9` ever runs more than one bot process. |
+| Emojis | Sparse office/finance emojis in `internal/text`. Baseline in [Emojis](#emojis-39); more of the same family is allowed. Not on `/help` lines, errors, or wizard prompts. | Other language catalogs in `4.12` reuse the same emojis. |
+| Rename bank | `/rename` pick → new name. Recase of the same bank is allowed. Writes an `operations` row. | Limited free tier must not rename the reserved `Total` bank (`4.5`). |
+| Transaction history | Append-only `operations` on add/spend/set/delete/rename/(transfer). **No `/history`.** | `/history` (pagination/filters). |
 | Finance tips | Nothing (needs history UX + enough data). | Rule-based tips from operations. LLM optional later, not required. |
 | Language | `users.locale` default `en`; `internal/text` becomes locale-keyed with **only English**. No `/language`. | `/language` with a short list (languages chosen at that step). |
 | Currencies | `banks.currency` + `DEFAULT_CURRENCY`. UX still one currency; totals still sum. | Per-bank currency from a short list; totals grouped; mixed-currency grand total later. |
-| Internal transfers | `/transfer` same currency, two-leg + one operation. | Cross-currency + hardcoded rates, then optional HTTP FX API. |
+| Internal transfers | `/transfer` same currency, two-leg + one operation (`3.11`). | Cross-currency + hardcoded rates, then optional HTTP FX API. |
 | Free tier | `Entitlement` helper always **full**. | After trial: unpaid = one bank named `Total`, only `/add` `/spend` `/set` (+ help/start/feedback/cancel). `/newbank` etc. promote paid. Trial / paid / 100% whitelist stay full. |
 | Paid inactivity | Nothing extra (`Plan` / `LastActivityAt` already exist). | Amend `4.4`: paid and 100% whitelist kept longer (or exempt). Free/trial use the short window. Exact TTLs at that step. |
 | Referral | Parse `/start <payload>` on **first** upsert; store `referred_by`. No rewards. | Codes, rewards (extra trial / discount) after billing. |
@@ -111,12 +117,15 @@ Do not reopen these unless the user changes them. Log any change under [Decision
 - **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`. Bank names may contain spaces. Command-line args after `/newbank` are the **entire name**; include-in-total is never parsed from that line.
 - **Bot language:** English through Stage 3. All user-facing strings live in `internal/text`. Step `3.6` keys the catalog by locale with **only `en` loaded** and stores `users.locale` (default `en`). `/language` and extra catalogs are `4.12`.
 - **Chat hygiene:** keep slash commands, outcomes, `/feedback` body, and `Canceled.`. Edit one bot prompt per flow; delete typed answers. See [Chat hygiene](#chat-hygiene-35).
+- **Command order:** one in-memory FIFO of pending updates **per Telegram user** in the telegram adapter (not Cache, not SQLite). A burst is handled in send order. `3.8` may drop only the locked obvious no-ops. See [Pending commands](#pending-commands-37--38).
+- **Emojis:** sparse, office/finance style. Baseline in [Emojis](#emojis-39); an implementer may add more of the same family. No emoji on errors, wizard prompts, or `/help` lines.
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
+- **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). No two-name shortcut — names may contain spaces. Unique per user stays case-insensitive. Recasing the same bank is allowed. See `3.10`.
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
 - **Money:** `int64` minor units (cents). Display as `123.45`. No multi-currency **UX** until `4.13`. Step `3.6` adds `banks.currency` + `DEFAULT_CURRENCY` (hidden in copy; totals still sum as today). FX / cross-currency transfer is `4.13`–`4.14`.
 - **Negative balances:** allowed (personal tracking, not a hard wallet). **Negative add/spend amounts are invalid** (`ErrInvalidAmount`); use `/spend` / `/set` instead
 - **Bank names:** unique per user, compared case-insensitively. Unicode allowed. Store the name as the user typed it
-- **Operations log:** write in `3.6` (append-only on add/spend/set/delete/transfer). **No `/history` until `4.10`.** Finance tips are `4.11`.
+- **Operations log:** write in `3.6` (append-only on add/spend/set/delete/transfer). Rename appends in `3.10`. **No `/history` until `4.10`.** Finance tips are `4.11`.
 - **Auth:** Telegram user ID is identity. No extra login
 - **GitHub:** local git only until the user asks to create a private repo
 - **Stage 4 database:** PostgreSQL preferred over MongoDB (relational users + banks)
@@ -146,7 +155,7 @@ internal/
   service/           use cases + BankRepository, UserRepository, OperationRepository, Transactor, Clock
   ports/             Cache, Notifier (until telegram, their consumer, exists)
   adapter/
-    telegram/        handlers, inline keyboards, conversation FSM; owns HTTPClient
+    telegram/        handlers, inline keyboards, conversation FSM, per-user pending FIFO; owns HTTPClient
     sqlite/          migrations + repositories (satisfy service repo interfaces)
     memorycache/     in-process Cache; owns Clock
     clock/           real clock
@@ -156,7 +165,8 @@ internal/
 
 ```mermaid
 flowchart LR
-  TG[Telegram] --> Handlers
+  TG[Telegram] --> Pending[per-user FIFO]
+  Pending --> Handlers
   Handlers --> Services
   Services --> Domain
   Services --> BankRepo
@@ -179,7 +189,7 @@ Owned by **service** (what use cases call):
 - `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
 - `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
 - `OperationRepository` — append-only operations (`3.6`)
-- `Transactor` — `InTx` for add/spend/set/delete (`3.6`); `/transfer` reuses it in `3.7`
+- `Transactor` — `InTx` for add/spend/set/delete (`3.6`); `/rename` in `3.10` and `/transfer` in `3.11` reuse it
 - `Clock` — `Now()` for activity and tests
 
 Owned by **memorycache**:
@@ -192,7 +202,7 @@ Owned by **telegram**:
 
 Still in **ports** until telegram is the consumer (step `2.x`); then move them to that package:
 
-- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in Stage 3, Redis in `4.2`. From `3.5`, FSM stores `prompt_id` (the bot message edited in place) and `sweep_ids` (typed answers to delete when the flow ends).
+- `Cache` — conversation FSM (which bank, which action, waiting for amount/name). TTL. RAM in Stage 3, Redis in `4.2`. From `3.5`, FSM stores `prompt_id` (the bot message edited in place) and `sweep_ids` (typed answers to delete when the flow ends). **Not** the pending-command FIFO (`3.7`).
 - `Notifier` — send a message to a Telegram user (handlers now; `/feedback` forward in `3.4`; inactivity job in `4.4`)
 
 ### Stage-4 hooks that already exist (unused or no-op is OK)
@@ -213,7 +223,7 @@ Do **not** add a Billing port in Stage 3. Entitlement **enforcement** and paymen
 
 Painful to retrofit; Telegram UX stays the same except `/start` may persist a referral payload.
 
-- Append-only `operations` written inside existing mutators (and `/transfer` in `3.7`)
+- Append-only `operations` written inside existing mutators (rename in `3.10`, `/transfer` in `3.11`)
 - Add/spend/set/delete run in one `Transactor` transaction (balance change + operation row)
 - `meta` snapshots the bank name as typed so `/history` still has a name after `ON DELETE SET NULL`
 - `users.locale` default `en`; `internal/text` keyed by locale, **English only**
@@ -241,6 +251,7 @@ Painful to retrofit; Telegram UX stays the same except `/start` may persist a re
 ### What not to do in Stage 3 (wait for `4.x`)
 
 - No Redis, Postgres, paywall, payments, admin bot/panel, inactivity sweeper, rate limiter, horizontal DB partitioning
+- The `3.7` pending cap is a burst bound, **not** the `4.9` rate limiter
 - No website, Prometheus/Grafana, extra languages, currency picker, `/history`, referral **rewards**, contributor automation, Telegram channel, extra `cmd/` binaries, network microservice split
 - Trial and whitelist **columns/config exist**; they are not enforced until `4.5`+
 - No docker-compose required (SQLite file is enough). A Dockerfile is still added so `4.3` hosting is not a rewrite
@@ -282,10 +293,10 @@ Append-only. Written by service mutators; **no user-facing `/history` until `4.1
 - `id` INTEGER PRIMARY KEY AUTOINCREMENT
 - `user_id` INTEGER NOT NULL REFERENCES users
 - `bank_id` INTEGER NULL — nullable when the bank was deleted
-- `type` TEXT NOT NULL — `add` / `spend` / `set` / `delete` / `transfer`
+- `type` TEXT NOT NULL — `add` / `spend` / `set` / `delete` / `transfer`; `rename` added in `3.10`
 - `amount_cents` INTEGER NOT NULL
 - `balance_after_cents` INTEGER NULL — N/A for delete
-- `meta` TEXT — bank name as typed on add/spend/set/delete; counterpart bank id for transfer in `3.7`. Empty stored as SQL NULL.
+- `meta` TEXT — bank name as typed on add/spend/set/delete; `Old -> New` on rename (`3.10`); counterpart bank id for transfer in `3.11`. Empty stored as SQL NULL.
 - `created_at` TEXT (RFC3339 UTC)
 
 ### Total
@@ -338,7 +349,7 @@ Access after Stage 3 is decided in this order:
 2. **Whitelist 100%** (`DiscountPercent == 100`) → full access, free, no time limit
 3. **Paid** (active plan from `4.7`) → full access
 4. **Whitelist 1–99%** → after trial, limited free tier until they pay the discounted price from `4.6` / `4.7`; then full access
-5. **No whitelist, trial over, not paid** → **limited free tier** (not a hard block): one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`. Commands that need extra banks (`/newbank`, `/delete`, `/toggle`, `/transfer`, …) promote paid features.
+5. **No whitelist, trial over, not paid** → **limited free tier** (not a hard block): one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`. Commands that need extra banks (`/newbank`, `/delete`, `/toggle`, `/rename`, `/transfer`, …) promote paid features.
 
 `Entitlement` in `3.6` always returns full access. Owner must whitelist themselves at 100% before enabling `4.5`.
 
@@ -366,13 +377,14 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/all` | Full list + total | `2.7` |
 | `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. | `2.9` |
 | `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. | `3.4` |
-| `/transfer` | Pick from-bank → to-bank → amount. Same currency only. Reject same bank / invalid amount. | `3.7` |
+| `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. No `/rename Old New` — names may contain spaces. | `3.10` |
+| `/transfer` | Pick from-bank → to-bank → amount. Same currency only. Reject same bank / invalid amount. | `3.11` |
 
 **Later (`4.x`, not Stage 3):** `/history`, `/language`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`. `/transfer` shortcuts should match `/add` style (details at `3.7`).
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`. `/transfer` shortcuts should match `/add` style (details at `3.11`).
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
@@ -389,7 +401,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 | Kind | Why |
 | --- | --- |
 | Slash commands (`/add`, `/add Travelling 100`, `/start`, `/help`, `/cancel`, …) | The user’s intent and timestamp. Shortcuts *are* the record. Deleting them feels like the bot eating the chat. |
-| Outcomes | Created / added / spent / set / deleted / delete-cancelled / toggled / bank card / `/banks` / `/total` / `/all` |
+| Outcomes | Created / added / spent / set / deleted / delete-cancelled / toggled / renamed / bank card / `/banks` / `/total` / `/all` |
 | Terminal errors | No banks, unknown bank from a shortcut, something went wrong, feedback unavailable, nothing to cancel, flow expired |
 | The user’s `/feedback` body | The thanks line does not repeat it |
 | `/cancel` + `Canceled.` | Abort should stay visible |
@@ -398,7 +410,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 
 | Kind | Why |
 | --- | --- |
-| Bot prompts | Ask name / include / which bank / amount / delete confirm / feedback ask. Same message is edited as the step advances; success edits it into the outcome and strips buttons. |
+| Bot prompts | Ask name / include / which bank / amount / delete confirm / new name / feedback ask. Same message is edited as the step advances; success edits it into the outcome and strips buttons. |
 | Typed answers in a flow | Bank name, amount, yes/no — already restated in the outcome |
 | Recovered validation prompts | Invalid amount/name, name taken: gone once the flow succeeds or is cancelled |
 | Replaced flow | Starting `/spend` while `/add` is pending deletes the add wizard. No extra `Canceled.` |
@@ -414,10 +426,59 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Invalid amount (empty, `abc`, `1.234`, overflow, **negative add/spend**) → error, ask again
 - Negative add/spend is invalid; negative **balances** are still allowed (`/spend` below zero, `/set` to a negative)
 - Delete last bank → allowed
-- Concurrent updates from the same user → last SQLite write wins; acceptable for Stage 3
+- Concurrent updates from the **same** user → `3.7` runs them FIFO (not a SQLite race). Two different users may overlap.
 - Very large amounts → reject if cents would overflow `int64`
 - User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
-- `/transfer` (`3.7`): reject different currency, same bank, invalid amount; empty state same as `/add`
+- `/rename` (`3.10`): unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds
+- `/transfer` (`3.11`): reject different currency, same bank, invalid amount; empty state same as `/add`
+
+### Pending commands (`3.7`–`3.8`)
+
+`github.com/go-telegram/bot` runs each handler with `go` unless `WithNotAsyncHandlers` is set. Tests already pass that option; **production does not**. A burst after downtime or lag therefore races: FSM replace, money ops, and `/help` replies land in random order.
+
+**Keep handling every update**, in the order Telegram sent them (`update_id` / enqueue order), except for the `3.8` collapse rules below.
+
+**Where:** `PendingCommands` lives in the telegram adapter (RAM). One FIFO per Telegram user id. Not FSM `Cache` (that is conversation step + TTL). Not SQLite. Not Redis. One bot process in Stage 3; a distributed queue is out of scope (`4.9` if replicas ever exist).
+
+**How:** middleware on the inner bot (production `Start` never calls our `ProcessUpdate` wrapper). Enqueue the update and return; one drain goroutine per busy user pops FIFO and calls `next`. Other users are not blocked. Cap **32** waiting items per user; if full, drop the **oldest waiting** item and `slog.Warn` (burst bound, not a product rate limiter).
+
+**Same FIFO:** slash commands, typed FSM answers, and callbacks. A button must not race a later `/spend`.
+
+**`3.7` does not collapse.** It only orders. `WithNotAsyncHandlers` alone is not the fix: it serializes the whole process and never sees a burst as a list, so `3.8` cannot compact.
+
+**`3.8` compact** is a pure function over the waiting slash-command items (not callbacks, not typed answers). Apply when a drain starts and after each processed item if anything is still waiting. Locked rules — do **not** simulate bank state (that would drop `/add Travelling 100` that follows `/newbank Travelling` in the same burst):
+
+| Pattern | Keep | Drop |
+| --- | --- | --- |
+| Consecutive identical **idempotent** slash text (`/help`, `/start`, `/banks`, `/total`, `/all`, `/bank <name>`) | first | the rest of the run |
+| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/feedback`, `/cancel` with no args) | first | the rest of the run |
+| Empty wizard start whose **next waiting slash** is also a flow-start (would replace per `2.9`) | the later flow-start | the empty one. **Do not** drop if the next item is `/cancel`, `/help`, `/start`, `/banks`, `/total`, `/all`, or a typed/callback update |
+| Consecutive identical `/newbank <same name>` | first | later copies (second would be name-taken) |
+| Consecutive identical `/delete <same name>` | first | later copies (second would be unknown bank) |
+
+**Do not collapse:** `/add` `/spend` `/set` shortcuts even when the line is identical (two `/add Travelling 100` are two adds); non-consecutive duplicates (`/help` `/banks` `/help` runs help twice); callbacks; typed FSM answers; `/feedback` message bodies.
+
+Collapsed items are **not** answered with an extra “skipped” line. The user’s slash messages stay in chat (hygiene keeps them).
+
+### Emojis (`3.9`)
+
+Alive, not noisy. Copy stays in `internal/text`. Prefer **one** leading emoji per user-facing outcome. Never a stack of them.
+
+The table is a **baseline**, not a closed list. An implementer may add other office-ish / finance-ish emojis (e.g. 📊 🏦 💼 💰 📁 🧾 📌) on outcomes, lists, `/start`, or `/transfer` when that copy exists. Same taste: calm, useful, not cute spam.
+
+| Copy | Baseline |
+| --- | --- |
+| `/start` welcome (first line) | 👋 |
+| Bank created | ✅ |
+| Added | 💸 |
+| Spent | 💸 |
+| Set | ✅ |
+| Deleted | 🗑️ |
+| Toggled | ✅ |
+| Feedback thanks | 🙏 |
+| Renamed (`3.10`) | ✏️ |
+
+**No emoji** on `/help` lines, command-menu descriptions, errors, wizard prompts, `Canceled.`, or `Nothing to cancel.`. Lists (`/banks` `/total` `/all` `/bank`) may get a single restrained marker if it stays scannable.
 
 ---
 
@@ -429,7 +490,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
-- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
+- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `rename`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
@@ -510,7 +571,8 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-08 | `DEFAULT_CURRENCY` missing/empty → `USD`; any other trimmed string is stored as-is (no ISO check). Existing banks get `USD` from the migration default; only new banks use config. |
 | 2026-09-08 | Delete operation: `amount_cents` is last balance, `balance_after_cents` null, `meta` is the bank name as typed. `operations.bank_id` SET NULL on bank delete. |
 | 2026-09-08 | Add/spend/set also snapshot the typed bank name in `meta`, so history survives `ON DELETE SET NULL`. Empty `meta` is still SQL NULL when unused. |
-| 2026-09-08 | Add/spend/set/delete are atomic via service `Transactor` (sqlite tx on the context). 3.7 `/transfer` reuses it. Supercedes the earlier “no unit of work in 3.6” cut. |
+| 2026-09-08 | Add/spend/set/delete are atomic via service `Transactor` (sqlite tx on the context). `3.11` `/transfer` reuses it. Supercedes the earlier “no unit of work in 3.6” cut. |
+| 2026-09-08 | Stage 3 grows before transfer: per-user FIFO pending commands (`3.7`), collapse obvious queued no-ops (`3.8`), sparse outcome emojis (`3.9`), `/rename` (`3.10`). Same-currency `/transfer` moves to `3.11`. Hardened private MVP completes at `3.11`. Production handlers must not race; `WithNotAsyncHandlers` is not the only fix. Collapse rules, burst cap 32 drop-oldest, consecutive identical `/newbank`/`/delete` extras dropped, and `/rename` with no two-name shortcut are locked. Recase of the same bank is allowed. `3.9` baseline emojis may be extended with other office/finance glyphs; still no emoji on help lines, errors, or wizard prompts. |
 
 ---
 
@@ -731,14 +793,49 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 - **Also:** locale-keyed `internal/text` with **only English**; always-allow `Entitlement` helper; structured `slog` fields (`user_id`, command); `Transactor` for atomic mutators; `meta` snapshots the typed bank name.
 - **DoD:** add/spend/set/delete write an operation row **in the same transaction** as the bank change. First valid `/start <payload>` stores `referred_by` once (set-if-null) and does not overwrite later. Existing users get locale `en` and default currency on new banks. Entitlement tests: always full access. **No** `/history`, `/language`, currency picker, or paywall.
 
-#### 3.7 Same-currency `/transfer`
+#### 3.7 Per-user FIFO pending commands
+
+- **Status:** `todo`
+- **Goal:** a burst of updates for one user (process down, lagging, or a fat `getUpdates` batch) runs in send order. Still handle **all** of them. Do not collapse yet (`3.8`).
+- **Why:** `github.com/go-telegram/bot` v1.25 does `go handler` per update. Tests pass `WithNotAsyncHandlers`; production `cmd/bot` does not. That is the random queue.
+- **Notes:** Implement `PendingCommands` in `internal/adapter/telegram` (new file). Middleware on the inner bot — `Start` never hits our `ProcessUpdate` wrapper. One FIFO + one drain goroutine per busy user; other users are not blocked. Enqueue slash commands, typed FSM answers, and callbacks. Cap 32 waiting items; drop oldest waiting + `slog.Warn`. Not Cache, not SQLite. Policy: [Pending commands](#pending-commands-37--38).
+- **Files:** `internal/adapter/telegram/` (`pending.go` + tests); wire middleware in `bot.go` so production is covered. Tests may keep `WithNotAsyncHandlers`; the queue must still be correct if both are on.
+- **DoD:** two money shortcuts for the same user, started as concurrent library handlers would, apply in enqueue order (`/add Travelling 100` then `/add Travelling 50` → +150). A `/help` then `/banks` burst replies help then banks, never the reverse. Two different users may proceed without waiting on each other. Test the queue type **directly** (ordered drain of three jobs) as well as through handlers. Collapse is **not** implemented. `make lint` and unit tests pass.
+
+#### 3.8 Collapse redundant queued commands
+
+- **Status:** `todo`
+- **Goal:** still handle the burst, but drop only the obvious redundant/invalid **waiting** slash commands. Do not invent extra heuristics.
+- **Notes:** Pure `compact` on the waiting list. Rules are locked in [Pending commands](#pending-commands-37--38). No bank-state simulation. No extra “skipped” chat line. Depends on `3.7`.
+- **Files:** `internal/adapter/telegram/` (`compact` next to pending; table tests)
+- **DoD:** table tests for every locked rule, plus negatives (`/add Travelling 100` twice both kept; `/help` `/banks` `/help` keeps both helps; `/newbank` then `/cancel` keeps both). A burst `/help` `/help` `/help` produces one help reply. `make lint` and unit tests pass.
+
+#### 3.9 Outcome emojis
+
+- **Status:** `todo`
+- **Goal:** a few office/finance emojis so chat feels less sterile. Not an emoji on every line.
+- **Notes:** Baseline in [Emojis](#emojis-39). An implementer **may add more** of the same family (📊 🏦 💼 💰 📁 🧾 📌, …) — do not treat the table as a closed list. All strings stay in `internal/text`. Do not change handler logic except copy. `/rename` copy can wait for `3.10` if that string does not exist yet.
+- **Files:** `internal/text`; tests that pin the strings that land
+- **DoD:** baseline outcomes from the table are present (`/start` 👋, add/spend 💸, create/set/toggle ✅, delete 🗑️, feedback thanks 🙏). Extra office/finance emojis are allowed if they stay sparse. `/help` lines, errors, and prompts have no emoji. Existing telegram tests that match full copy are updated. `make lint` and unit tests pass.
+
+#### 3.10 `/rename`
+
+- **Status:** `todo`
+- **Goal:** rename one of the user’s banks without deleting it.
+- **Flow:** pick bank (buttons or `/rename Travelling`) → type the new name. Duplicate of **another** bank errors immediately and stays on the name step (same as `/newbank`). Recasing the same bank (`Holiday` → `holiday`) succeeds and stores the new spelling. Empty name re-prompts. No banks → empty-state hint `/newbank`. No `/rename Old New` shortcut (names may contain spaces). Chat hygiene: one edited prompt; typed new name is swept; outcome kept.
+- **Service:** `Rename(ctx, userID, bankID, newName) (Bank, error)` uses existing `BankRepository.Update`, `Transactor`, and an `operations` row: type `rename`, `amount_cents` 0, `balance_after_cents` current balance, `meta` `Old -> New` (old stored name, new name as typed). SQLite `CHECK` on `operations.type` must allow `rename` (rebuild the table in a new numbered migration; SQLite cannot ALTER CHECK).
+- **Also:** `domain.CommandRename`, slash menu, `/help` `/start` mention, callback `v1:rename:<bankID>`. Outcome may use ✏️ or another office/finance emoji from `3.9`. Entitlement later (`4.5`) treats `/rename` as an extra-bank command.
+- **Files:** domain, service (+ mockery if the consumer interface grows), sqlite migration + repo tests, `internal/text`, telegram handlers/tests, `commands.go`
+- **DoD:** rename persists and is unique per user (case-insensitive). Recase of the same bank works. Name taken by another bank does not overwrite. Operation row is written in the same transaction as the update. Command is in the slash menu and `/help`. Unit tests cover service rules; telegram tests cover picker, shortcut, duplicate name, empty name, empty-bank state. `make lint`, `make test-unit`, `make test-integration` pass.
+
+#### 3.11 Same-currency `/transfer`
 
 - **Status:** `todo`
 - **Goal:** move money between the user’s own banks in the same currency.
 - **Flow:** pick from-bank → to-bank → amount. Shortcuts consistent with `/add`. Empty state hints `/newbank`.
 - **DoD:** atomic in service via `Transactor` from `3.6` (two balance updates + operation rows). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
 
-**Hardened private MVP is complete when 0.1–3.7 are `done`.** Through `3.3` the bot is already usable privately; `3.4`–`3.7` are still Stage 3 (no paywall, full banks for everyone).
+**Hardened private MVP is complete when 0.1–3.11 are `done`.** Through `3.3` the bot is already usable privately; `3.4`–`3.11` are still Stage 3 (no paywall, full banks for everyone).
 
 ---
 
@@ -782,7 +879,7 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 #### 4.5 Trial period (enforce)
 
 - **Status:** `todo`
-- **Goal:** the bot is free with **full banks** during the user’s trial (`now < TrialEndsAt`). Duration comes from `TRIAL_DURATION` (default 7 days) and was frozen at signup. After the trial, access follows the [entitlement order](#entitlement): whitelist 100% stays full and free; paid stays full; everyone else gets the **limited free tier** (one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`). Extra-bank commands promote paid features. Not a hard block, nag-only, or read-only mode.
+- **Goal:** the bot is free with **full banks** during the user’s trial (`now < TrialEndsAt`). Duration comes from `TRIAL_DURATION` (default 7 days) and was frozen at signup. After the trial, access follows the [entitlement order](#entitlement): whitelist 100% stays full and free; paid stays full; everyone else gets the **limited free tier** (one bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`). Extra-bank commands (`/newbank`, `/delete`, `/toggle`, `/rename`, `/transfer`, …) promote paid features. The reserved `Total` bank must not be renamed. Not a hard block, nag-only, or read-only mode.
 - **DoD:** config change only affects **new** users. Existing `trial_ends_at` is never rewritten by config. Unit tests cover in-trial full / expired limited / 100% full / paid full / % off still limited until they pay. **Owner must whitelist themselves at 100% before enabling this.**
 - **Depends on:** schema already in MVP; `Entitlement` from `3.6`; payment collection itself is `4.6` / `4.7`.
 
@@ -840,7 +937,7 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 - **Status:** `todo`
 - **Goal:** `/transfer` across currencies. Hardcoded rates are enough for the first version; optional HTTP FX API later.
-- **Depends on:** `3.7`, `4.13`.
+- **Depends on:** `3.11`, `4.13`.
 
 #### 4.15 Referral program
 
