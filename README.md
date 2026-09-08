@@ -4,7 +4,7 @@ Private Telegram bot for splitting money into named banks (Travelling, Gifts, Li
 
 MVP is Go 1.27 + SQLite. Architecture is clean/hexagonal: Telegram and SQLite are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
 
-**FSM** (Finite State Machine) is the per-user conversation step stored in Cache: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Details and product decisions live in [`plan.md`](plan.md).
+**FSM** (Finite State Machine) is the per-user conversation step stored in Cache: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Agents start at [`AGENTS.md`](AGENTS.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md).
 
 ### Command shortcuts
 
@@ -18,7 +18,7 @@ Users can type details on the same line as a slash command instead of waiting fo
 
 ### Chat history
 
-The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/banks`, `/help`, …). It edits or deletes wizard prompts (which bank, how much, yes/no) and deletes the short answers you type during a flow (the amount `100`, a typed bank name). Your `/feedback` text stays. Policy: [`plan.md` chat hygiene](plan.md#chat-hygiene-35).
+The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/banks`, `/help`, …). It edits or deletes wizard prompts (which bank, how much, yes/no) and deletes the short answers you type during a flow (the amount `100`, a typed bank name). Your `/feedback` text stays. Policy: [`docs/sdd/areas/telegram.md`](docs/sdd/areas/telegram.md).
 
 ## Environment
 
