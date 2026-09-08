@@ -97,7 +97,7 @@ func isEmptyWizardCmd(cmd string) bool {
 	switch cmd {
 	case domain.CommandNewBank, domain.CommandAdd, domain.CommandSpend, domain.CommandSet,
 		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, domain.CommandRename,
-		commandFeedback, commandCancel:
+		domain.CommandTransfer, commandFeedback, commandCancel:
 		return true
 	default:
 		return false
@@ -116,7 +116,8 @@ func isFlowStartSlash(job pendingJob) bool {
 	}
 	switch cmd {
 	case domain.CommandNewBank, domain.CommandAdd, domain.CommandSpend, domain.CommandSet,
-		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, domain.CommandRename, commandFeedback:
+		domain.CommandDelete, domain.CommandToggle, domain.CommandBank, domain.CommandRename,
+		domain.CommandTransfer, commandFeedback:
 		return true
 	default:
 		return false

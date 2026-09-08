@@ -151,6 +151,9 @@ func expectFSMSet(t *testing.T, cache *mocks.MockCache, _ context.Context, key s
 			if got.Flow != want.Flow || got.Step != want.Step || got.Name != want.Name || got.BankID != want.BankID {
 				return false
 			}
+			if got.ToName != want.ToName || got.ToBankID != want.ToBankID {
+				return false
+			}
 			if want.PromptID != 0 && got.PromptID != want.PromptID {
 				return false
 			}

@@ -31,10 +31,12 @@ func TestCompact(t *testing.T) {
 		{name: "consecutive empty toggle keeps first", in: []string{"/toggle", "/toggle"}, want: []string{"/toggle"}},
 		{name: "consecutive empty bank keeps first", in: []string{"/bank", "/bank"}, want: []string{"/bank"}},
 		{name: "consecutive empty rename keeps first", in: []string{"/rename", "/rename"}, want: []string{"/rename"}},
+		{name: "consecutive empty transfer keeps first", in: []string{"/transfer", "/transfer"}, want: []string{"/transfer"}},
 		{name: "consecutive empty feedback keeps first", in: []string{"/feedback", "/feedback"}, want: []string{"/feedback"}},
 		{name: "consecutive empty cancel keeps first", in: []string{"/cancel", "/cancel"}, want: []string{"/cancel"}},
 
 		{name: "empty add then spend keeps later flow", in: []string{"/add", "/spend"}, want: []string{"/spend"}},
+		{name: "empty transfer then add keeps later flow", in: []string{"/transfer", "/add"}, want: []string{"/add"}},
 		{name: "empty wizard chain keeps last flow", in: []string{"/add", "/spend", "/set"}, want: []string{"/set"}},
 		{name: "empty newbank then named newbank keeps named", in: []string{"/newbank", "/newbank Holiday"}, want: []string{"/newbank Holiday"}},
 		{name: "empty add then money shortcut keeps shortcut", in: []string{"/add", "/add Holiday 100"}, want: []string{"/add Holiday 100"}},
@@ -56,6 +58,7 @@ func TestCompact(t *testing.T) {
 		{name: "consecutive delete different names keeps both", in: []string{"/delete Holiday", "/delete Gifts"}, want: []string{"/delete Holiday", "/delete Gifts"}},
 
 		{name: "identical add shortcuts both kept", in: []string{"/add Holiday 100", "/add Holiday 100"}, want: []string{"/add Holiday 100", "/add Holiday 100"}},
+		{name: "identical transfer shortcuts both kept", in: []string{"/transfer Holiday Gifts 50", "/transfer Holiday Gifts 50"}, want: []string{"/transfer Holiday Gifts 50", "/transfer Holiday Gifts 50"}},
 		{name: "identical spend shortcuts both kept", in: []string{"/spend Gifts 12.50", "/spend Gifts 12.50"}, want: []string{"/spend Gifts 12.50", "/spend Gifts 12.50"}},
 		{name: "identical set shortcuts both kept", in: []string{"/set Live 0", "/set Live 0"}, want: []string{"/set Live 0", "/set Live 0"}},
 		{name: "non-consecutive help keeps both", in: []string{"/help", "/banks", "/help"}, want: []string{"/help", "/banks", "/help"}},

@@ -6,8 +6,8 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `3.11` |
-| **Last done** | `3.10` `/rename` |
+| **Current step** | `4.1` |
+| **Last done** | `3.11` same-currency `/transfer` |
 | **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`) |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -28,7 +28,7 @@ This file is the source of truth for the project. An agent that lost prior chat 
 
 ### How to pick up work
 
-Say: `let's move to step 3.11` (next). Or any other id, e.g. `let's move to step 2.9`.
+Say: `let's move to step 4.1` (after accepting `3.11`). Or any other id, e.g. `let's move to step 2.9`.
 
 ---
 
@@ -378,13 +378,13 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. | `2.9` |
 | `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. | `3.4` |
 | `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. If that full name is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. | `3.10` |
-| `/transfer` | Pick from-bank → to-bank → amount. Same currency only. Reject same bank / invalid amount. | `3.11` |
+| `/transfer` | Pick from-bank → to-bank (other banks) → amount. Same currency only. Reject same bank / invalid amount. | `3.11` |
 
 **Later (`4.x`, not Stage 3):** `/history`, `/language`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer` shortcuts should match `/add` style (details at `3.11`).
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer Holiday Gifts 50` (exactly two names and an amount; otherwise the full remainder is the from-bank).
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
@@ -430,7 +430,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Very large amounts → reject if cents would overflow `int64`
 - User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
 - `/rename` (`3.10`): unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds. Slash args try the full remainder as the current name first; if missing, first word is the old name and the rest is the new name.
-- `/transfer` (`3.11`): reject different currency, same bank, invalid amount; empty state same as `/add`
+- `/transfer` (`3.11`): reject different currency, same bank, invalid amount (including zero); empty state same as `/add`; one bank → need another `/newbank`. Slash args: exactly `From To Amount` (two words + money) tries both banks; if a bank is missing, or the payload is not that shape, the full remainder is the from-name only.
 
 ### Pending commands (`3.7`–`3.8`)
 
@@ -451,7 +451,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 | Pattern | Keep | Drop |
 | --- | --- | --- |
 | Consecutive identical **idempotent** slash text (`/help`, `/start`, `/banks`, `/total`, `/all`, `/bank <name>`) | first | the rest of the run |
-| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/feedback`, `/cancel` with no args) | first | the rest of the run |
+| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/transfer`, `/feedback`, `/cancel` with no args) | first | the rest of the run |
 | Empty wizard start whose **next waiting slash** is also a flow-start (would replace per `2.9`) | the later flow-start | the empty one. **Do not** drop if the next item is `/cancel`, `/help`, `/start`, `/banks`, `/total`, `/all`, or a typed/callback update |
 | Consecutive identical `/newbank <same name>` | first | later copies (second would be name-taken) |
 | Consecutive identical `/delete <same name>` | first | later copies (second would be unknown bank) |
@@ -477,6 +477,7 @@ The table is a **baseline**, not a closed list. An implementer may add other off
 | Toggled | ✅ |
 | Feedback thanks | 🙏 |
 | Renamed (`3.10`) | ✏️ |
+| Transferred (`3.11`) | 💸 |
 
 **No emoji** on `/help` lines, command-menu descriptions, errors, wizard prompts, `Canceled.`, or `Nothing to cancel.`. Lists (`/banks` `/total` `/all` `/bank`) may get a single restrained marker if it stays scannable.
 
@@ -576,6 +577,7 @@ No CI secrets are required yet (tests do not need `BOT_TOKEN`).
 | 2026-09-08 | `3.7`: RAM FIFO per Telegram user in the adapter. `New()` uses `WithNotAsyncHandlers` + one worker so enqueue matches send order; drain still runs handlers. Cap 32 drop-oldest. Collapse is `3.8`. |
 | 2026-09-08 | `3.8`: `compact` on the waiting slash list when a drain starts and after each job. Consecutive identical idempotent/empty-wizard/`/newbank`/`/delete` keep the first (still handled once). Empty wizard dropped when the next waiting slash is a flow-start. No extra skipped line. |
 | 2026-09-08 | `/rename` args: try the full remainder as the current bank name (spaces allowed). If missing, first word is old name and the rest is the new name (`/rename Travelling Holiday` → rename `Travelling` to `Holiday`). If that first word is also missing → unknown-bank error. Wizard typed answers still use the full text as the current name. |
+| 2026-09-08 | `/transfer` logs one `transfer` operations row on the from-bank (`meta` = to-bank id). Two balance updates in one `Transactor` tx. Shortcut: exactly two words + money after the command tries from/to/amount; otherwise the full remainder is from-name only. 0 banks = `/newbank`; 1 bank = need another bank. To-picker omits from. Zero/negative amounts invalid; overdraft allowed. Empty `/transfer` is a `3.8` empty-wizard command. |
 
 ---
 
@@ -833,10 +835,13 @@ Numbering is `2.x` for the Telegram stage (not “stage 2” of the product road
 
 #### 3.11 Same-currency `/transfer`
 
-- **Status:** `todo`
+- **Status:** `done`
 - **Goal:** move money between the user’s own banks in the same currency.
-- **Flow:** pick from-bank → to-bank → amount. Shortcuts consistent with `/add`. Empty state hints `/newbank`.
-- **DoD:** atomic in service via `Transactor` from `3.6` (two balance updates + operation rows). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
+- **Flow:** pick from-bank → to-bank (other banks only) → amount. Empty `/transfer` is an empty-wizard start (`3.8`). 0 banks → `NoBanks` / `/newbank`. 1 bank → need another `/newbank`. Shortcut: exactly `From To Amount` (two words + money) runs immediately if both banks exist; if a bank is missing, or the payload is not that shape, the full remainder is the from-name (no trailing amount peel). Typed wizard answers never use the triple shortcut. Chat hygiene: one edited prompt; typed to-name/amount swept; outcome kept.
+- **Service:** `Transfer(ctx, userID, fromID, toID, amount) (from, to Bank, error)` uses existing `Transactor`. Debit from, credit to, one `operations` row: type `transfer`, `amount_cents` positive amount moved, `balance_after_cents` from’s new balance, `meta` counterpart (to) bank id. Reject same bank, different currency, invalid amount (negative, zero, overflow). Negative balances allowed. SQLite CHECK already allows `transfer`.
+- **Also:** `domain.CommandTransfer`, slash menu, `/help` `/start` mention, callbacks `v1:transfer:from:<bankID>` and `v1:transfer:to:<bankID>`. Outcome uses 💸. Entitlement later (`4.5`) treats `/transfer` as an extra-bank command.
+- **Files:** domain, service (+ mockery on telegram `Service`), sqlite integration tests, `internal/text`, telegram handlers/tests, `commands.go`, `compact.go`
+- **DoD:** atomic in service via `Transactor` from `3.6` (two balance updates + one operation row). Reject different currency, same bank, invalid amount. Unit tests cover those cases. Command is in the slash menu and `/help`.
 
 **Hardened private MVP is complete when 0.1–3.11 are `done`.** Through `3.3` the bot is already usable privately; `3.4`–`3.11` are still Stage 3 (no paywall, full banks for everyone).
 
@@ -989,4 +994,4 @@ Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`�
 
 ## Suggested next message
 
-`let's move to step 3.11`
+After accepting `3.11`: `let's move to step 4.1`

@@ -36,6 +36,7 @@ func TestHelpListsMVPCommands(t *testing.T) {
 		{"/bank", CmdDescBank},
 		{"/toggle", CmdDescToggle},
 		{"/rename", CmdDescRename},
+		{"/transfer", CmdDescTransfer},
 		{"/banks", CmdDescBanks},
 		{"/total", CmdDescTotal},
 		{"/all", CmdDescAll},
@@ -65,6 +66,9 @@ func TestStartPointsToHelp(t *testing.T) {
 	}
 	if !strings.Contains(Start, "/rename") {
 		t.Fatal("start should mention /rename")
+	}
+	if !strings.Contains(Start, "/transfer") {
+		t.Fatal("start should mention /transfer")
 	}
 }
 
@@ -98,6 +102,9 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	}
 	if !strings.Contains(Help, "/rename Holiday Trips") {
 		t.Fatal("help should show a /rename old-new shortcut")
+	}
+	if !strings.Contains(Help, "/transfer Holiday Gifts 50") {
+		t.Fatal("help should show a /transfer shortcut")
 	}
 }
 
@@ -162,6 +169,11 @@ func TestOutcomeEmojis(t *testing.T) {
 			got:  BankRenamed("Holiday", "holiday"),
 			want: "✏️ Renamed \"Holiday\" to \"holiday\".",
 		},
+		{
+			name: "transferred",
+			got:  Transferred("Holiday", "Gifts", "50.00", "50.00", "150.00"),
+			want: "💸 Transferred 50.00 from \"Holiday\" to \"Gifts\".\nHoliday: 50.00.\nGifts: 150.00.",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -188,6 +200,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "cmd desc bank", got: CmdDescBank},
 		{name: "cmd desc toggle", got: CmdDescToggle},
 		{name: "cmd desc rename", got: CmdDescRename},
+		{name: "cmd desc transfer", got: CmdDescTransfer},
 		{name: "cmd desc banks", got: CmdDescBanks},
 		{name: "cmd desc total", got: CmdDescTotal},
 		{name: "cmd desc all", got: CmdDescAll},
@@ -213,6 +226,12 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "ask set", got: AskSetAmount("Live")},
 		{name: "ask delete", got: AskDeleteConfirm("Holiday")},
 		{name: "ask rename", got: AskRenameName("Holiday")},
+		{name: "need two banks", got: NeedTwoBanks},
+		{name: "ask transfer from", got: AskTransferFrom},
+		{name: "ask transfer to", got: AskTransferTo("Holiday")},
+		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts")},
+		{name: "same bank", got: SameBank},
+		{name: "currency mismatch", got: CurrencyMismatch},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -284,6 +303,17 @@ func TestMoneyCopy(t *testing.T) {
 		{name: "deleted", got: BankDeleted("Holiday"), want: []string{"Holiday"}},
 		{name: "ask rename", got: AskRenameName("Holiday"), want: []string{"Holiday"}},
 		{name: "renamed", got: BankRenamed("Holiday", "Trips"), want: []string{"Holiday", "Trips"}},
+		{
+			name: "transferred",
+			got:  Transferred("Holiday", "Gifts", "50.00", "50.00", "150.00"),
+			want: []string{"Holiday", "Gifts", "50.00", "150.00"},
+		},
+		{name: "need two banks", got: NeedTwoBanks, want: []string{"/newbank"}},
+		{name: "ask transfer from", got: AskTransferFrom, want: []string{"from"}},
+		{name: "ask transfer to", got: AskTransferTo("Holiday"), want: []string{"Holiday", "to"}},
+		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts"), want: []string{"Holiday", "Gifts"}},
+		{name: "same bank", got: SameBank, want: []string{"different"}},
+		{name: "currency mismatch", got: CurrencyMismatch, want: []string{"currenc"}},
 		{name: "bank included", got: BankCard("Holiday", "50.00", true), want: []string{"Holiday", "50.00", "in total"}},
 		{name: "bank excluded", got: BankCard("Gifts", "12.50", false), want: []string{"Gifts", "12.50", "not in total"}},
 		{

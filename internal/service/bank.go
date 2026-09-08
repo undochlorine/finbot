@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"finbot/internal/domain"
@@ -216,6 +217,67 @@ func (s *Service) Rename(ctx context.Context, userID domain.UserID, bankID int64
 		return domain.Bank{}, fmt.Errorf("rename: %w", err)
 	}
 	return updated, nil
+}
+
+func (s *Service) Transfer(
+	ctx context.Context,
+	userID domain.UserID,
+	fromID, toID int64,
+	amount domain.Money,
+) (domain.Bank, domain.Bank, error) {
+	if amount <= 0 {
+		return domain.Bank{}, domain.Bank{}, domain.ErrInvalidAmount
+	}
+	if fromID == toID {
+		return domain.Bank{}, domain.Bank{}, domain.ErrSameBank
+	}
+
+	var from, to domain.Bank
+	err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		from, err = s.banks.GetByID(ctx, userID, fromID)
+		if err != nil {
+			return fmt.Errorf("get from bank: %w", err)
+		}
+		to, err = s.banks.GetByID(ctx, userID, toID)
+		if err != nil {
+			return fmt.Errorf("get to bank: %w", err)
+		}
+		if from.Currency != to.Currency {
+			return domain.ErrCurrencyMismatch
+		}
+		fromBal, err := addMoney(from.Balance, -amount)
+		if err != nil {
+			return err
+		}
+		toBal, err := addMoney(to.Balance, amount)
+		if err != nil {
+			return err
+		}
+		from.Balance = fromBal
+		from, err = s.save(ctx, userID, from)
+		if err != nil {
+			return err
+		}
+		to.Balance = toBal
+		to, err = s.save(ctx, userID, to)
+		if err != nil {
+			return err
+		}
+		return s.appendOp(ctx, domain.Operation{
+			UserID:       userID,
+			BankID:       ptr(from.ID),
+			Type:         domain.OperationTransfer,
+			Amount:       amount,
+			BalanceAfter: ptr(from.Balance),
+			Meta:         strconv.FormatInt(to.ID, 10),
+			CreatedAt:    from.UpdatedAt,
+		})
+	})
+	if err != nil {
+		return domain.Bank{}, domain.Bank{}, fmt.Errorf("transfer: %w", err)
+	}
+	return from, to, nil
 }
 
 func (s *Service) adjust(

@@ -29,20 +29,24 @@ const (
 	stepAmount  = "amount"
 	stepConfirm = "confirm"
 	stepText    = "text"
+	stepTo      = "to"
 
 	callbackNewBankPrefix     = "v1:" + domain.CommandNewBank + ":"
 	callbackNewBankIncludeYes = callbackNewBankPrefix + stepInclude + ":1"
 	callbackNewBankIncludeNo  = callbackNewBankPrefix + stepInclude + ":0"
 
-	callbackAddPrefix    = "v1:" + domain.CommandAdd + ":"
-	callbackSpendPrefix  = "v1:" + domain.CommandSpend + ":"
-	callbackSetPrefix    = "v1:" + domain.CommandSet + ":"
-	callbackDeletePrefix = "v1:" + domain.CommandDelete + ":"
-	callbackDeleteYes    = callbackDeletePrefix + domain.Yes + ":"
-	callbackDeleteNo     = callbackDeletePrefix + domain.No + ":"
-	callbackBankPrefix   = "v1:" + domain.CommandBank + ":"
-	callbackTogglePrefix = "v1:" + domain.CommandToggle + ":"
-	callbackRenamePrefix = "v1:" + domain.CommandRename + ":"
+	callbackAddPrefix          = "v1:" + domain.CommandAdd + ":"
+	callbackSpendPrefix        = "v1:" + domain.CommandSpend + ":"
+	callbackSetPrefix          = "v1:" + domain.CommandSet + ":"
+	callbackDeletePrefix       = "v1:" + domain.CommandDelete + ":"
+	callbackDeleteYes          = callbackDeletePrefix + domain.Yes + ":"
+	callbackDeleteNo           = callbackDeletePrefix + domain.No + ":"
+	callbackBankPrefix         = "v1:" + domain.CommandBank + ":"
+	callbackTogglePrefix       = "v1:" + domain.CommandToggle + ":"
+	callbackRenamePrefix       = "v1:" + domain.CommandRename + ":"
+	callbackTransferPrefix     = "v1:" + domain.CommandTransfer + ":"
+	callbackTransferFromPrefix = callbackTransferPrefix + "from:"
+	callbackTransferToPrefix   = callbackTransferPrefix + "to:"
 )
 
 type fsmState struct {
@@ -50,6 +54,8 @@ type fsmState struct {
 	Step     string `json:"step"`
 	Name     string `json:"name,omitempty"`
 	BankID   int64  `json:"bank_id,omitempty"`
+	ToName   string `json:"to_name,omitempty"`
+	ToBankID int64  `json:"to_bank_id,omitempty"`
 	PromptID int    `json:"prompt_id,omitempty"`
 	SweepIDs []int  `json:"sweep_ids,omitempty"`
 }
