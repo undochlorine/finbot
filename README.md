@@ -141,9 +141,22 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 | `lint` | golangci-lint |
 | `integration:test` | `make test-integration` — Postgres and Redis adapters; job provides `postgres:16` (`POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers**. |
 
-Job `common` succeeds only if those three succeeded. Later pipeline stages (none yet) must `needs: common`; if any common job fails they will not run.
+Job `common` succeeds only if those three succeeded.
 
-No repository secrets are needed for this pipeline.
+**Deploy** (`needs: common`) runs only on **push** to `master` / `main`. It does not run on pull requests or `workflow_dispatch`. It deploys the existing `Dockerfile` with the Railway CLI. If deploy fails, the workflow fails.
+
+Until step `4.3.2` fills GitHub secrets, the deploy job **skips** (the workflow stays green). Secrets:
+
+| Secret | Required to deploy | Notes |
+| --- | --- | --- |
+| `RAILWAY_TOKEN` | yes | Railway **project token** for the production environment (not an account API token) |
+| `RAILWAY_SERVICE_ID` | yes | Bot worker service id |
+| `RAILWAY_PROJECT_ID` | if the CLI asks | Project id |
+| `RAILWAY_ENVIRONMENT` | if the CLI asks | Environment name or id |
+
+Do not put production URLs or tokens in git. Branch protection should require **`common`**, not `deploy`, so empty secrets do not block merges.
+
+Turn **off** Railway’s GitHub auto-deploy on the worker (service settings → Disable automatic deployments). Actions is the only deployer so a push cannot race tests. Do not enable Railway “Wait for CI” as a second deployer.
 
 ### One-time GitHub setup
 
@@ -151,11 +164,48 @@ Actions usually work as soon as the workflow file is on the default branch. If a
 
 1. Open the repo on GitHub: [undochlorine/finbot](https://github.com/undochlorine/finbot).
 2. **Settings → Actions → General**. Under “Actions permissions”, choose **Allow all actions and reusable workflows**. Save.
-3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`.
+3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`. On a `master`/`main` push, **deploy** is skipped until the Railway secrets exist.
 
 Optional, after the first green run (status check names only appear then):
 
 1. **Settings → Branches → Add branch ruleset** (or classic **Branch protection rule**) for `master`.
 2. Enable **Require status checks to pass before merging**.
-3. Search and require **`common`** (that single check already means unit, lint, and integration passed).
-4. Save. Do not require GitHub secrets for CI at this stage.
+3. Search and require **`common`** (that single check already means unit, lint, and integration passed). Do not require `deploy`.
+4. Save.
+
+## Production (Railway)
+
+Host is **Railway Hobby**: one always-on **worker** (not a web service) plus managed Postgres and Redis. There is no public HTTP URL for the bot. Sleep / scale-to-zero must stay **off**. Replica count is **1** until step `4.9`; two long-poll processes on the same bot token fight each other. Deploys stop the old container then start the new one (a short gap with no Telegram consumer is expected). The first live project, databases, and secrets are step `4.3.2`. Config in git: [`railway.toml`](railway.toml).
+
+### Env
+
+Set these on the Railway worker. The app uses **private** plugin URLs, not the public TCP proxies.
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `BOT_TOKEN` | yes | From [@BotFather](https://t.me/BotFather) |
+| `DATABASE_URL` | yes | Private Postgres URL. Use TLS (`sslmode=require` or the vendor URL as issued) |
+| `REDIS_URL` | yes | Private Redis URL (`redis://` or `rediss://`, or the vendor URL as issued) |
+| `LOG_LEVEL` | no | `info` in production |
+| `ADMIN_TELEGRAM_ID` | no | Numeric Telegram user id for `/feedback` |
+| `TRIAL_DURATION` | no | Default `168h`. Not enforced until later |
+| `DEFAULT_CURRENCY` | no | Default `USD` |
+
+Do not commit production URLs.
+
+### Deploy
+
+A green `common` on push to `master`/`main` runs **deploy** (`railway up --ci` of the repo `Dockerfile`). GitHub Actions is the only deployer.
+
+### Logs
+
+Railway dashboard: open the worker → **Deployments** → logs. Hobby retention is about 7 days. From a machine with the CLI linked: `railway logs`. `stdout`/`stderr` `slog` is the log API; there is no vendor metrics SDK yet.
+
+### Postgres and Redis access
+
+The bot keeps using **private** URLs. For you:
+
+1. **Browser:** Railway Postgres data tab / query UI and Redis UI.
+2. **Local client:** enable the plugin TCP proxy (public URL + TLS + password). Connect with TablePlus / `psql` / Redis Insight / `redis-cli`. Do not open Postgres or Redis to `0.0.0.0` without TLS and a password. Do not tunnel through the bot process.
+
+Backup restore drill and the first live `/start` smoke test are step `4.3.2`.

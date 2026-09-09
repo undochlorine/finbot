@@ -92,3 +92,36 @@ jobs:
           test "${{ needs.unit-test.result }}" = "success"
           test "${{ needs.lint.result }}" = "success"
           test "${{ needs.integration-test.result }}" = "success"
+
+  deploy:
+    name: deploy
+    needs: common
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
+      secrets.RAILWAY_TOKEN != '' &&
+      secrets.RAILWAY_SERVICE_ID != ''
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy
+        run: |
+          extra=()
+          if [ -n "${RAILWAY_PROJECT_ID}" ]; then
+            extra+=(--project "${RAILWAY_PROJECT_ID}")
+          fi
+          if [ -n "${RAILWAY_ENVIRONMENT}" ]; then
+            extra+=(--environment "${RAILWAY_ENVIRONMENT}")
+          fi
+          railway up --ci --service "${RAILWAY_SERVICE_ID}" "${extra[@]}"
