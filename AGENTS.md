@@ -8,7 +8,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.2` |
+| **Current step** | `4.2` (umbrella; do not implement — start `4.2.1`) |
 | **Last done** | `4.1.3` Postgres cutover (`cmd/bot` on Postgres; SQLite adapter gone) |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
@@ -26,7 +26,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 5. Do not start later steps unless asked. Do not skip DoD.
 6. After a logical Go code scope: `make lint`.
 7. Do not create a GitHub remote or commit unless the user asks.
-8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**. Integration: Postgres via Compose locally and a GitHub Actions Postgres service in CI. **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval**. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration`.
+8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**. Integration: Postgres (and Redis after `4.2.1`) via Compose locally and GitHub Actions service containers in CI. **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval**. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration`.
 
 ## Routing
 
@@ -38,7 +38,9 @@ For `let's move to step X.Y` also read `docs/sdd/requirements.md` and the step f
 | 4.1.1 | persistence, platform | `docs/sdd/steps/4.01.1-postgres-foundation.md` |
 | 4.1.2 | persistence, service | `docs/sdd/steps/4.01.2-postgres-adapter.md` |
 | 4.1.3 | persistence, platform | `docs/sdd/steps/4.01.3-postgres-cutover.md` |
-| 4.2 | telegram, platform | `docs/sdd/steps/4.02-redis.md` |
+| 4.2 | telegram, platform | `docs/sdd/steps/4.02-redis.md` (umbrella; do not implement — start `4.2.1`) |
+| 4.2.1 | telegram, platform | `docs/sdd/steps/4.02.1-redis-foundation.md` |
+| 4.2.2 | telegram, platform | `docs/sdd/steps/4.02.2-redis-cutover.md` |
 | 4.3 | platform | `docs/sdd/steps/4.03-hosting.md` |
 | 4.4 | billing, platform, telegram | `docs/sdd/steps/4.04-inactivity.md` |
 | 4.5 | billing, telegram, service | `docs/sdd/steps/4.05-trial.md` |
@@ -63,8 +65,8 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.2`
+`Follow AGENTS.md. Let's move to step 4.2.1`
 
-`4.1` is done. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](docs/superpowers/specs/2026-09-09-postgresql-migration-design.md).
+`4.2` is the umbrella (do not implement it as one step). Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](docs/superpowers/specs/2026-09-09-redis-cache-design.md). `4.1` is done.
 
 Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md). Feature designs: [`docs/superpowers/specs/`](docs/superpowers/specs/).
