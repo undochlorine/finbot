@@ -8,9 +8,9 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.1.2` |
-| **Last done** | `4.1.1` Postgres foundation (Compose/CI/`Open`/baseline schema; bot still SQLite) |
-| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`); Stage 4 Postgres `4.1.2`–`4.1.3` |
+| **Current step** | `4.1.3` |
+| **Last done** | `4.1.2` Postgres adapter (same ports, `FOR UPDATE`, transfer lock order; bot still SQLite) |
+| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`); Stage 4 Postgres cutover `4.1.3` |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
 | **Path** | `/Users/a.sicaci/Projects/finbot` |
@@ -63,7 +63,7 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.1.2`
+`Follow AGENTS.md. Let's move to step 4.1.3`
 
 `4.1` is the umbrella and means the next undone `4.1.x` slice, not all of `4.1.1`–`4.1.3`. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](docs/superpowers/specs/2026-09-09-postgresql-migration-design.md).
 

@@ -234,14 +234,22 @@ func (s *Service) Transfer(
 
 	var from, to domain.Bank
 	err := s.tx.InTx(ctx, func(ctx context.Context) error {
-		var err error
-		from, err = s.banks.GetByID(ctx, userID, fromID)
-		if err != nil {
-			return fmt.Errorf("get from bank: %w", err)
+		lowID, highID := fromID, toID
+		if toID < fromID {
+			lowID, highID = toID, fromID
 		}
-		to, err = s.banks.GetByID(ctx, userID, toID)
+		low, err := s.banks.GetByID(ctx, userID, lowID)
 		if err != nil {
-			return fmt.Errorf("get to bank: %w", err)
+			return wrapGetBank(lowID, fromID, err)
+		}
+		high, err := s.banks.GetByID(ctx, userID, highID)
+		if err != nil {
+			return wrapGetBank(highID, fromID, err)
+		}
+		if fromID == lowID {
+			from, to = low, high
+		} else {
+			from, to = high, low
 		}
 		if from.Currency != to.Currency {
 			return domain.ErrCurrencyMismatch
@@ -351,6 +359,13 @@ func (s *Service) appendOp(ctx context.Context, op domain.Operation) error {
 		return fmt.Errorf("append operation: %w", err)
 	}
 	return nil
+}
+
+func wrapGetBank(id, fromID int64, err error) error {
+	if id == fromID {
+		return fmt.Errorf("get from bank: %w", err)
+	}
+	return fmt.Errorf("get to bank: %w", err)
 }
 
 func ptr[T any](v T) *T {

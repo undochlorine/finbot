@@ -1,10 +1,10 @@
 # Persistence (current)
 
-`cmd/bot` still uses SQLite on disk. Trial/paywall **semantics** are [`billing.md`](billing.md). Postgres cutover: `4.1.2` adapter, `4.1.3` wire-and-drop-SQLite ([umbrella](../steps/4.01-postgresql.md), [design](../../superpowers/specs/2026-09-09-postgresql-migration-design.md)). Rewrite the SQLite sections when `4.1.3` lands.
+`cmd/bot` still uses SQLite on disk. Trial/paywall **semantics** are [`billing.md`](billing.md). Postgres repos exist (`4.1.2`); cutover is `4.1.3` ([umbrella](../steps/4.01-postgresql.md), [design](../../superpowers/specs/2026-09-09-postgresql-migration-design.md)). Rewrite the SQLite sections when `4.1.3` lands.
 
-## Postgres foundation (`4.1.1`)
+## Postgres adapter (`4.1.1`–`4.1.2`)
 
-`internal/adapter/postgres` exists but is **not** wired to `cmd/bot`.
+`internal/adapter/postgres` implements the same `service` ports as SQLite. It is **not** wired to `cmd/bot` yet.
 
 | Concern | Choice |
 | --- | --- |
@@ -19,6 +19,10 @@
 | Uniqueness | `UNIQUE (user_id, name_normalized)` — still filled by `NormalizeBankName`, not `lower()` |
 | FKs | `banks.user_id` / `operations.user_id` → `users` `ON DELETE CASCADE`; `operations.bank_id` `ON DELETE SET NULL` |
 | Indexes | `banks (user_id)`; `operations (user_id, created_at DESC)`; `operations (bank_id)`; `users (last_activity_at)` |
+| SQL | `$1` placeholders; `RETURNING` (no `LastInsertId`); `TIMESTAMPTZ` / `BOOLEAN` scan |
+| Unique | `23505` → `domain.ErrBankNameTaken` |
+| Row locks | `GetByID` / `GetByName` append `FOR UPDATE` **only** when `InTx` stored a `*sql.Tx` on the context. `List`, `Total`, and get outside a tx stay unlocked |
+| `InTx` | begin/commit/rollback; **3** attempts on `40P01` and `40001` only |
 
 Local DBs: Compose `postgres:16` creates `finbot` (future bot) and `finbot_test` (integration). Process: [`platform.md`](platform.md).
 
