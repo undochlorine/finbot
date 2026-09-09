@@ -143,7 +143,7 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 
 Job `common` succeeds only if those three succeeded.
 
-**Deploy** (`needs: common`) runs only on **push** to `master` / `main`. It does not run on pull requests or `workflow_dispatch`. It deploys the existing `Dockerfile` with the Railway CLI. If deploy fails, the workflow fails. Missing `RAILWAY_TOKEN` or `RAILWAY_SERVICE_ID` fails **deploy** (the job still exists so you can see it). GitHub does not allow `secrets` in a job-level `if`; that pattern invalidates the whole workflow file, so `unit:test` / `lint` / `common` never start.
+**Deploy** (`needs: common`) is **manual**. It runs only on **Actions → CI → Run workflow** with **Deploy to Railway** checked, on `master` / `main`. It does not run on push, pull requests, or a dispatch with the checkbox off. It deploys the existing `Dockerfile` with the Railway CLI. If deploy fails, the workflow fails. Missing `RAILWAY_TOKEN` or `RAILWAY_SERVICE_ID` fails **deploy**. GitHub does not allow `secrets` in a job-level `if`; that pattern invalidates the whole workflow file, so `unit:test` / `lint` / `common` never start. Use a Railway **project token** as `RAILWAY_TOKEN`; leave `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT` unset unless the CLI needs them.
 
 A green GitHub check named like **kind-compassion - bot** is Railway’s GitHub app, not this workflow. If that is the only check, Actions never parsed `ci.yml` and Railway is deploying from git. Turn that off.
 
@@ -166,7 +166,7 @@ Actions usually work as soon as the workflow file is on the default branch. If a
 
 1. Open the repo on GitHub: [undochlorine/finbot](https://github.com/undochlorine/finbot).
 2. **Settings → Actions → General**. Under “Actions permissions”, choose **Allow all actions and reusable workflows**. Save.
-3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`. On a `master`/`main` push, **deploy** runs after `common` and needs the Railway secrets.
+3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`. Push does **not** deploy. To ship: **Actions → CI → Run workflow**, branch `master` (or `main`), check **Deploy to Railway after common succeeds**.
 
 Optional, after the first green run (status check names only appear then):
 
@@ -177,7 +177,7 @@ Optional, after the first green run (status check names only appear then):
 
 ## Production (Railway)
 
-Host is **Railway Hobby**: one always-on **worker** (not a web service) plus managed Postgres and Redis. There is no public HTTP URL for the bot. Sleep / scale-to-zero must stay **off**. Replica count is **1** until step `4.9`; two long-poll processes on the same bot token fight each other. Deploys stop the old container then start the new one (a short gap with no Telegram consumer is expected). The first live project, databases, and secrets are step `4.3.2`. Config in git: [`railway.toml`](railway.toml).
+Host is **Railway Hobby**: one always-on **worker** (not a web service) plus managed Postgres and Redis. There is no public HTTP URL for the bot. Sleep / scale-to-zero must stay **off**. Replica count is **1** until step `4.9`; two long-poll processes on the same bot token fight each other. Deploys stop the old container then start the new one (a short gap with no Telegram consumer is expected). Config in git: [`railway.toml`](railway.toml).
 
 ### Env
 
@@ -197,7 +197,7 @@ Do not commit production URLs.
 
 ### Deploy
 
-A green `common` on push to `master`/`main` runs **deploy** (`railway up --ci` of the repo `Dockerfile`). GitHub Actions is the only deployer.
+Push to `master`/`main` runs tests only. To deploy: **Actions → CI → Run workflow**, select `master`/`main`, check **Deploy to Railway after common succeeds**. That run still requires a green `common`, then `railway up --ci` of the repo `Dockerfile`. GitHub Actions is the only deployer. Railway GitHub auto-deploy must stay off.
 
 ### Logs
 
@@ -209,9 +209,9 @@ The project **Logs** sidebar mixes every service. `checkpoint starting` / `check
 
 ### Postgres and Redis access
 
-The bot keeps using **private** URLs. For you:
+Banks, users, and operations live in Postgres until you delete them (or until step `4.4` inactivity). There is **no row TTL** and no Redis cache of balances. Redis only holds the conversation FSM (10-minute sliding TTL).
 
 1. **Browser:** Railway Postgres data tab / query UI and Redis UI.
 2. **Local client:** enable the plugin TCP proxy (public URL + TLS + password). Connect with TablePlus / `psql` / Redis Insight / `redis-cli`. Do not open Postgres or Redis to `0.0.0.0` without TLS and a password. Do not tunnel through the bot process.
 
-Backup restore drill and the first live `/start` smoke test are step `4.3.2`.
+Postgres backups: Railway Postgres → **Backups**. Restore into a scratch database (or Railway’s restore flow) and confirm rows. Redis is not a recovery target.

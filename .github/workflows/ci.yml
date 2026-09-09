@@ -5,6 +5,11 @@ on:
     branches: [master, main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy to Railway after common succeeds (master/main only)
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -98,8 +103,10 @@ jobs:
     needs: common
     # GitHub forbids `secrets` in job-level `if` (invalidates the whole workflow).
     # Empty token/service id fails this job instead of skipping.
+    # Boolean workflow_dispatch inputs are the strings "true" / "false".
     if: |
-      github.event_name == 'push' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.deploy == 'true' &&
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     env:

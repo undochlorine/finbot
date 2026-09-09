@@ -26,7 +26,9 @@ Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres
 
 ## Hosting
 
-Production host is Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; set the dashboard equivalents. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer. Distroless image has no shell — use deployment logs, not Railway Console. `4.3.2` go-live is in progress (operator project exists; Actions must be the deployer).
+Production is live on Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; set the dashboard equivalents. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer, and **deploy is manual** (`workflow_dispatch` + Deploy checkbox, `master`/`main` only, still `needs: common`). Distroless image has no shell — use deployment logs, not Railway Console.
+
+Postgres is the system of record for users, banks, and operations. Rows have **no TTL**; pool `ConnMaxLifetime` / statement timeouts are connection limits, not data expiry. Inactivity delete is `4.4`. Redis FSM is expendable (10-minute sliding TTL).
 
 ## CI
 
@@ -38,7 +40,7 @@ Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Runs on push t
 | `lint` | golangci-lint (`v2.13`) with `.golangci.yaml` (includes `integration` build tags) |
 | `integration:test` | `make test-integration` — `./internal/adapter/postgres/...` and `./internal/adapter/rediscache/...`. Job provides `postgres:16` (`POSTGRES_DB=finbot_test`, `POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers** |
 | `common` | gate: succeeds only if the three jobs succeeded |
-| `deploy` | `needs: common`. Push to `master`/`main` only. Railway CLI `railway up --ci`. Job-level `if` must not use `secrets` (GitHub rejects the whole file). Empty `RAILWAY_TOKEN` / `RAILWAY_SERVICE_ID` fails the job. Optional `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT`. Tests still do not need `BOT_TOKEN` |
+| `deploy` | `needs: common`. **Manual only:** `workflow_dispatch` with input `deploy=true` on `master`/`main`. Never on push or pull_request. Railway CLI `railway up --ci`. Job-level `if` must not use `secrets`. Empty `RAILWAY_TOKEN` / `RAILWAY_SERVICE_ID` fails the job. Optional `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT` (omit both when using a project token). Tests still do not need `BOT_TOKEN` |
 
 Branch protection should require `common`, not `deploy`. Human runbook: [`README.md`](../../../README.md).
 
@@ -46,7 +48,6 @@ Branch protection should require `common`, not `deploy`. Human runbook: [`README
 
 | Topic | Step |
 | --- | --- |
-| Cheap hosting go-live (Railway project, secrets, restore drill) | [`4.03.2`](../steps/4.03.2-hosting-provision.md) |
 | Rate limit / replicas / partitioning | [`4.09`](../steps/4.09-load.md) |
 | Dashboards / metrics backend | [`4.17`](../steps/4.17-dashboards.md) |
 | `cmd/bot`, `cmd/worker`, `cmd/web` | [`4.21`](../steps/4.21-modular-binaries.md) |
