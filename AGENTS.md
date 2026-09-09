@@ -8,8 +8,8 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.3.1` |
-| **Last done** | `4.2.2` Redis cutover (`cmd/bot` on Redis; `memorycache` tests-only) |
+| **Current step** | `4.3.2` |
+| **Last done** | `4.3.1` Railway packaging (CI deploy after `common`; no live bot yet) |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -67,6 +67,6 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.3.1`
+`Follow AGENTS.md. Let's move to step 4.3.2`
 
-Cheap hosting (Railway worker + managed Postgres/Redis). Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](docs/superpowers/specs/2026-09-09-hosting-design.md). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md).
+Cheap hosting go-live (Railway worker + managed Postgres/Redis). Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](docs/superpowers/specs/2026-09-09-hosting-design.md). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md).

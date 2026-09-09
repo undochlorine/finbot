@@ -1,0 +1,17 @@
+# Replica count is 1. Horizontal scale is step 4.9 (webhooks or a leader lock).
+# Do not Generate Domain: this is a worker, not a public HTTP service.
+# Railway Config as Code is deprecated for new services (cutoff 2026-12-01).
+# Keep this file as the in-repo contract. If a new service ignores it, set the
+# same values in the dashboard at step 4.3.2.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# No startCommand: the image ENTRYPOINT ["/app/bot"] is the process.
+numReplicas = 1
+sleepApplication = false
+restartPolicyType = "ON_FAILURE"
+overlapSeconds = 0
+drainingSeconds = 30

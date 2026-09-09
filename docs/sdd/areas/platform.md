@@ -20,9 +20,13 @@ Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process e
 
 ## Docker
 
-`Dockerfile` exists (multi-stage, static-ish Go binary). It does not store Postgres or Redis on a local volume; pass `DATABASE_URL` and `REDIS_URL` at run time. Not deployed until hosting.
+`Dockerfile` exists (multi-stage, static-ish Go binary). It does not store Postgres or Redis on a local volume; pass `DATABASE_URL` and `REDIS_URL` at run time.
 
-Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16` (healthcheck `pg_isready`, named volume, user/password `finbot`/`finbot`, databases `finbot` and `finbot_test`) and `redis:7-alpine` (port `6379`, `requirepass finbot`, `maxmemory 64mb`, `maxmemory-policy volatile-ttl`, healthcheck `redis-cli -a finbot ping`, no volume). Local/CI credentials only. `docker compose up -d` before `go run ./cmd/bot` or adapter tests. CI does **not** run Compose.
+Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16` (healthcheck `pg_isready`, named volume, user/password `finbot`/`finbot`, databases `finbot` and `finbot_test`) and `redis:7-alpine` (port `6379`, `requirepass finbot`, `maxmemory 64mb`, `maxmemory-policy volatile-ttl`, healthcheck `redis-cli -a finbot ping`, no volume). Local/CI credentials only. `docker compose up -d` before `go run ./cmd/bot` or adapter tests. CI does **not** run Compose. Compose is not production.
+
+## Hosting
+
+Production host is Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; `4.3.2` sets the dashboard equivalents if needed. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer. No live project yet — `4.3.2`.
 
 ## CI
 
@@ -34,14 +38,15 @@ Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Runs on push t
 | `lint` | golangci-lint (`v2.13`) with `.golangci.yaml` (includes `integration` build tags) |
 | `integration:test` | `make test-integration` — `./internal/adapter/postgres/...` and `./internal/adapter/rediscache/...`. Job provides `postgres:16` (`POSTGRES_DB=finbot_test`, `POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers** |
 | `common` | gate: succeeds only if the three jobs succeeded |
+| `deploy` | `needs: common`. Push to `master`/`main` only. Railway CLI `railway up --ci`. **Skipped** until `RAILWAY_TOKEN` and `RAILWAY_SERVICE_ID` exist (`4.3.2`). Optional `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT`. Tests still do not need `BOT_TOKEN` |
 
-Future pipeline stages must `needs: common`. No CI secrets yet (tests do not need `BOT_TOKEN`).
+Branch protection should require `common`, not `deploy`. Human runbook: [`README.md`](../../../README.md).
 
 ## Later (step files only)
 
 | Topic | Step |
 | --- | --- |
-| Cheap hosting + managed Postgres / Redis (Railway; `4.3.1` packaging then `4.3.2` go-live) | [`4.03`](../steps/4.03-hosting.md) |
+| Cheap hosting go-live (Railway project, secrets, restore drill) | [`4.03.2`](../steps/4.03.2-hosting-provision.md) |
 | Rate limit / replicas / partitioning | [`4.09`](../steps/4.09-load.md) |
 | Dashboards / metrics backend | [`4.17`](../steps/4.17-dashboards.md) |
 | `cmd/bot`, `cmd/worker`, `cmd/web` | [`4.21`](../steps/4.21-modular-binaries.md) |
