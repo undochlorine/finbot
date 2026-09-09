@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const testDatabaseURL = "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable"
+
 func TestLoad(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -19,22 +21,53 @@ func TestLoad(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "missing database url",
+			env:     map[string]string{"BOT_TOKEN": "tok"},
+			wantErr: true,
+		},
+		{
+			name: "blank database url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": "   ",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid database url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": "://not-a-url",
+			},
+			wantErr: true,
+		},
+		{
+			name: "non postgres database url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": "http://127.0.0.1:5432/finbot",
+			},
+			wantErr: true,
+		},
+		{
 			name: "defaults",
-			env:  map[string]string{"BOT_TOKEN": "tok"},
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
 			},
 		},
 		{
 			name: "overrides",
 			env: map[string]string{
 				"BOT_TOKEN":         "tok",
-				"SQLITE_PATH":       "/var/lib/finbot/finbot.db",
 				"LOG_LEVEL":         "DEBUG",
 				"TRIAL_DURATION":    "24h",
 				"ADMIN_TELEGRAM_ID": "12345",
@@ -44,7 +77,6 @@ func TestLoad(t *testing.T) {
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      "/var/lib/finbot/finbot.db",
 				LogLevel:        slog.LevelDebug,
 				TrialDuration:   24 * time.Hour,
 				AdminTelegramID: 12345,
@@ -62,7 +94,6 @@ func TestLoad(t *testing.T) {
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
@@ -72,69 +103,89 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
+			name: "postgresql scheme",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+			},
+			want: Config{
+				BotToken:        "tok",
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+			},
+		},
+		{
 			name: "empty currency uses USD",
 			env: map[string]string{
 				"BOT_TOKEN":        "tok",
+				"DATABASE_URL":     testDatabaseURL,
 				"DEFAULT_CURRENCY": "   ",
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
 				DefaultCurrency: "USD",
+				DatabaseURL:     testDatabaseURL,
 			},
 		},
 		{
 			name: "currency kept as trimmed",
 			env: map[string]string{
 				"BOT_TOKEN":        "tok",
+				"DATABASE_URL":     testDatabaseURL,
 				"DEFAULT_CURRENCY": " eur ",
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
 				DefaultCurrency: "eur",
+				DatabaseURL:     testDatabaseURL,
 			},
 		},
 		{
 			name: "zero trial means none",
 			env: map[string]string{
 				"BOT_TOKEN":      "tok",
+				"DATABASE_URL":   testDatabaseURL,
 				"TRIAL_DURATION": "0",
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   0,
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
 			},
 		},
 		{
 			name: "zero admin id is unset",
 			env: map[string]string{
 				"BOT_TOKEN":         "tok",
+				"DATABASE_URL":      testDatabaseURL,
 				"ADMIN_TELEGRAM_ID": "0",
 			},
 			want: Config{
 				BotToken:        "tok",
-				SQLitePath:      defaultSQLitePath,
 				LogLevel:        slog.LevelInfo,
 				TrialDuration:   defaultTrialDuration,
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
 			},
 		},
 		{
 			name: "invalid admin id",
 			env: map[string]string{
 				"BOT_TOKEN":         "tok",
+				"DATABASE_URL":      testDatabaseURL,
 				"ADMIN_TELEGRAM_ID": "not-an-id",
 			},
 			wantErr: true,
@@ -143,6 +194,7 @@ func TestLoad(t *testing.T) {
 			name: "negative admin id",
 			env: map[string]string{
 				"BOT_TOKEN":         "tok",
+				"DATABASE_URL":      testDatabaseURL,
 				"ADMIN_TELEGRAM_ID": "-1",
 			},
 			wantErr: true,
@@ -151,6 +203,7 @@ func TestLoad(t *testing.T) {
 			name: "invalid trial duration",
 			env: map[string]string{
 				"BOT_TOKEN":      "tok",
+				"DATABASE_URL":   testDatabaseURL,
 				"TRIAL_DURATION": "not-a-duration",
 			},
 			wantErr: true,
@@ -159,6 +212,7 @@ func TestLoad(t *testing.T) {
 			name: "negative trial duration",
 			env: map[string]string{
 				"BOT_TOKEN":      "tok",
+				"DATABASE_URL":   testDatabaseURL,
 				"TRIAL_DURATION": "-1h",
 			},
 			wantErr: true,
@@ -166,8 +220,9 @@ func TestLoad(t *testing.T) {
 		{
 			name: "invalid log level",
 			env: map[string]string{
-				"BOT_TOKEN": "tok",
-				"LOG_LEVEL": "verbose",
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"LOG_LEVEL":    "verbose",
 			},
 			wantErr: true,
 		},
@@ -176,7 +231,6 @@ func TestLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("BOT_TOKEN", "")
-			t.Setenv("SQLITE_PATH", "")
 			t.Setenv("LOG_LEVEL", "")
 			t.Setenv("TRIAL_DURATION", "")
 			t.Setenv("ADMIN_TELEGRAM_ID", "")

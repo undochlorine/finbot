@@ -7,23 +7,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"finbot/internal/adapter/clock"
 	"finbot/internal/adapter/memorycache"
-	"finbot/internal/adapter/sqlite"
+	"finbot/internal/adapter/postgres"
 	"finbot/internal/adapter/telegram"
 	"finbot/internal/config"
 	"finbot/internal/domain"
 	"finbot/internal/service"
 )
 
-const (
-	sqliteDirPerm       = 0o750
-	telegramHTTPTimeout = time.Minute
-)
+const telegramHTTPTimeout = time.Minute
 
 func main() {
 	os.Exit(runMain())
@@ -48,26 +44,22 @@ func run(ctx context.Context) error {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})))
 
-	if err := os.MkdirAll(filepath.Dir(cfg.SQLitePath), sqliteDirPerm); err != nil {
-		return fmt.Errorf("create sqlite directory: %w", err)
-	}
-
-	db, err := sqlite.Open(ctx, cfg.SQLitePath)
+	db, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return fmt.Errorf("sqlite: %w", err)
+		return fmt.Errorf("postgres: %w", err)
 	}
 	defer func() {
 		if cerr := db.Close(); cerr != nil {
-			slog.Error("close sqlite", slog.Any("err", cerr))
+			slog.Error("close postgres", slog.Any("err", cerr))
 		}
 	}()
 
 	clk := clock.New()
 	svc := service.New(
-		sqlite.NewBankRepository(db),
-		sqlite.NewUserRepository(db),
-		sqlite.NewOperationRepository(db),
-		sqlite.NewTransactor(db),
+		postgres.NewBankRepository(db),
+		postgres.NewUserRepository(db),
+		postgres.NewOperationRepository(db),
+		postgres.NewTransactor(db),
 		clk,
 		cfg.TrialDuration,
 		cfg.DefaultCurrency,
