@@ -39,6 +39,8 @@ func TestLoad(t *testing.T) {
 				"TRIAL_DURATION":    "24h",
 				"ADMIN_TELEGRAM_ID": "12345",
 				"DEFAULT_CURRENCY":  "EUR",
+				"DATABASE_URL":      "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+				"POSTGRES_TEST_URL": "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -47,6 +49,26 @@ func TestLoad(t *testing.T) {
 				TrialDuration:   24 * time.Hour,
 				AdminTelegramID: 12345,
 				DefaultCurrency: "EUR",
+				DatabaseURL:     "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+				PostgresTestURL: "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
+			},
+		},
+		{
+			name: "trims postgres urls",
+			env: map[string]string{
+				"BOT_TOKEN":         "tok",
+				"DATABASE_URL":      "  postgres://local/finbot  ",
+				"POSTGRES_TEST_URL": "  postgres://local/finbot_test  ",
+			},
+			want: Config{
+				BotToken:        "tok",
+				SQLitePath:      defaultSQLitePath,
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     "postgres://local/finbot",
+				PostgresTestURL: "postgres://local/finbot_test",
 			},
 		},
 		{
@@ -159,6 +181,8 @@ func TestLoad(t *testing.T) {
 			t.Setenv("TRIAL_DURATION", "")
 			t.Setenv("ADMIN_TELEGRAM_ID", "")
 			t.Setenv("DEFAULT_CURRENCY", "")
+			t.Setenv("DATABASE_URL", "")
+			t.Setenv("POSTGRES_TEST_URL", "")
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
