@@ -488,6 +488,7 @@ func TestTransfer(t *testing.T) {
 			toID:   to.ID,
 			amount: 100,
 			setup: func(banks *mocks.MockBankRepository, _ *mocks.MockOperationRepository, _ *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, to.ID).Return(to, nil)
 				banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
 			},
 			wantErr: domain.ErrBankNotFound,
@@ -550,6 +551,43 @@ func TestTransfer(t *testing.T) {
 			require.Equal(t, tt.wantTo, gotTo.Balance)
 		})
 	}
+}
+
+func TestTransferLocksBanksByAscendingID(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+	low := sampleBank(userA, 1, "Holiday", 10000, true)
+	high := sampleBank(userA, 2, "Gifts", 2500, false)
+	svc, banks, ops, clock := newBankSvc(t)
+
+	var gotIDs []int64
+	banks.EXPECT().GetByID(ctx, userA, low.ID).RunAndReturn(
+		func(_ context.Context, _ domain.UserID, id int64) (domain.Bank, error) {
+			gotIDs = append(gotIDs, id)
+			return low, nil
+		})
+	banks.EXPECT().GetByID(ctx, userA, high.ID).RunAndReturn(
+		func(_ context.Context, _ domain.UserID, id int64) (domain.Bank, error) {
+			gotIDs = append(gotIDs, id)
+			return high, nil
+		})
+	clock.EXPECT().Now().Return(now).Times(2)
+	debited := high
+	debited.Balance = 0
+	debited.UpdatedAt = now
+	credited := low
+	credited.Balance = 12500
+	credited.UpdatedAt = now
+	banks.EXPECT().Update(ctx, userA, debited).Return(debited, nil)
+	banks.EXPECT().Update(ctx, userA, credited).Return(credited, nil)
+	after := domain.Money(0)
+	ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationTransfer, 2500, high.ID, &after, "1", now)).Return(nil)
+
+	gotFrom, gotTo, err := svc.Transfer(ctx, userA, high.ID, low.ID, 2500)
+	require.NoError(t, err)
+	require.Equal(t, []int64{low.ID, high.ID}, gotIDs)
+	require.Equal(t, domain.Money(0), gotFrom.Balance)
+	require.Equal(t, domain.Money(12500), gotTo.Balance)
 }
 
 func TestToggleUnknownBank(t *testing.T) {

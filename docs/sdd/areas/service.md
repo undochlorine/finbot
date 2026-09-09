@@ -2,7 +2,7 @@
 
 Hexagonal layout. Adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
 
-The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. SQLite implements the repo ports today. Postgres is `4.1.2` (same ports; `Transfer` must lock banks by ascending id). SQLite is removed from the runtime in `4.1.3`.
+The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. SQLite and Postgres both implement the repo ports. `cmd/bot` still uses SQLite; `4.1.3` wires Postgres and deletes the SQLite adapter.
 
 Payment ports belong to `4.6`–`4.7`. Do not add them now.
 
@@ -14,7 +14,8 @@ internal/
   ports/             Cache, Notifier (Cache also exists so memorycache does not import telegram)
   adapter/
     telegram/        handlers, inline keyboards, conversation FSM, per-user pending FIFO; owns HTTPClient
-    sqlite/          migrations + repositories (satisfy service repo interfaces)
+    sqlite/          runtime repos for `cmd/bot` (satisfy service repo interfaces)
+    postgres/        same ports; used by integration tests until `4.1.3` wires the bot
     memorycache/     in-process Cache; owns Clock
     clock/           real clock
   config/            env-based config
@@ -47,7 +48,7 @@ Owned by **service**:
 - `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
 - `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
 - `OperationRepository` — append-only operations
-- `Transactor` — `InTx` for add/spend/set/delete/rename/transfer
+- `Transactor` — `InTx` for add/spend/set/delete/rename/transfer. Postgres retries up to 3 times on deadlock (`40P01`) and serialization (`40001`)
 - `Clock` — `Now()` for activity and tests
 
 Owned by **memorycache**:
@@ -68,7 +69,7 @@ Still in **ports**:
 
 Add/spend/set/delete/rename/transfer run in one `Transactor` transaction (balance change + operation row). `meta` snapshots the bank name as typed so `/history` still has a name after `ON DELETE SET NULL`.
 
-`/transfer`: two balance updates + one `operations` row on the from-bank (`meta` = to-bank id).
+`/transfer`: load the two banks by **ascending id** (so opposite transfers cannot deadlock), then apply from/to updates. One `operations` row on the from-bank (`meta` = to-bank id).
 
 Do **not** store money as `float64`. Do not put Telegram `Update` types inside `service/`.
 
@@ -111,7 +112,7 @@ Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 dec
 - Match clean Go: small files, no comments on obvious code, no one-use aliases
 - **Interface per consumer:** define the smallest interface the caller needs in the caller’s package; generate mocks next to that package
 - Service must not import `ports`, `database/sql`, SQLite, or Telegram packages
-- Adapters depend inward (e.g. sqlite may compile-check against `service.BankRepository`)
+- Adapters depend inward (e.g. postgres and sqlite compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
 - Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `rename`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
