@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -11,7 +12,6 @@ import (
 )
 
 const (
-	defaultSQLitePath    = "./data/finbot.db"
 	defaultLogLevel      = "info"
 	defaultTrialDuration = 168 * time.Hour
 	defaultCurrency      = "USD"
@@ -20,7 +20,6 @@ const (
 
 type Config struct {
 	BotToken        string
-	SQLitePath      string
 	LogLevel        slog.Level
 	TrialDuration   time.Duration
 	AdminTelegramID int64
@@ -39,9 +38,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("BOT_TOKEN is required")
 	}
 
-	sqlitePath := os.Getenv("SQLITE_PATH")
-	if sqlitePath == "" {
-		sqlitePath = defaultSQLitePath
+	databaseURL, err := parseDatabaseURL(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return Config{}, err
 	}
 
 	level, err := parseLogLevel(os.Getenv("LOG_LEVEL"))
@@ -61,14 +60,28 @@ func Load() (Config, error) {
 
 	return Config{
 		BotToken:        token,
-		SQLitePath:      sqlitePath,
 		LogLevel:        level,
 		TrialDuration:   trial,
 		AdminTelegramID: adminID,
 		DefaultCurrency: parseDefaultCurrency(os.Getenv("DEFAULT_CURRENCY")),
-		DatabaseURL:     strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		DatabaseURL:     databaseURL,
 		PostgresTestURL: strings.TrimSpace(os.Getenv("POSTGRES_TEST_URL")),
 	}, nil
+}
+
+func parseDatabaseURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("DATABASE_URL is required")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("DATABASE_URL is invalid: %w", err)
+	}
+	if (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
+		return "", fmt.Errorf("DATABASE_URL is invalid")
+	}
+	return raw, nil
 }
 
 func parseDefaultCurrency(raw string) string {

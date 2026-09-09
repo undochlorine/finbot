@@ -10,8 +10,5 @@ FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /out/bot /app/bot
 
-ENV SQLITE_PATH=/data/finbot.db
-VOLUME ["/data"]
-
 USER nonroot:nonroot
 ENTRYPOINT ["/app/bot"]

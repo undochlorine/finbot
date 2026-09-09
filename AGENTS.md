@@ -8,9 +8,9 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.1.3` |
-| **Last done** | `4.1.2` Postgres adapter (same ports, `FOR UPDATE`, transfer lock order; bot still SQLite) |
-| **MVP target** | private-use Telegram finance bot in Go + SQLite (hardened through `3.11`); Stage 4 Postgres cutover `4.1.3` |
+| **Current step** | `4.2` |
+| **Last done** | `4.1.3` Postgres cutover (`cmd/bot` on Postgres; SQLite adapter gone) |
+| **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
 | **Path** | `/Users/a.sicaci/Projects/finbot` |
@@ -26,7 +26,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 5. Do not start later steps unless asked. Do not skip DoD.
 6. After a logical Go code scope: `make lint`.
 7. Do not create a GitHub remote or commit unless the user asks.
-8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**. Integration: Postgres via Compose locally and a GitHub Actions Postgres service in CI (from `4.1.1`). SQLite temp-file tests remain only until `4.1.3` deletes that adapter. **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval**. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration`.
+8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**. Integration: Postgres via Compose locally and a GitHub Actions Postgres service in CI. **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval**. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration`.
 
 ## Routing
 
@@ -63,8 +63,8 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.1.3`
+`Follow AGENTS.md. Let's move to step 4.2`
 
-`4.1` is the umbrella and means the next undone `4.1.x` slice, not all of `4.1.1`–`4.1.3`. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](docs/superpowers/specs/2026-09-09-postgresql-migration-design.md).
+`4.1` is done. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](docs/superpowers/specs/2026-09-09-postgresql-migration-design.md).
 
 Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md). Feature designs: [`docs/superpowers/specs/`](docs/superpowers/specs/).

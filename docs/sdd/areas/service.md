@@ -2,7 +2,7 @@
 
 Hexagonal layout. Adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
 
-The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. SQLite and Postgres both implement the repo ports. `cmd/bot` still uses SQLite; `4.1.3` wires Postgres and deletes the SQLite adapter.
+The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. Postgres implements the repo ports and is what `cmd/bot` opens.
 
 Payment ports belong to `4.6`–`4.7`. Do not add them now.
 
@@ -14,8 +14,7 @@ internal/
   ports/             Cache, Notifier (Cache also exists so memorycache does not import telegram)
   adapter/
     telegram/        handlers, inline keyboards, conversation FSM, per-user pending FIFO; owns HTTPClient
-    sqlite/          runtime repos for `cmd/bot` (satisfy service repo interfaces)
-    postgres/        same ports; used by integration tests until `4.1.3` wires the bot
+    postgres/        runtime repos for `cmd/bot` (satisfy service repo interfaces)
     memorycache/     in-process Cache; owns Clock
     clock/           real clock
   config/            env-based config
@@ -33,10 +32,10 @@ flowchart LR
   Services --> OpRepo
   Services --> Tx
   Services --> Clock
-  BankRepo --> SQLite
-  UserRepo --> SQLite
-  OpRepo --> SQLite
-  Tx --> SQLite
+  BankRepo --> Postgres
+  UserRepo --> Postgres
+  OpRepo --> Postgres
+  Tx --> Postgres
   Handlers --> Cache
   Cache --> Memory
 ```
@@ -111,8 +110,8 @@ Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 dec
 
 - Match clean Go: small files, no comments on obvious code, no one-use aliases
 - **Interface per consumer:** define the smallest interface the caller needs in the caller’s package; generate mocks next to that package
-- Service must not import `ports`, `database/sql`, SQLite, or Telegram packages
-- Adapters depend inward (e.g. postgres and sqlite compile-check against `service.BankRepository`)
+- Service must not import `ports`, `database/sql`, Postgres, or Telegram packages
+- Adapters depend inward (e.g. postgres compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
 - Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `rename`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.

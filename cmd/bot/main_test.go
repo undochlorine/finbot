@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestRunMissingToken(t *testing.T) {
 	t.Setenv("BOT_TOKEN", "")
-	t.Setenv("SQLITE_PATH", filepath.Join(t.TempDir(), "finbot.db"))
+	t.Setenv("DATABASE_URL", "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable")
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
@@ -24,14 +22,9 @@ func TestRunMissingToken(t *testing.T) {
 	}
 }
 
-func TestRunSQLiteDirMissing(t *testing.T) {
-	parent := filepath.Join(t.TempDir(), "not-a-dir")
-	if err := os.WriteFile(parent, []byte("x"), 0o600); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
+func TestRunMissingDatabaseURL(t *testing.T) {
 	t.Setenv("BOT_TOKEN", "123:token")
-	t.Setenv("SQLITE_PATH", filepath.Join(parent, "finbot.db"))
+	t.Setenv("DATABASE_URL", "")
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
@@ -40,7 +33,39 @@ func TestRunSQLiteDirMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "create sqlite directory") {
+	if !strings.Contains(err.Error(), "DATABASE_URL is required") {
+		t.Fatalf("got %q", err.Error())
+	}
+}
+
+func TestRunInvalidDatabaseURL(t *testing.T) {
+	t.Setenv("BOT_TOKEN", "123:token")
+	t.Setenv("DATABASE_URL", "://not-a-url")
+	t.Setenv("LOG_LEVEL", "error")
+	t.Setenv("TRIAL_DURATION", "")
+	t.Setenv("ADMIN_TELEGRAM_ID", "")
+
+	err := run(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "DATABASE_URL is invalid") {
+		t.Fatalf("got %q", err.Error())
+	}
+}
+
+func TestRunUnreachablePostgres(t *testing.T) {
+	t.Setenv("BOT_TOKEN", "123:token")
+	t.Setenv("DATABASE_URL", "postgres://finbot:finbot@127.0.0.1:1/finbot?sslmode=disable")
+	t.Setenv("LOG_LEVEL", "error")
+	t.Setenv("TRIAL_DURATION", "")
+	t.Setenv("ADMIN_TELEGRAM_ID", "")
+
+	err := run(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "postgres:") {
 		t.Fatalf("got %q", err.Error())
 	}
 }

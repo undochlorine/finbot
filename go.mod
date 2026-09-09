@@ -6,17 +6,14 @@ require (
 	github.com/go-telegram/bot v1.25.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/stretchr/testify v1.11.1
-	modernc.org/sqlite v1.58.0
 )
 
 require (
 	github.com/brunoga/deep v1.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -35,9 +32,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
@@ -55,9 +50,6 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.75.6 // indirect
-	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.12.1 // indirect
 )
 
 tool github.com/vektra/mockery/v3

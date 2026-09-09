@@ -2,7 +2,7 @@
 
 Private Telegram bot for splitting money into named banks (Travelling, Gifts, Live, …), updating balances, and seeing a total of the banks that count.
 
-MVP is Go 1.27 + SQLite. Architecture is clean/hexagonal: Telegram and SQLite are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
+Runtime is Go 1.27 + Postgres. Architecture is clean/hexagonal: Telegram and Postgres are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
 
 **FSM** (Finite State Machine) is the per-user conversation step stored in Cache: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Agents start at [`AGENTS.md`](AGENTS.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md).
 
@@ -25,7 +25,7 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `BOT_TOKEN` | yes | — | From [@BotFather](https://t.me/BotFather) |
-| `SQLITE_PATH` | no | `./data/finbot.db` | File on disk; use a volume in Docker (`/data/finbot.db`) |
+| `DATABASE_URL` | yes | — | Postgres URL. Local Compose: `postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable` |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
@@ -35,7 +35,7 @@ Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process e
 
 ## Run locally
 
-A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
+A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker** (for local Postgres), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
 
 ```bash
 git clone https://github.com/undochlorine/finbot.git
@@ -57,50 +57,58 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `SQLITE_PATH`, `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `DATABASE_URL` at the Compose default unless you point at another Postgres. Leave `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
 
-### 3. Start the process
+### 3. Start Postgres
+
+```bash
+docker compose up -d
+```
+
+Wait until the `postgres` service is healthy. The bot database is `finbot`; integration tests use `finbot_test`.
+
+### 4. Start the process
 
 ```bash
 go run ./cmd/bot
 ```
 
-The process loads config, creates the SQLite directory if needed, opens the database, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, an unusable `SQLITE_PATH`, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
+The process loads config, opens Postgres (`DATABASE_URL`), migrates if needed, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, a missing or invalid `DATABASE_URL`, unreachable Postgres, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
 
-### 4. Open Telegram
+### 5. Open Telegram
 
 Find the bot by the username you gave BotFather and send `/start`. `/help` lists commands. The `/` hint and Commands button should show the menu after the process has started. If an old Telegram client still shows no Commands hint, close and reopen the chat.
 
-Try `/newbank Travelling`, then `/banks`. To confirm the SQLite file survives a restart, follow [Verify persistence](#verify-persistence).
+Try `/newbank Travelling`, then `/banks`. To confirm Postgres keeps rows across a restart, follow [Verify persistence](#verify-persistence).
 
 ## Verify persistence
 
-Banks live in the SQLite file at `SQLITE_PATH` (default `./data/finbot.db`). A process restart must keep them.
+Banks live in Postgres at `DATABASE_URL`. A process restart must keep them.
 
-1. Start the bot with a stable path (`export SQLITE_PATH=./data/finbot.db` or the same value in `.env`).
+1. Start Compose Postgres (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with a stable `DATABASE_URL`.
 2. Create a bank (`/newbank Travelling`) and note `/banks`.
-3. Stop the process with Ctrl+C (SIGINT) or SIGTERM so the file is closed cleanly. Do not delete `data/finbot.db` or `data/finbot.db-*` (WAL sidecars).
-4. Start the same command again with the same `SQLITE_PATH`.
+3. Stop the process with Ctrl+C (SIGINT) or SIGTERM. Do not wipe the Compose volume.
+4. Start the same command again with the same `DATABASE_URL`.
 5. `/banks` still lists Travelling with the same balance.
 
 The adapter test `TestReopenKeepsData` is the same open → write → close → reopen path:
 
 ```bash
-go test -tags=integration -count=1 ./internal/adapter/sqlite/ -run TestReopenKeepsData
+go test -tags=integration -count=1 ./internal/adapter/postgres/ -run TestReopenKeepsData
 ```
 
 ## Tests and lint
 
 ```bash
 make test-unit          # domain, service (mocks), config, cache, clock, telegram wiring, cmd/bot
-make test-integration   # SQLite temp file + Postgres adapter (needs a running Postgres)
+make test-integration   # Postgres adapter (needs a running Postgres)
 make test               # both
 make lint               # golangci-lint using .golangci.yaml
 ```
 
-SQLite and Postgres adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres.
+Postgres adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres.
 
-Local Postgres for adapter tests (`cmd/bot` still uses SQLite):
+Local Postgres for the bot and adapter tests:
 
 ```bash
 docker compose up -d
@@ -118,7 +126,7 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 | --- | --- |
 | `unit:test` | `make test-unit` |
 | `lint` | golangci-lint |
-| `integration:test` | `make test-integration` — SQLite plus Postgres adapter; job provides a `postgres:16` **service container** (`POSTGRES_TEST_URL`). |
+| `integration:test` | `make test-integration` — Postgres adapter only; job provides a `postgres:16` **service container** (`POSTGRES_TEST_URL`). |
 
 Job `common` succeeds only if those three succeeded. Later pipeline stages (none yet) must `needs: common`; if any common job fails they will not run.
 
