@@ -26,7 +26,7 @@ Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres
 
 ## Hosting
 
-Production host is Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; `4.3.2` sets the dashboard equivalents if needed. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer. No live project yet — `4.3.2`.
+Production host is Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; set the dashboard equivalents. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer. Distroless image has no shell — use deployment logs, not Railway Console. `4.3.2` go-live is in progress (operator project exists; Actions must be the deployer).
 
 ## CI
 
@@ -38,7 +38,7 @@ Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Runs on push t
 | `lint` | golangci-lint (`v2.13`) with `.golangci.yaml` (includes `integration` build tags) |
 | `integration:test` | `make test-integration` — `./internal/adapter/postgres/...` and `./internal/adapter/rediscache/...`. Job provides `postgres:16` (`POSTGRES_DB=finbot_test`, `POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers** |
 | `common` | gate: succeeds only if the three jobs succeeded |
-| `deploy` | `needs: common`. Push to `master`/`main` only. Railway CLI `railway up --ci`. **Skipped** until `RAILWAY_TOKEN` and `RAILWAY_SERVICE_ID` exist (`4.3.2`). Optional `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT`. Tests still do not need `BOT_TOKEN` |
+| `deploy` | `needs: common`. Push to `master`/`main` only. Railway CLI `railway up --ci`. Job-level `if` must not use `secrets` (GitHub rejects the whole file). Empty `RAILWAY_TOKEN` / `RAILWAY_SERVICE_ID` fails the job. Optional `RAILWAY_PROJECT_ID` / `RAILWAY_ENVIRONMENT`. Tests still do not need `BOT_TOKEN` |
 
 Branch protection should require `common`, not `deploy`. Human runbook: [`README.md`](../../../README.md).
 
