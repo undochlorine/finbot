@@ -36,7 +36,8 @@ Future pipeline stages must `needs: common`. No CI secrets yet (tests do not nee
 
 | Topic | Step |
 | --- | --- |
-| Cheap hosting (vendor chosen at the time) | [`4.03`](../steps/4.03-hosting.md) |
-| Rate limit / replicas | [`4.09`](../steps/4.09-load.md) |
+| Postgres Compose / CI service / adapter / cutover | [`4.1.1`](../steps/4.01.1-postgres-foundation.md)–[`4.1.3`](../steps/4.01.3-postgres-cutover.md) |
+| Cheap hosting + managed Postgres (vendor chosen at the time) | [`4.03`](../steps/4.03-hosting.md) |
+| Rate limit / replicas / partitioning | [`4.09`](../steps/4.09-load.md) |
 | Dashboards / metrics backend | [`4.17`](../steps/4.17-dashboards.md) |
 | `cmd/bot`, `cmd/worker`, `cmd/web` | [`4.21`](../steps/4.21-modular-binaries.md) |

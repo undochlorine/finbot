@@ -1,6 +1,6 @@
 # Stage 4 — Product stage 2 (not MVP)
 
-Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage. High-level tech stays out of these steps (same bar as `4.6`: details when that step starts).
+Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage. High-level tech stays out of these steps except where a step was widened (Postgres `4.1.x`, hosting `4.3`, load `4.9`). Same bar as `4.6` for steps still stubbed: details when that step starts.
 
 Monetization sequence (do not skip `4.6`):
 
@@ -9,13 +9,16 @@ Monetization sequence (do not skip `4.6`):
 3. `4.7` billing against that strategy
 4. `4.8` Telegram admin whitelist privileges (`100` / `50` / `30` / custom % off)
 
-Keep `4.1`–`4.3`, `4.6`, `4.7`, `4.9` as written. Product after money: `4.10`–`4.21`.
+Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Product after money: `4.10`–`4.21`.
 
-Pickup: `Follow AGENTS.md. Let's move to step 4.1` — then only the files that row lists.
+Pickup: `Follow AGENTS.md. Let's move to step 4.1.1` — then only the files that row lists. `4.1` is the umbrella (do not implement it as one step).
 
 | Id | Status | File |
 | --- | --- | --- |
-| 4.1 | `todo` | [PostgreSQL adapter](4.01-postgresql.md) |
+| 4.1 | `todo` | [PostgreSQL umbrella](4.01-postgresql.md) |
+| 4.1.1 | `todo` | [Postgres foundation](4.01.1-postgres-foundation.md) |
+| 4.1.2 | `todo` | [Postgres adapter](4.01.2-postgres-adapter.md) |
+| 4.1.3 | `todo` | [Postgres cutover](4.01.3-postgres-cutover.md) |
 | 4.2 | `todo` | [Redis cache](4.02-redis.md) |
 | 4.3 | `todo` | [Cheap hosting](4.03-hosting.md) |
 | 4.4 | `todo` | [Inactivity notify and delete](4.04-inactivity.md) |

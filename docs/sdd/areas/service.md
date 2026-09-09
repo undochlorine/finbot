@@ -2,7 +2,7 @@
 
 Hexagonal layout. Adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
 
-The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types.
+The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. SQLite implements the repo ports today. Postgres is `4.1.2` (same ports; `Transfer` must lock banks by ascending id). SQLite is removed from the runtime in `4.1.3`.
 
 Payment ports belong to `4.6`–`4.7`. Do not add them now.
 

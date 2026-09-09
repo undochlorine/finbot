@@ -34,7 +34,7 @@ flowchart TB
     xfer[3.11 same-currency transfer]
   end
   subgraph stage4infra [Stage 4 infra and money]
-    pg[4.1-4.3 Postgres Redis hosting]
+    pg[4.1.x-4.3 Postgres Redis hosting]
     retain[4.4 inactivity paid kept longer]
     free[4.5 trial then limited free tier]
     pay[4.6-4.7 payments]
@@ -73,6 +73,7 @@ flowchart TB
 | Telegram channel | Nothing. | Human: channel + discussion group, comments in the group only. Bot: link in `/start` `/help`. |
 | Contributors | Nothing (`discount_percent` already covers manual 100% off). | Manual via admin first; optional GitHub link later. |
 | Microservices | Keep one `cmd/bot`. Do not split. | `4.21` `cmd/bot`, `cmd/worker`, `cmd/web` sharing `internal/`. Extract network services only if `4.9`/`4.17` show a need. |
+| Database | SQLite file, WAL, one writer, TEXT timestamps. | Postgres only after `4.1.3`. Compose + CI service in `4.1.1`. Adapter + row locks in `4.1.2`. Cutover in `4.1.3`. Managed DB in `4.3`. Partitioning in `4.9`. |
 
 ## Locked product decisions
 
@@ -82,7 +83,7 @@ flowchart TB
 - **UX:** slash commands + inline buttons. Example: `/add` → tap bank → type amount. Shortcuts allowed: `/add Travelling 100`. Bank names may contain spaces. Command-line args after `/newbank` are the **entire name**; include-in-total is never parsed from that line.
 - **Bot language:** English through Stage 3. All user-facing strings live in `internal/text`. Catalog is locale-keyed with **only `en` loaded**. `/language` and extra catalogs are `4.12`.
 - **Chat hygiene:** keep slash commands, outcomes, `/feedback` body, and `Canceled.`. Edit one bot prompt per flow; delete typed answers. Policy: [`areas/telegram.md`](areas/telegram.md).
-- **Command order:** one in-memory FIFO of pending updates **per Telegram user** in the telegram adapter (not Cache, not SQLite). Details: [`areas/telegram.md`](areas/telegram.md).
+- **Command order:** one in-memory FIFO of pending updates **per Telegram user** in the telegram adapter (not Cache, not the database). Details: [`areas/telegram.md`](areas/telegram.md).
 - **Emojis:** sparse, office/finance style. No emoji on errors, wizard prompts, or `/help` lines. Baseline: [`areas/telegram.md`](areas/telegram.md).
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). If the full arg is not a bank, `/rename Travelling Holiday` renames bank `Travelling` to `Holiday`. Unique per user stays case-insensitive. Recasing the same bank is allowed.
@@ -92,7 +93,7 @@ flowchart TB
 - **Bank names:** unique per user, compared case-insensitively. Unicode allowed. Store the name as the user typed it
 - **Operations log:** append-only on add/spend/set/delete/rename/transfer. **No `/history` until `4.10`.** Finance tips are `4.11`.
 - **Auth:** Telegram user ID is identity. No extra login
-- **Stage 4 database:** PostgreSQL preferred over MongoDB. Current store is SQLite; adapter work is `4.1`.
+- **Stage 4 database:** PostgreSQL only (not MongoDB, not a long-lived SQLite fallback). Current store is SQLite until `4.1.3`. Work is split: `4.1.1` Compose/CI/`Open`/baseline schema; `4.1.2` same repository ports + `FOR UPDATE` / lock order / deadlock retry; `4.1.3` wire `cmd/bot` and delete the SQLite adapter from the runtime. Baseline Postgres schema — do not replay SQLite `001`–`003`. Local Compose; CI uses a GitHub Actions Postgres service. SQLite → Postgres copy is best-effort (no real users; data loss is acceptable). Managed hosting, TLS, backups → `4.3`. Partitioning, PgBouncer, replicas, rate limits → `4.9`. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../superpowers/specs/2026-09-09-postgresql-migration-design.md).
 - **Trial:** duration configurable (`TRIAL_DURATION`, default **7 days**). `0` means no trial. Negative values are rejected. `trial_ends_at` is **frozen at first signup**. Enforcement is `4.5`; how the helper behaves today: [`areas/billing.md`](areas/billing.md).
 - **Whitelist:** not a boolean. Admin assigns a **discount percent** per user: `100` = totally free, `50` = 50% off, or any 0–100. `NULL` = not on the whitelist. Enforcement `4.5`+.
 - **Post-trial UX (`4.5`):** unpaid users get a **limited free tier**, not a hard block. One bank named `Total`; only `/add` `/spend` `/set` plus `/start` `/help` `/feedback` `/cancel`. Extra-bank commands promote paid. Trial, paid, and 100% whitelist stay full.

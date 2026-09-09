@@ -1,6 +1,6 @@
 # Persistence (current)
 
-SQLite on disk. Schema as the app uses it now. Trial/paywall **semantics** are [`billing.md`](billing.md). Postgres adapter is [`../steps/4.01-postgresql.md`](../steps/4.01-postgresql.md).
+SQLite on disk. Schema as the app uses it now. Trial/paywall **semantics** are [`billing.md`](billing.md). Postgres cutover is `4.1.1`–`4.1.3` ([umbrella](../steps/4.01-postgresql.md), [design](../../superpowers/specs/2026-09-09-postgresql-migration-design.md)). This file stays SQLite until `4.1.3` rewrites it.
 
 ## Tech
 
