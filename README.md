@@ -35,7 +35,7 @@ Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process e
 
 ## Run locally
 
-A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker** (for local Postgres), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
+A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker** (for local Postgres and Redis), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
 
 ```bash
 git clone https://github.com/undochlorine/finbot.git
@@ -59,13 +59,13 @@ cp .env.example .env
 
 Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `DATABASE_URL` at the Compose default unless you point at another Postgres. Leave `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
 
-### 3. Start Postgres
+### 3. Start Postgres and Redis
 
 ```bash
 docker compose up -d
 ```
 
-Wait until the `postgres` service is healthy. The bot database is `finbot`; integration tests use `finbot_test`.
+Wait until the `postgres` and `redis` services are healthy. The bot database is `finbot`; integration tests use `finbot_test`. Redis is for upcoming Cache cutover and for adapter tests; the bot process still uses in-memory Cache.
 
 ### 4. Start the process
 
@@ -101,20 +101,20 @@ go test -tags=integration -count=1 ./internal/adapter/postgres/ -run TestReopenK
 
 ```bash
 make test-unit          # domain, service (mocks), config, cache, clock, telegram wiring, cmd/bot
-make test-integration   # Postgres adapter (needs a running Postgres)
+make test-integration   # Postgres + Redis adapters (needs Compose)
 make test               # both
 make lint               # golangci-lint using .golangci.yaml
 ```
 
-Postgres adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres.
+Postgres and Redis adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres or Redis.
 
-Local Postgres for the bot and adapter tests:
+Local Postgres and Redis for the bot and adapter tests:
 
 ```bash
 docker compose up -d
 ```
 
-`make test-integration` connects to `POSTGRES_TEST_URL`, or defaults to `postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable`. If Postgres is unreachable the tests **fail** (they do not skip) and tell you to start Compose. CI uses a GitHub Actions Postgres service container, not Compose.
+`make test-integration` connects to `POSTGRES_TEST_URL` and `REDIS_TEST_URL`, or defaults to `postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable` and `redis://:finbot@127.0.0.1:6379/0`. If Postgres or Redis is unreachable the tests **fail** (they do not skip) and tell you to start Compose. CI uses GitHub Actions service containers, not Compose.
 
 ## CI
 
@@ -126,7 +126,7 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 | --- | --- |
 | `unit:test` | `make test-unit` |
 | `lint` | golangci-lint |
-| `integration:test` | `make test-integration` — Postgres adapter only; job provides a `postgres:16` **service container** (`POSTGRES_TEST_URL`). |
+| `integration:test` | `make test-integration` — Postgres and Redis adapters; job provides `postgres:16` (`POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers**. |
 
 Job `common` succeeds only if those three succeeded. Later pipeline stages (none yet) must `needs: common`; if any common job fails they will not run.
 

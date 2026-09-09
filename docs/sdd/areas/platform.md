@@ -13,6 +13,8 @@ Human run/CI checklist is canonical in [`README.md`](../../../README.md). This f
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` unavailable. Negative and non-numeric fail startup |
 | `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check) |
 | `POSTGRES_TEST_URL` | no | Compose `finbot_test` URL in tests | Adapter integration tests. Unreachable Postgres **fails** (does not skip) |
+| `REDIS_URL` | no | unset | Parsed if set (`redis://` or `rediss://`, host non-empty). Invalid values fail load. Not required; `cmd/bot` still uses memorycache until `4.2.2` |
+| `REDIS_TEST_URL` | no | Compose Redis URL in tests | `rediscache` integration tests. Unreachable Redis **fails** (does not skip) |
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `.env`.
 
@@ -20,7 +22,7 @@ Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process e
 
 `Dockerfile` exists (multi-stage, static-ish Go binary). It does not store the database on a local volume; pass `DATABASE_URL` at run time. Not deployed until hosting.
 
-Local Postgres: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16`, healthcheck `pg_isready`, named volume, user/password `finbot`/`finbot` (local/CI only). Databases `finbot` (bot) and `finbot_test` (integration). `docker compose up -d` before `go run ./cmd/bot` or adapter tests. CI does **not** run Compose.
+Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16` (healthcheck `pg_isready`, named volume, user/password `finbot`/`finbot`, databases `finbot` and `finbot_test`) and `redis:7-alpine` (port `6379`, `requirepass finbot`, `maxmemory 64mb`, `maxmemory-policy volatile-ttl`, healthcheck `redis-cli -a finbot ping`, no volume). Local/CI credentials only. `docker compose up -d` before `go run ./cmd/bot` or adapter tests. The bot does not open Redis until `4.2.2`. CI does **not** run Compose.
 
 ## CI
 
@@ -28,9 +30,9 @@ Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Runs on push t
 
 | Job | What |
 | --- | --- |
-| `unit:test` | `make test-unit` (no Postgres) |
+| `unit:test` | `make test-unit` (no Postgres, no Redis) |
 | `lint` | golangci-lint (`v2.13`) with `.golangci.yaml` (includes `integration` build tags) |
-| `integration:test` | `make test-integration` — `./internal/adapter/postgres/...` only. Job provides a `postgres:16` **service container** (`POSTGRES_DB=finbot_test`, `POSTGRES_TEST_URL`) |
+| `integration:test` | `make test-integration` — `./internal/adapter/postgres/...` and `./internal/adapter/rediscache/...`. Job provides `postgres:16` (`POSTGRES_DB=finbot_test`, `POSTGRES_TEST_URL`) and `redis:7-alpine` (`REDIS_TEST_URL`) **service containers** |
 | `common` | gate: succeeds only if the three jobs succeeded |
 
 Future pipeline stages must `needs: common`. No CI secrets yet (tests do not need `BOT_TOKEN`).
@@ -39,7 +41,7 @@ Future pipeline stages must `needs: common`. No CI secrets yet (tests do not nee
 
 | Topic | Step |
 | --- | --- |
-| Redis Cache (FSM session store) | [`4.02`](../steps/4.02-redis.md) |
+| Redis cutover (`cmd/bot` on Redis) | [`4.02.2`](../steps/4.02.2-redis-cutover.md) |
 | Cheap hosting + managed Postgres / Redis (vendor chosen at the time) | [`4.03`](../steps/4.03-hosting.md) |
 | Rate limit / replicas / partitioning | [`4.09`](../steps/4.09-load.md) |
 | Dashboards / metrics backend | [`4.17`](../steps/4.17-dashboards.md) |

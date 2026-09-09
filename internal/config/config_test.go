@@ -74,6 +74,8 @@ func TestLoad(t *testing.T) {
 				"DEFAULT_CURRENCY":  "EUR",
 				"DATABASE_URL":      "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
 				"POSTGRES_TEST_URL": "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
+				"REDIS_URL":         "redis://:finbot@127.0.0.1:6379/0",
+				"REDIS_TEST_URL":    "redis://:finbot@127.0.0.1:6379/0",
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -83,6 +85,8 @@ func TestLoad(t *testing.T) {
 				DefaultCurrency: "EUR",
 				DatabaseURL:     "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
 				PostgresTestURL: "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
+				RedisURL:        "redis://:finbot@127.0.0.1:6379/0",
+				RedisTestURL:    "redis://:finbot@127.0.0.1:6379/0",
 			},
 		},
 		{
@@ -101,6 +105,85 @@ func TestLoad(t *testing.T) {
 				DatabaseURL:     "postgres://local/finbot",
 				PostgresTestURL: "postgres://local/finbot_test",
 			},
+		},
+		{
+			name: "trims redis urls",
+			env: map[string]string{
+				"BOT_TOKEN":      "tok",
+				"DATABASE_URL":   testDatabaseURL,
+				"REDIS_URL":      "  redis://:finbot@127.0.0.1:6379/0  ",
+				"REDIS_TEST_URL": "  redis://:finbot@127.0.0.1:6379/0  ",
+			},
+			want: Config{
+				BotToken:        "tok",
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
+				RedisURL:        "redis://:finbot@127.0.0.1:6379/0",
+				RedisTestURL:    "redis://:finbot@127.0.0.1:6379/0",
+			},
+		},
+		{
+			name: "rediss scheme",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "rediss://cache.example:6379/0",
+			},
+			want: Config{
+				BotToken:        "tok",
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
+				RedisURL:        "rediss://cache.example:6379/0",
+			},
+		},
+		{
+			name: "blank redis url is unset",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "   ",
+			},
+			want: Config{
+				BotToken:        "tok",
+				LogLevel:        slog.LevelInfo,
+				TrialDuration:   defaultTrialDuration,
+				AdminTelegramID: 0,
+				DefaultCurrency: defaultCurrency,
+				DatabaseURL:     testDatabaseURL,
+			},
+		},
+		{
+			name: "invalid redis url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "://not-a-url",
+			},
+			wantErr: true,
+		},
+		{
+			name: "non redis url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "http://127.0.0.1:6379",
+			},
+			wantErr: true,
+		},
+		{
+			name: "redis url empty host",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "redis:///0",
+			},
+			wantErr: true,
 		},
 		{
 			name: "postgresql scheme",
@@ -237,6 +320,8 @@ func TestLoad(t *testing.T) {
 			t.Setenv("DEFAULT_CURRENCY", "")
 			t.Setenv("DATABASE_URL", "")
 			t.Setenv("POSTGRES_TEST_URL", "")
+			t.Setenv("REDIS_URL", "")
+			t.Setenv("REDIS_TEST_URL", "")
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}

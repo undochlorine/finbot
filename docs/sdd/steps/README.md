@@ -11,7 +11,7 @@ Monetization sequence (do not skip `4.6`):
 
 Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Redis is split the same way: `4.2.1` foundation+adapter → `4.2.2` cutover. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). Product after money: `4.10`–`4.21`.
 
-Pickup: `Follow AGENTS.md. Let's move to step 4.2.1` — then only the files that row lists. `4.2` is the umbrella (do not implement it as one step).
+Pickup: `Follow AGENTS.md. Let's move to step 4.2.2` — then only the files that row lists. `4.2` is the umbrella (do not implement it as one step).
 
 | Id | Status | File |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.2.1` — then only the files tha
 | 4.1.2 | `done` | [Postgres adapter](4.01.2-postgres-adapter.md) |
 | 4.1.3 | `done` | [Postgres cutover](4.01.3-postgres-cutover.md) |
 | 4.2 | `todo` | [Redis umbrella](4.02-redis.md) |
-| 4.2.1 | `todo` | [Redis foundation + adapter](4.02.1-redis-foundation.md) |
+| 4.2.1 | `done` | [Redis foundation + adapter](4.02.1-redis-foundation.md) |
 | 4.2.2 | `todo` | [Redis cutover](4.02.2-redis-cutover.md) |
 | 4.3 | `todo` | [Cheap hosting](4.03-hosting.md) |
 | 4.4 | `todo` | [Inactivity notify and delete](4.04-inactivity.md) |
