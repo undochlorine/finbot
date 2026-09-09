@@ -2,9 +2,9 @@
 
 Private Telegram bot for splitting money into named banks (Travelling, Gifts, Live, …), updating balances, and seeing a total of the banks that count.
 
-Runtime is Go 1.27 + Postgres. Architecture is clean/hexagonal: Telegram and Postgres are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
+Runtime is Go 1.27 + Postgres + Redis. Architecture is clean/hexagonal: Telegram, Postgres, and Redis are adapters; use cases live in `internal/service` and depend only on domain types and the interfaces that package owns.
 
-**FSM** (Finite State Machine) is the per-user conversation step stored in Cache: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Agents start at [`AGENTS.md`](AGENTS.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md).
+**FSM** (Finite State Machine) is the per-user conversation step stored in Redis: which command is in flight and what the bot is waiting for (bank name, yes/no, amount, …). Agents start at [`AGENTS.md`](AGENTS.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md).
 
 ### Command shortcuts
 
@@ -26,6 +26,7 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | --- | --- | --- | --- |
 | `BOT_TOKEN` | yes | — | From [@BotFather](https://t.me/BotFather) |
 | `DATABASE_URL` | yes | — | Postgres URL. Local Compose: `postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable` |
+| `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0` |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
@@ -57,7 +58,7 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `DATABASE_URL` at the Compose default unless you point at another Postgres. Leave `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `DATABASE_URL` and `REDIS_URL` at the Compose defaults unless you point at another Postgres or Redis. Leave `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
 
 ### 3. Start Postgres and Redis
 
@@ -65,7 +66,7 @@ Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` t
 docker compose up -d
 ```
 
-Wait until the `postgres` and `redis` services are healthy. The bot database is `finbot`; integration tests use `finbot_test`. Redis is for upcoming Cache cutover and for adapter tests; the bot process still uses in-memory Cache.
+Wait until the `postgres` and `redis` services are healthy. The bot database is `finbot`; integration tests use `finbot_test`. Redis holds conversation FSM (10-minute TTL). There is no Redis volume; a Redis restart drops in-flight wizards.
 
 ### 4. Start the process
 
@@ -73,19 +74,19 @@ Wait until the `postgres` and `redis` services are healthy. The bot database is 
 go run ./cmd/bot
 ```
 
-The process loads config, opens Postgres (`DATABASE_URL`), migrates if needed, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, a missing or invalid `DATABASE_URL`, unreachable Postgres, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`.
+The process loads config, opens Postgres (`DATABASE_URL`) and Redis (`REDIS_URL`), migrates if needed, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, a missing or invalid `DATABASE_URL` or `REDIS_URL`, unreachable Postgres or Redis, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`. Docker run passes `DATABASE_URL` and `REDIS_URL` at run time; the image does not store Postgres or Redis data.
 
 ### 5. Open Telegram
 
 Find the bot by the username you gave BotFather and send `/start`. `/help` lists commands. The `/` hint and Commands button should show the menu after the process has started. If an old Telegram client still shows no Commands hint, close and reopen the chat.
 
-Try `/newbank Travelling`, then `/banks`. To confirm Postgres keeps rows across a restart, follow [Verify persistence](#verify-persistence).
+Try `/newbank Travelling`, then `/banks`. To confirm Postgres keeps rows across a restart, follow [Verify persistence](#verify-persistence). To confirm Redis keeps an in-flight wizard across a process restart, follow [Verify session cache](#verify-session-cache).
 
 ## Verify persistence
 
 Banks live in Postgres at `DATABASE_URL`. A process restart must keep them.
 
-1. Start Compose Postgres (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with a stable `DATABASE_URL`.
+1. Start Compose (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
 2. Create a bank (`/newbank Travelling`) and note `/banks`.
 3. Stop the process with Ctrl+C (SIGINT) or SIGTERM. Do not wipe the Compose volume.
 4. Start the same command again with the same `DATABASE_URL`.
@@ -96,6 +97,18 @@ The adapter test `TestReopenKeepsData` is the same open → write → close → 
 ```bash
 go test -tags=integration -count=1 ./internal/adapter/postgres/ -run TestReopenKeepsData
 ```
+
+## Verify session cache
+
+Conversation FSM lives in Redis at `REDIS_URL` (JSON blob, 10-minute sliding TTL). A **process** restart must keep an in-flight wizard if Redis still holds the key. A **Redis** restart drops wizards (same as expiry — start over).
+
+1. Start Compose (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
+2. Start a wizard and stop before finishing (for example `/newbank` and do not send the name).
+3. Stop the bot process with Ctrl+C. Leave Redis running.
+4. Start the same command again. The wizard is still in flight (typed name continues the same `/newbank`).
+5. Restart Redis (`docker compose restart redis`). The next message in that chat is treated as idle / expired; start the command again.
+
+`memorycache` is tests-only. Production `cmd/bot` does not fall back to it.
 
 ## Tests and lint
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"finbot/internal/adapter/clock"
-	"finbot/internal/adapter/memorycache"
 	"finbot/internal/adapter/postgres"
+	"finbot/internal/adapter/rediscache"
 	"finbot/internal/adapter/telegram"
 	"finbot/internal/config"
 	"finbot/internal/domain"
@@ -54,6 +54,16 @@ func run(ctx context.Context) error {
 		}
 	}()
 
+	cache, err := rediscache.Open(ctx, cfg.RedisURL, "")
+	if err != nil {
+		return fmt.Errorf("redis: %w", err)
+	}
+	defer func() {
+		if cerr := cache.Close(); cerr != nil {
+			slog.Error("close redis", slog.Any("err", cerr))
+		}
+	}()
+
 	clk := clock.New()
 	svc := service.New(
 		postgres.NewBankRepository(db),
@@ -68,7 +78,7 @@ func run(ctx context.Context) error {
 	b, err := telegram.New(
 		cfg.BotToken,
 		svc,
-		memorycache.New(clk),
+		cache,
 		&http.Client{Timeout: telegramHTTPTimeout},
 	)
 	if err != nil {

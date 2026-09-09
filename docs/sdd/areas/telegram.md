@@ -2,9 +2,9 @@
 
 Bot surface, conversation FSM, chat hygiene, pending queue, emojis. Product rules: [`../requirements.md`](../requirements.md).
 
-Production `Cache` is still in-process `memorycache` until [`../steps/4.02.2-redis-cutover.md`](../steps/4.02.2-redis-cutover.md). `internal/adapter/rediscache` already implements `ports.Cache` (Compose/CI Redis, empty prefix → `finbot:v1:`). Design: [`../../superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). `/history` is [`../steps/4.10-history.md`](../steps/4.10-history.md).
+Production `Cache` is Redis (`internal/adapter/rediscache`, Compose/CI Redis, empty prefix → `finbot:v1:`). `memorycache` is unit tests only. Design: [`../../superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). `/history` is [`../steps/4.10-history.md`](../steps/4.10-history.md).
 
-**FSM** (Finite State Machine) is the per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). Stored in `Cache` with TTL **10 minutes**. Telegram owns the `Cache` interface. `ports.Cache` remains so `memorycache` does not import telegram. FSM stores `prompt_id` (the bot message edited in place) and `sweep_ids` (typed answers to delete when the flow ends). **Not** the pending-command FIFO.
+**FSM** (Finite State Machine) is the per-user conversation step (which command is in flight, waiting for a name vs a yes/no, pending bank name, …). Stored in Redis `Cache` with TTL **10 minutes**. Telegram owns the `Cache` interface. `ports.Cache` remains so adapters do not import telegram. FSM stores `prompt_id` (the bot message edited in place) and `sweep_ids` (typed answers to delete when the flow ends). **Not** the pending-command FIFO.
 
 ## Commands
 

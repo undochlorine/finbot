@@ -60,7 +60,7 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	redisURL, err := parseOptionalRedisURL(os.Getenv("REDIS_URL"), "REDIS_URL")
+	redisURL, err := parseRedisURL(os.Getenv("REDIS_URL"))
 	if err != nil {
 		return Config{}, err
 	}
@@ -93,17 +93,17 @@ func parseDatabaseURL(raw string) (string, error) {
 	return raw, nil
 }
 
-func parseOptionalRedisURL(raw, name string) (string, error) {
+func parseRedisURL(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", nil
+		return "", fmt.Errorf("REDIS_URL is required")
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "", fmt.Errorf("%s is invalid: %w", name, err)
+		return "", fmt.Errorf("REDIS_URL is invalid: %w", err)
 	}
 	if (u.Scheme != "redis" && u.Scheme != "rediss") || u.Host == "" {
-		return "", fmt.Errorf("%s is invalid", name)
+		return "", fmt.Errorf("REDIS_URL is invalid")
 	}
 	return raw, nil
 }
