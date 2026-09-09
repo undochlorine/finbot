@@ -26,6 +26,8 @@ type Config struct {
 	DefaultCurrency string
 	DatabaseURL     string
 	PostgresTestURL string
+	RedisURL        string
+	RedisTestURL    string
 }
 
 func Load() (Config, error) {
@@ -58,6 +60,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	redisURL, err := parseOptionalRedisURL(os.Getenv("REDIS_URL"), "REDIS_URL")
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		BotToken:        token,
 		LogLevel:        level,
@@ -66,6 +73,8 @@ func Load() (Config, error) {
 		DefaultCurrency: parseDefaultCurrency(os.Getenv("DEFAULT_CURRENCY")),
 		DatabaseURL:     databaseURL,
 		PostgresTestURL: strings.TrimSpace(os.Getenv("POSTGRES_TEST_URL")),
+		RedisURL:        redisURL,
+		RedisTestURL:    strings.TrimSpace(os.Getenv("REDIS_TEST_URL")),
 	}, nil
 }
 
@@ -80,6 +89,21 @@ func parseDatabaseURL(raw string) (string, error) {
 	}
 	if (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
 		return "", fmt.Errorf("DATABASE_URL is invalid")
+	}
+	return raw, nil
+}
+
+func parseOptionalRedisURL(raw, name string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("%s is invalid: %w", name, err)
+	}
+	if (u.Scheme != "redis" && u.Scheme != "rediss") || u.Host == "" {
+		return "", fmt.Errorf("%s is invalid", name)
 	}
 	return raw, nil
 }

@@ -12,6 +12,7 @@ func TestRunMissingToken(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
+	t.Setenv("REDIS_URL", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -28,6 +29,7 @@ func TestRunMissingDatabaseURL(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
+	t.Setenv("REDIS_URL", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -44,6 +46,7 @@ func TestRunInvalidDatabaseURL(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
+	t.Setenv("REDIS_URL", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -60,6 +63,7 @@ func TestRunUnreachablePostgres(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "error")
 	t.Setenv("TRIAL_DURATION", "")
 	t.Setenv("ADMIN_TELEGRAM_ID", "")
+	t.Setenv("REDIS_URL", "")
 
 	err := run(context.Background())
 	if err == nil {

@@ -16,5 +16,23 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command:
+      - redis-server
+      - --requirepass
+      - finbot
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - volatile-ttl
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "finbot", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   finbot_postgres:

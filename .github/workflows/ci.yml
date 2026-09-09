@@ -58,8 +58,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        command: >-
+          redis-server --requirepass finbot --maxmemory 64mb --maxmemory-policy volatile-ttl
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a finbot ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       POSTGRES_TEST_URL: postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable
+      REDIS_TEST_URL: redis://:finbot@127.0.0.1:6379/0
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
