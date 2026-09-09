@@ -96,11 +96,11 @@ jobs:
   deploy:
     name: deploy
     needs: common
+    # GitHub forbids `secrets` in job-level `if` (invalidates the whole workflow).
+    # Empty token/service id fails this job instead of skipping.
     if: |
       github.event_name == 'push' &&
-      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') &&
-      secrets.RAILWAY_TOKEN != '' &&
-      secrets.RAILWAY_SERVICE_ID != ''
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -108,6 +108,10 @@ jobs:
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
     steps:
+      - name: Require Railway secrets
+        run: |
+          test -n "${RAILWAY_TOKEN}"
+          test -n "${RAILWAY_SERVICE_ID}"
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:

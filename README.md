@@ -143,9 +143,11 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 
 Job `common` succeeds only if those three succeeded.
 
-**Deploy** (`needs: common`) runs only on **push** to `master` / `main`. It does not run on pull requests or `workflow_dispatch`. It deploys the existing `Dockerfile` with the Railway CLI. If deploy fails, the workflow fails.
+**Deploy** (`needs: common`) runs only on **push** to `master` / `main`. It does not run on pull requests or `workflow_dispatch`. It deploys the existing `Dockerfile` with the Railway CLI. If deploy fails, the workflow fails. Missing `RAILWAY_TOKEN` or `RAILWAY_SERVICE_ID` fails **deploy** (the job still exists so you can see it). GitHub does not allow `secrets` in a job-level `if`; that pattern invalidates the whole workflow file, so `unit:test` / `lint` / `common` never start.
 
-Until step `4.3.2` fills GitHub secrets, the deploy job **skips** (the workflow stays green). Secrets:
+A green GitHub check named like **kind-compassion - bot** is Railway’s GitHub app, not this workflow. If that is the only check, Actions never parsed `ci.yml` and Railway is deploying from git. Turn that off.
+
+Secrets:
 
 | Secret | Required to deploy | Notes |
 | --- | --- | --- |
@@ -164,7 +166,7 @@ Actions usually work as soon as the workflow file is on the default branch. If a
 
 1. Open the repo on GitHub: [undochlorine/finbot](https://github.com/undochlorine/finbot).
 2. **Settings → Actions → General**. Under “Actions permissions”, choose **Allow all actions and reusable workflows**. Save.
-3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`. On a `master`/`main` push, **deploy** is skipped until the Railway secrets exist.
+3. Push this branch (or merge to `master`). Open the **Actions** tab and confirm a **CI** run with `unit:test`, `lint`, `integration:test`, and `common`. On a `master`/`main` push, **deploy** runs after `common` and needs the Railway secrets.
 
 Optional, after the first green run (status check names only appear then):
 
@@ -199,7 +201,11 @@ A green `common` on push to `master`/`main` runs **deploy** (`railway up --ci` o
 
 ### Logs
 
-Railway dashboard: open the worker → **Deployments** → logs. Hobby retention is about 7 days. From a machine with the CLI linked: `railway logs`. `stdout`/`stderr` `slog` is the log API; there is no vendor metrics SDK yet.
+Railway dashboard: open the **worker** → **Deployments** → logs (not the worker **Console**). The image is distroless (`gcr.io/distroless/static-debian12:nonroot`): it has no `sh`/`bash`, so Console cannot start. That is expected. Hobby log retention is about 7 days. From a machine with the CLI linked: `railway logs`. `stdout`/`stderr` `slog` is the log API; there is no vendor metrics SDK yet.
+
+The project **Logs** sidebar mixes every service. `checkpoint starting` / `checkpoint complete` lines are **Postgres**, not bot errors.
+
+`Conflict: terminated by other getUpdates request` means two long-poll clients used the same `BOT_TOKEN`. A short burst while Railway starts a new container before the old one has exited is the overlap the design accepted. If it continues after the deploy is `ACTIVE` with replica count 1, another poller is still up: Railway GitHub auto-deploy, a second replica, or a laptop `go run`.
 
 ### Postgres and Redis access
 
