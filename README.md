@@ -93,12 +93,20 @@ go test -tags=integration -count=1 ./internal/adapter/sqlite/ -run TestReopenKee
 
 ```bash
 make test-unit          # domain, service (mocks), config, cache, clock, telegram wiring, cmd/bot
-make test-integration   # SQLite adapter against a temp DB file
+make test-integration   # SQLite temp file + Postgres adapter (needs a running Postgres)
 make test               # both
 make lint               # golangci-lint using .golangci.yaml
 ```
 
-SQLite tests are tagged `//go:build integration` so they are not part of `make test-unit`.
+SQLite and Postgres adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres.
+
+Local Postgres for adapter tests (`cmd/bot` still uses SQLite):
+
+```bash
+docker compose up -d
+```
+
+`make test-integration` connects to `POSTGRES_TEST_URL`, or defaults to `postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable`. If Postgres is unreachable the tests **fail** (they do not skip) and tell you to start Compose. CI uses a GitHub Actions Postgres service container, not Compose.
 
 ## CI
 
@@ -110,7 +118,7 @@ GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) r
 | --- | --- |
 | `unit:test` | `make test-unit` |
 | `lint` | golangci-lint |
-| `integration:test` | `make test-integration` |
+| `integration:test` | `make test-integration` — SQLite plus Postgres adapter; job provides a `postgres:16` **service container** (`POSTGRES_TEST_URL`). |
 
 Job `common` succeeds only if those three succeeded. Later pipeline stages (none yet) must `needs: common`; if any common job fails they will not run.
 

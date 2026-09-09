@@ -25,6 +25,8 @@ type Config struct {
 	TrialDuration   time.Duration
 	AdminTelegramID int64
 	DefaultCurrency string
+	DatabaseURL     string
+	PostgresTestURL string
 }
 
 func Load() (Config, error) {
@@ -64,6 +66,8 @@ func Load() (Config, error) {
 		TrialDuration:   trial,
 		AdminTelegramID: adminID,
 		DefaultCurrency: parseDefaultCurrency(os.Getenv("DEFAULT_CURRENCY")),
+		DatabaseURL:     strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		PostgresTestURL: strings.TrimSpace(os.Getenv("POSTGRES_TEST_URL")),
 	}, nil
 }
 
