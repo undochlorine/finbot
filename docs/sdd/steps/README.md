@@ -1,6 +1,6 @@
 # Stage 4 — Product stage 2 (not MVP)
 
-Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage. High-level tech stays out of these steps except where a step was widened (Postgres `4.1.x`, Redis `4.2.x`, hosting `4.3`, load `4.9`). Same bar as `4.6` for steps still stubbed: details when that step starts.
+Architecture is already shaped so these are adapter/job additions, not a rewrite. Leave `todo` until the user starts this stage. High-level tech stays out of these steps except where a step was widened (Postgres `4.1.x`, Redis `4.2.x`, hosting `4.3.x`, load `4.9`). Same bar as `4.6` for steps still stubbed: details when that step starts.
 
 Monetization sequence (do not skip `4.6`):
 
@@ -9,9 +9,9 @@ Monetization sequence (do not skip `4.6`):
 3. `4.7` billing against that strategy
 4. `4.8` Telegram admin whitelist privileges (`100` / `50` / `30` / custom % off)
 
-Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Redis is split the same way: `4.2.1` foundation+adapter → `4.2.2` cutover. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). Product after money: `4.10`–`4.21`.
+Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Redis is split the same way: `4.2.1` foundation+adapter → `4.2.2` cutover. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). Hosting is split: `4.3.1` packaging → `4.3.2` provision. Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](../../superpowers/specs/2026-09-09-hosting-design.md). Product after money: `4.10`–`4.21`.
 
-Pickup: `Follow AGENTS.md. Let's move to step 4.3` — then only the files that row lists.
+Pickup: `Follow AGENTS.md. Let's move to step 4.3.1` — then only the files that row lists.
 
 | Id | Status | File |
 | --- | --- | --- |
@@ -22,7 +22,9 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.3` — then only the files that 
 | 4.2 | `done` | [Redis umbrella](4.02-redis.md) |
 | 4.2.1 | `done` | [Redis foundation + adapter](4.02.1-redis-foundation.md) |
 | 4.2.2 | `done` | [Redis cutover](4.02.2-redis-cutover.md) |
-| 4.3 | `todo` | [Cheap hosting](4.03-hosting.md) |
+| 4.3 | `todo` | [Cheap hosting umbrella](4.03-hosting.md) |
+| 4.3.1 | `todo` | [Hosting packaging](4.03.1-hosting-packaging.md) |
+| 4.3.2 | `todo` | [Hosting provision](4.03.2-hosting-provision.md) |
 | 4.4 | `todo` | [Inactivity notify and delete](4.04-inactivity.md) |
 | 4.5 | `todo` | [Trial period (enforce)](4.05-trial.md) |
 | 4.6 | `todo` | [Payment strategy](4.06-payment-strategy.md) |

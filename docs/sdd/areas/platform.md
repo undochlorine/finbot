@@ -41,7 +41,7 @@ Future pipeline stages must `needs: common`. No CI secrets yet (tests do not nee
 
 | Topic | Step |
 | --- | --- |
-| Cheap hosting + managed Postgres / Redis (vendor chosen at the time) | [`4.03`](../steps/4.03-hosting.md) |
+| Cheap hosting + managed Postgres / Redis (Railway; `4.3.1` packaging then `4.3.2` go-live) | [`4.03`](../steps/4.03-hosting.md) |
 | Rate limit / replicas / partitioning | [`4.09`](../steps/4.09-load.md) |
 | Dashboards / metrics backend | [`4.17`](../steps/4.17-dashboards.md) |
 | `cmd/bot`, `cmd/worker`, `cmd/web` | [`4.21`](../steps/4.21-modular-binaries.md) |

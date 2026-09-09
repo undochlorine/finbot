@@ -8,7 +8,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.3` |
+| **Current step** | `4.3.1` |
 | **Last done** | `4.2.2` Redis cutover (`cmd/bot` on Redis; `memorycache` tests-only) |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
@@ -41,7 +41,9 @@ For `let's move to step X.Y` also read `docs/sdd/requirements.md` and the step f
 | 4.2 | telegram, platform | `docs/sdd/steps/4.02-redis.md` (umbrella; do not implement — start `4.2.1`) |
 | 4.2.1 | telegram, platform | `docs/sdd/steps/4.02.1-redis-foundation.md` |
 | 4.2.2 | telegram, platform | `docs/sdd/steps/4.02.2-redis-cutover.md` |
-| 4.3 | platform | `docs/sdd/steps/4.03-hosting.md` |
+| 4.3 | platform | `docs/sdd/steps/4.03-hosting.md` (umbrella; do not implement — start `4.3.1`) |
+| 4.3.1 | platform | `docs/sdd/steps/4.03.1-hosting-packaging.md` |
+| 4.3.2 | platform | `docs/sdd/steps/4.03.2-hosting-provision.md` |
 | 4.4 | billing, platform, telegram | `docs/sdd/steps/4.04-inactivity.md` |
 | 4.5 | billing, telegram, service | `docs/sdd/steps/4.05-trial.md` |
 | 4.6 | billing | `docs/sdd/steps/4.06-payment-strategy.md` |
@@ -65,6 +67,6 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.3`
+`Follow AGENTS.md. Let's move to step 4.3.1`
 
-Cheap hosting + managed Postgres/Redis. Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md). Feature designs: [`docs/superpowers/specs/`](docs/superpowers/specs/).
+Cheap hosting (Railway worker + managed Postgres/Redis). Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](docs/superpowers/specs/2026-09-09-hosting-design.md). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md).
