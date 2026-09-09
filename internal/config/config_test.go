@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-const testDatabaseURL = "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable"
+const (
+	testDatabaseURL = "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable"
+	testRedisURL    = "redis://:finbot@127.0.0.1:6379/0"
+)
 
 func TestLoad(t *testing.T) {
 	tests := []struct {
@@ -50,10 +53,19 @@ func TestLoad(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "missing redis url",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+			},
+			wantErr: true,
+		},
+		{
 			name: "defaults",
 			env: map[string]string{
 				"BOT_TOKEN":    "tok",
 				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    testRedisURL,
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -62,6 +74,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
 				DatabaseURL:     testDatabaseURL,
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -95,6 +108,7 @@ func TestLoad(t *testing.T) {
 				"BOT_TOKEN":         "tok",
 				"DATABASE_URL":      "  postgres://local/finbot  ",
 				"POSTGRES_TEST_URL": "  postgres://local/finbot_test  ",
+				"REDIS_URL":         testRedisURL,
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -104,6 +118,7 @@ func TestLoad(t *testing.T) {
 				DefaultCurrency: defaultCurrency,
 				DatabaseURL:     "postgres://local/finbot",
 				PostgresTestURL: "postgres://local/finbot_test",
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -143,20 +158,13 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
-			name: "blank redis url is unset",
+			name: "blank redis url",
 			env: map[string]string{
 				"BOT_TOKEN":    "tok",
 				"DATABASE_URL": testDatabaseURL,
 				"REDIS_URL":    "   ",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-			},
+			wantErr: true,
 		},
 		{
 			name: "invalid redis url",
@@ -190,6 +198,7 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BOT_TOKEN":    "tok",
 				"DATABASE_URL": "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+				"REDIS_URL":    testRedisURL,
 			},
 			want: Config{
 				BotToken:        "tok",
@@ -198,6 +207,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
 				DatabaseURL:     "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -205,6 +215,7 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BOT_TOKEN":        "tok",
 				"DATABASE_URL":     testDatabaseURL,
+				"REDIS_URL":        testRedisURL,
 				"DEFAULT_CURRENCY": "   ",
 			},
 			want: Config{
@@ -214,6 +225,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: "USD",
 				DatabaseURL:     testDatabaseURL,
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -221,6 +233,7 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BOT_TOKEN":        "tok",
 				"DATABASE_URL":     testDatabaseURL,
+				"REDIS_URL":        testRedisURL,
 				"DEFAULT_CURRENCY": " eur ",
 			},
 			want: Config{
@@ -230,6 +243,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: "eur",
 				DatabaseURL:     testDatabaseURL,
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -237,6 +251,7 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BOT_TOKEN":      "tok",
 				"DATABASE_URL":   testDatabaseURL,
+				"REDIS_URL":      testRedisURL,
 				"TRIAL_DURATION": "0",
 			},
 			want: Config{
@@ -246,6 +261,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
 				DatabaseURL:     testDatabaseURL,
+				RedisURL:        testRedisURL,
 			},
 		},
 		{
@@ -253,6 +269,7 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"BOT_TOKEN":         "tok",
 				"DATABASE_URL":      testDatabaseURL,
+				"REDIS_URL":         testRedisURL,
 				"ADMIN_TELEGRAM_ID": "0",
 			},
 			want: Config{
@@ -262,6 +279,7 @@ func TestLoad(t *testing.T) {
 				AdminTelegramID: 0,
 				DefaultCurrency: defaultCurrency,
 				DatabaseURL:     testDatabaseURL,
+				RedisURL:        testRedisURL,
 			},
 		},
 		{

@@ -2,7 +2,7 @@
 
 Hexagonal layout. Adapters on the outside, domain in the middle. **Interface per consumer** — the package that *calls* a dependency owns that interface. Tests mock that package’s interfaces, never a sibling layer’s.
 
-The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. Postgres implements the repo ports and is what `cmd/bot` opens.
+The **service** layer depends on **domain + its own interfaces**, never on `ports`, Telegram types, or SQL types. Postgres implements the repo ports and is what `cmd/bot` opens. Redis implements `ports.Cache` and is what `cmd/bot` opens for FSM. `memorycache` is unit tests only.
 
 Payment ports belong to `4.6`–`4.7`. Do not add them now.
 
@@ -15,7 +15,8 @@ internal/
   adapter/
     telegram/        handlers, inline keyboards, conversation FSM, per-user pending FIFO; owns HTTPClient
     postgres/        runtime repos for `cmd/bot` (satisfy service repo interfaces)
-    memorycache/     in-process Cache; owns Clock
+    rediscache/      runtime Cache for `cmd/bot` (FSM session store)
+    memorycache/     in-process Cache for unit tests; owns Clock
     clock/           real clock
   config/            env-based config
   text/              locale-keyed strings (`en` only until 4.12)
@@ -37,7 +38,7 @@ flowchart LR
   OpRepo --> Postgres
   Tx --> Postgres
   Handlers --> Cache
-  Cache --> Memory
+  Cache --> Redis
 ```
 
 ## Driven dependencies (as code is now)
@@ -50,18 +51,18 @@ Owned by **service**:
 - `Transactor` — `InTx` for add/spend/set/delete/rename/transfer. Postgres retries up to 3 times on deadlock (`40P01`) and serialization (`40001`)
 - `Clock` — `Now()` for activity and tests
 
-Owned by **memorycache**:
+Owned by **memorycache** (unit tests):
 
 - `Clock` — `Now()` for TTL expiry
 
 Owned by **telegram**:
 
 - `HTTPClient` — `Do(*http.Request)` for Bot API transport. Production uses `net/http`; tests use mockery.
-- `Cache` — conversation FSM. Telegram owns the interface; `ports.Cache` remains so memorycache does not import telegram.
+- `Cache` — conversation FSM. Telegram owns the interface; `ports.Cache` remains so adapters do not import telegram. Runtime is Redis; `memorycache` stays for TTL unit tests.
 
 Still in **ports**:
 
-- `Cache` — same interface, used by memorycache without importing telegram
+- `Cache` — same interface, used by `rediscache` and `memorycache` without importing telegram
 - `Notifier` — send a message to a Telegram user (handlers; `/feedback` forward; inactivity job in `4.4`)
 
 ## Write path
