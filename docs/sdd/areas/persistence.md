@@ -37,7 +37,7 @@ Every SQL query that is per-user is filtered by `user_id`.
 - `trial_ends_at` TIMESTAMPTZ; set once at insert
 - `discount_percent` INTEGER NULL — `NULL` = not whitelisted; `0`–`100` = admin privilege (`100` = free)
 - `created_at`, `updated_at` TIMESTAMPTZ
-- `locale` TEXT NOT NULL DEFAULT `'en'`
+- `locale` TEXT NOT NULL DEFAULT `'en'` — Stage 3 rows are `en`. New signups insert empty until the `/start` language pick; `/language` updates it. Known codes: `en`, `ru`, `uk`, `md`.
 - `referred_by` BIGINT NULL — Telegram id of the referrer; set once on first `/start` payload
 
 ## banks

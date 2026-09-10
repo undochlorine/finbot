@@ -56,7 +56,7 @@ func (h *Bot) continueNewBank(
 	case stepName:
 		h.progressNewBank(ctx, b, chatID, userID, st, raw, true)
 	case stepInclude:
-		include, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
+		include, parsed := parseYesNo(ctx, raw)
 		if !parsed {
 			h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).NewBankAskInclude, includeKeyboard(ctx))
 			return

@@ -699,6 +699,69 @@ func (_c *MockService_Set_Call) RunAndReturn(run func(ctx context.Context, userI
 	return _c
 }
 
+// SetLocale provides a mock function for the type MockService
+func (_mock *MockService) SetLocale(ctx context.Context, userID domain.UserID, locale string) error {
+	ret := _mock.Called(ctx, userID, locale)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetLocale")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string) error); ok {
+		r0 = returnFunc(ctx, userID, locale)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_SetLocale_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLocale'
+type MockService_SetLocale_Call struct {
+	*mock.Call
+}
+
+// SetLocale is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - locale string
+func (_e *MockService_Expecter) SetLocale(ctx interface{}, userID interface{}, locale interface{}) *MockService_SetLocale_Call {
+	return &MockService_SetLocale_Call{Call: _e.mock.On("SetLocale", ctx, userID, locale)}
+}
+
+func (_c *MockService_SetLocale_Call) Run(run func(ctx context.Context, userID domain.UserID, locale string)) *MockService_SetLocale_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_SetLocale_Call) Return(err error) *MockService_SetLocale_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_SetLocale_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, locale string) error) *MockService_SetLocale_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetReferredByIfEmpty provides a mock function for the type MockService
 func (_mock *MockService) SetReferredByIfEmpty(ctx context.Context, userID domain.UserID, referredBy domain.UserID) error {
 	ret := _mock.Called(ctx, userID, referredBy)

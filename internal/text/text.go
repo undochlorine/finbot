@@ -7,23 +7,6 @@ import (
 )
 
 type Catalog struct {
-	CmdDescStart    string
-	CmdDescHelp     string
-	CmdDescNewBank  string
-	CmdDescAdd      string
-	CmdDescSpend    string
-	CmdDescSet      string
-	CmdDescDelete   string
-	CmdDescBank     string
-	CmdDescToggle   string
-	CmdDescRename   string
-	CmdDescTransfer string
-	CmdDescBanks    string
-	CmdDescTotal    string
-	CmdDescAll      string
-	CmdDescCancel   string
-	CmdDescFeedback string
-
 	Start               string
 	Help                string
 	NewBankAskName      string
@@ -46,53 +29,101 @@ type Catalog struct {
 	AskTransferFrom     string
 	SameBank            string
 	CurrencyMismatch    string
+
+	BankCreatedIncluded  string
+	BankCreatedExcluded  string
+	BankNameTakenFmt     string
+	UnknownBankFmt       string
+	AskAddAmountFmt      string
+	AskSpendAmountFmt    string
+	AskSetAmountFmt      string
+	AddedFmt             string
+	SpentFmt             string
+	SetToFmt             string
+	AskDeleteConfirmFmt  string
+	BankDeletedFmt       string
+	BankCardIncludedFmt  string
+	BankCardExcludedFmt  string
+	TotalFmt             string
+	ToggledIncludedFmt   string
+	ToggledExcludedFmt   string
+	AskRenameNameFmt     string
+	BankRenamedFmt       string
+	AskTransferToFmt     string
+	AskTransferAmountFmt string
+	TransferredFmt       string
+	LanguageSetFmt       string
+	LanguageNameEN       string
+	LanguageNameRU       string
+	LanguageNameUK       string
+	LanguageNameMD       string
+}
+
+type LanguageOption struct {
+	Code  string
+	Label string
+}
+
+// AskLanguage is shown before a locale is known, so it is not catalog-keyed.
+const AskLanguage = `Choose your language
+Выберите язык
+Оберіть мову
+Алеӂець лимба`
+
+func LanguageOptions() []LanguageOption {
+	return []LanguageOption{
+		{Code: domain.LocaleEN, Label: "English"},
+		{Code: domain.LocaleRU, Label: "Русский"},
+		{Code: domain.LocaleUK, Label: "Українська"},
+		{Code: domain.LocaleMD, Label: "Moldovenească"},
+	}
 }
 
 func (c Catalog) BankCreated(name string, included bool) string {
 	if included {
-		return "✅ Created bank \"" + name + "\". It counts toward your total."
+		return fmt.Sprintf(c.BankCreatedIncluded, name)
 	}
-	return "✅ Created bank \"" + name + "\". It does not count toward your total."
+	return fmt.Sprintf(c.BankCreatedExcluded, name)
 }
 
 func (c Catalog) BankNameTaken(name string) string {
-	return "You already have a bank named \"" + name + "\". Choose a different name."
+	return fmt.Sprintf(c.BankNameTakenFmt, name)
 }
 
 func (c Catalog) UnknownBank(name string) string {
-	return "I don't know a bank named \"" + name + "\". Send /banks to see your list."
+	return fmt.Sprintf(c.UnknownBankFmt, name)
 }
 
 func (c Catalog) AskAddAmount(name string) string {
-	return "How much should I add to \"" + name + "\"?"
+	return fmt.Sprintf(c.AskAddAmountFmt, name)
 }
 
 func (c Catalog) AskSpendAmount(name string) string {
-	return "How much should I spend from \"" + name + "\"?"
+	return fmt.Sprintf(c.AskSpendAmountFmt, name)
 }
 
 func (c Catalog) AskSetAmount(name string) string {
-	return "What should \"" + name + "\" be set to?"
+	return fmt.Sprintf(c.AskSetAmountFmt, name)
 }
 
 func (c Catalog) Added(name, amount, balance string) string {
-	return "💸 Added " + amount + " to \"" + name + "\". Balance is " + balance + "."
+	return fmt.Sprintf(c.AddedFmt, amount, name, balance)
 }
 
 func (c Catalog) Spent(name, amount, balance string) string {
-	return "💸 Spent " + amount + " from \"" + name + "\". Balance is " + balance + "."
+	return fmt.Sprintf(c.SpentFmt, amount, name, balance)
 }
 
 func (c Catalog) SetTo(name, balance string) string {
-	return "✅ Set \"" + name + "\" to " + balance + "."
+	return fmt.Sprintf(c.SetToFmt, name, balance)
 }
 
 func (c Catalog) AskDeleteConfirm(name string) string {
-	return "Delete \"" + name + "\"? This cannot be undone."
+	return fmt.Sprintf(c.AskDeleteConfirmFmt, name)
 }
 
 func (c Catalog) BankDeleted(name string) string {
-	return "🗑️ Deleted bank \"" + name + "\"."
+	return fmt.Sprintf(c.BankDeletedFmt, name)
 }
 
 func (c Catalog) FeedbackForward(userID int64, username, body string) string {
@@ -104,13 +135,13 @@ func (c Catalog) FeedbackForward(userID int64, username, body string) string {
 
 func (c Catalog) BankCard(name, balance string, included bool) string {
 	if included {
-		return name + ": " + balance + " (in total)"
+		return fmt.Sprintf(c.BankCardIncludedFmt, name, balance)
 	}
-	return name + ": " + balance + " (not in total)"
+	return fmt.Sprintf(c.BankCardExcludedFmt, name, balance)
 }
 
 func (c Catalog) Total(amount string) string {
-	return "Total: " + amount
+	return fmt.Sprintf(c.TotalFmt, amount)
 }
 
 func (c Catalog) All(banks, total string) string {
@@ -119,110 +150,53 @@ func (c Catalog) All(banks, total string) string {
 
 func (c Catalog) Toggled(name, balance string, included bool) string {
 	if included {
-		return "✅ \"" + name + "\" now counts toward your total. Balance is " + balance + "."
+		return fmt.Sprintf(c.ToggledIncludedFmt, name, balance)
 	}
-	return "✅ \"" + name + "\" now does not count toward your total. Balance is " + balance + "."
+	return fmt.Sprintf(c.ToggledExcludedFmt, name, balance)
 }
 
 func (c Catalog) AskRenameName(name string) string {
-	return "What should \"" + name + "\" be called?"
+	return fmt.Sprintf(c.AskRenameNameFmt, name)
 }
 
 func (c Catalog) BankRenamed(oldName, newName string) string {
-	return "✏️ Renamed \"" + oldName + "\" to \"" + newName + "\"."
+	return fmt.Sprintf(c.BankRenamedFmt, oldName, newName)
 }
 
 func (c Catalog) AskTransferTo(fromName string) string {
-	return "Transfer from \"" + fromName + "\" to which bank?"
+	return fmt.Sprintf(c.AskTransferToFmt, fromName)
 }
 
 func (c Catalog) AskTransferAmount(fromName, toName string) string {
-	return "How much should I transfer from \"" + fromName + "\" to \"" + toName + "\"?"
+	return fmt.Sprintf(c.AskTransferAmountFmt, fromName, toName)
 }
 
 func (c Catalog) Transferred(fromName, toName, amount, fromBalance, toBalance string) string {
-	return "💸 Transferred " + amount + " from \"" + fromName + "\" to \"" + toName + "\".\n" +
-		fromName + ": " + fromBalance + ".\n" +
-		toName + ": " + toBalance + "."
+	return fmt.Sprintf(c.TransferredFmt, amount, fromName, toName, fromName, fromBalance, toName, toBalance)
 }
 
-var en = Catalog{
-	CmdDescStart:    "welcome",
-	CmdDescHelp:     "this list",
-	CmdDescNewBank:  "create a bank",
-	CmdDescAdd:      "add money to a bank",
-	CmdDescSpend:    "subtract money from a bank",
-	CmdDescSet:      "set a bank's balance",
-	CmdDescDelete:   "delete a bank",
-	CmdDescBank:     "show one bank",
-	CmdDescToggle:   "include or exclude a bank from the total",
-	CmdDescRename:   "rename a bank",
-	CmdDescTransfer: "move money between banks",
-	CmdDescBanks:    "list all banks",
-	CmdDescTotal:    "sum of banks included in the total",
-	CmdDescAll:      "list banks and the total",
-	CmdDescCancel:   "cancel the current step",
-	CmdDescFeedback: "send feedback to the admin",
+func (c Catalog) LanguageSetTo(locale string) string {
+	return fmt.Sprintf(c.LanguageSetFmt, c.languageName(locale))
+}
 
-	Start: `👋 Welcome to Finbot. Split money into named banks and track balances.
-Some banks count toward your total; some do not.
-
-Send /help to see all commands. You can type a bank name after a command
-(names may contain spaces), for example /newbank Holiday, /rename Holiday, or /transfer Holiday Gifts 50.`,
-
-	Help: `Finbot commands:
-
-/start - welcome
-/help - this list
-/newbank - create a bank
-/add - add money to a bank
-/spend - subtract money from a bank
-/set - set a bank's balance
-/delete - delete a bank
-/bank - show one bank
-/toggle - include or exclude a bank from the total
-/rename - rename a bank
-/transfer - move money between banks
-/banks - list all banks
-/total - sum of banks included in the total
-/all - list banks and the total
-/cancel - cancel the current step
-/feedback - send feedback to the admin
-
-You can skip prompts by typing details after a command. Bank names may contain spaces.
-Example: /newbank Holiday fund
-After the name is accepted, the bot asks whether the bank counts in your total.
-Money shortcuts: /add Holiday 100, /spend Gifts 12.50, /set Live 0.
-Delete still asks you to confirm: /delete Holiday.
-Show one bank: /bank Holiday.
-Toggle whether a bank counts in the total: /toggle Holiday.
-Rename a bank: /rename Holiday, or /rename Holiday Trips.
-Transfer between banks: /transfer Holiday Gifts 50.`,
-
-	NewBankAskName:      "What should this bank be called?",
-	NewBankAskInclude:   "Count this bank in your total?",
-	Yes:                 "Yes",
-	No:                  "No",
-	InvalidBankName:     "Bank name can't be empty. Send /newbank to try again.",
-	SomethingWentWrong:  "Something went wrong. Try again.",
-	NoBanks:             "You have no banks yet. Create one with /newbank.",
-	AskBank:             "Which bank?",
-	InvalidAmount:       "That amount isn't valid. Send a number like 100 or 12.50.",
-	DeleteCancelled:     "Okay, I didn't delete anything.",
-	Canceled:            "Canceled.",
-	NothingToCancel:     "Nothing to cancel.",
-	FlowExpired:         "This step expired. Start over with a command.",
-	FeedbackAsk:         "What's your feedback? Send it as a message.",
-	FeedbackThanks:      "🙏 Thanks, I sent that to the admin.",
-	FeedbackUnavailable: "Feedback is not available right now.",
-	NeedTwoBanks:        "You need at least two banks to transfer. Create another with /newbank.",
-	AskTransferFrom:     "Transfer from which bank?",
-	SameBank:            "Choose a different bank to transfer to.",
-	CurrencyMismatch:    "Those banks use different currencies. Transfers must be the same currency.",
+func (c Catalog) languageName(locale string) string {
+	switch locale {
+	case domain.LocaleRU:
+		return c.LanguageNameRU
+	case domain.LocaleUK:
+		return c.LanguageNameUK
+	case domain.LocaleMD:
+		return c.LanguageNameMD
+	default:
+		return c.LanguageNameEN
+	}
 }
 
 var catalogs = map[string]Catalog{
 	domain.LocaleEN: en,
+	domain.LocaleRU: ru,
+	domain.LocaleUK: uk,
+	domain.LocaleMD: md,
 }
 
 func For(locale string) Catalog {
@@ -232,25 +206,8 @@ func For(locale string) Catalog {
 	return en
 }
 
-// English catalog aliases. Handlers use For(locale); tests and boot-time menu keep these names.
+// English catalog aliases. Handlers use For(locale); tests keep these names.
 var (
-	CmdDescStart    = en.CmdDescStart
-	CmdDescHelp     = en.CmdDescHelp
-	CmdDescNewBank  = en.CmdDescNewBank
-	CmdDescAdd      = en.CmdDescAdd
-	CmdDescSpend    = en.CmdDescSpend
-	CmdDescSet      = en.CmdDescSet
-	CmdDescDelete   = en.CmdDescDelete
-	CmdDescBank     = en.CmdDescBank
-	CmdDescToggle   = en.CmdDescToggle
-	CmdDescRename   = en.CmdDescRename
-	CmdDescTransfer = en.CmdDescTransfer
-	CmdDescBanks    = en.CmdDescBanks
-	CmdDescTotal    = en.CmdDescTotal
-	CmdDescAll      = en.CmdDescAll
-	CmdDescCancel   = en.CmdDescCancel
-	CmdDescFeedback = en.CmdDescFeedback
-
 	Start               = en.Start
 	Help                = en.Help
 	NewBankAskName      = en.NewBankAskName
@@ -357,4 +314,8 @@ func AskTransferAmount(fromName, toName string) string {
 
 func Transferred(fromName, toName, amount, fromBalance, toBalance string) string {
 	return en.Transferred(fromName, toName, amount, fromBalance, toBalance)
+}
+
+func LanguageSetTo(locale string) string {
+	return en.LanguageSetTo(locale)
 }

@@ -39,6 +39,75 @@ func (_m *MockUserRepository) EXPECT() *MockUserRepository_Expecter {
 	return &MockUserRepository_Expecter{mock: &_m.Mock}
 }
 
+// SetLocale provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetLocale(ctx context.Context, userID domain.UserID, locale string, at time.Time) error {
+	ret := _mock.Called(ctx, userID, locale, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetLocale")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, time.Time) error); ok {
+		r0 = returnFunc(ctx, userID, locale, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetLocale_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLocale'
+type MockUserRepository_SetLocale_Call struct {
+	*mock.Call
+}
+
+// SetLocale is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - locale string
+//   - at time.Time
+func (_e *MockUserRepository_Expecter) SetLocale(ctx interface{}, userID interface{}, locale interface{}, at interface{}) *MockUserRepository_SetLocale_Call {
+	return &MockUserRepository_SetLocale_Call{Call: _e.mock.On("SetLocale", ctx, userID, locale, at)}
+}
+
+func (_c *MockUserRepository_SetLocale_Call) Run(run func(ctx context.Context, userID domain.UserID, locale string, at time.Time)) *MockUserRepository_SetLocale_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Time
+		if args[3] != nil {
+			arg3 = args[3].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetLocale_Call) Return(err error) *MockUserRepository_SetLocale_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetLocale_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, locale string, at time.Time) error) *MockUserRepository_SetLocale_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetReferredByIfEmpty provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) SetReferredByIfEmpty(ctx context.Context, userID domain.UserID, referredBy domain.UserID) error {
 	ret := _mock.Called(ctx, userID, referredBy)

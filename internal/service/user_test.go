@@ -47,7 +47,7 @@ func TestUpsertUser(t *testing.T) {
 				LastActivityAt: now,
 				Plan:           domain.PlanTrial,
 				TrialEndsAt:    now.Add(tt.wantEnd),
-				Locale:         domain.LocaleEN,
+				Locale:         "",
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			}
@@ -106,5 +106,40 @@ func TestSetReferredByIfEmpty(t *testing.T) {
 
 		require.NoError(t, svc.SetReferredByIfEmpty(ctx, userA, userA))
 		require.True(t, users.AssertNotCalled(t, "SetReferredByIfEmpty"))
+	})
+}
+
+func TestSetLocale(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+
+	t.Run("persists a known locale", func(t *testing.T) {
+		users := mocks.NewMockUserRepository(t)
+		clock := mocks.NewMockClock(t)
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		clock.EXPECT().Now().Return(now)
+		users.EXPECT().SetLocale(ctx, userA, domain.LocaleRU, now).Return(nil)
+
+		require.NoError(t, svc.SetLocale(ctx, userA, domain.LocaleRU))
+	})
+
+	t.Run("rejects unknown locale", func(t *testing.T) {
+		users := mocks.NewMockUserRepository(t)
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), 168*time.Hour, "USD")
+
+		err := svc.SetLocale(ctx, userA, "fr")
+		require.ErrorIs(t, err, domain.ErrUnknownLocale)
+		require.True(t, users.AssertNotCalled(t, "SetLocale"))
+	})
+
+	t.Run("unknown user", func(t *testing.T) {
+		users := mocks.NewMockUserRepository(t)
+		clock := mocks.NewMockClock(t)
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		clock.EXPECT().Now().Return(now)
+		users.EXPECT().SetLocale(ctx, userB, domain.LocaleUK, now).Return(domain.ErrUserNotFound)
+
+		err := svc.SetLocale(ctx, userB, domain.LocaleUK)
+		require.ErrorIs(t, err, domain.ErrUserNotFound)
 	})
 }

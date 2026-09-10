@@ -20,6 +20,7 @@ func TestMenuCommandsListsMVPCommands(t *testing.T) {
 	}{
 		{commandStart, text.CmdDescStart},
 		{commandHelp, text.CmdDescHelp},
+		{commandLanguage, text.CmdDescLanguage},
 		{domain.CommandNewBank, text.CmdDescNewBank},
 		{domain.CommandAdd, text.CmdDescAdd},
 		{domain.CommandSpend, text.CmdDescSpend},

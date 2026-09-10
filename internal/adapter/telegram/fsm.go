@@ -18,6 +18,7 @@ import (
 const (
 	commandStart    = "start"
 	commandHelp     = "help"
+	commandLanguage = "language"
 	commandCancel   = "cancel"
 	commandFeedback = "feedback"
 
@@ -30,6 +31,7 @@ const (
 	stepConfirm = "confirm"
 	stepText    = "text"
 	stepTo      = "to"
+	stepPick    = "pick"
 
 	callbackNewBankPrefix     = "v1:" + domain.CommandNewBank + ":"
 	callbackNewBankIncludeYes = callbackNewBankPrefix + stepInclude + ":1"
@@ -47,6 +49,7 @@ const (
 	callbackTransferPrefix     = "v1:" + domain.CommandTransfer + ":"
 	callbackTransferFromPrefix = callbackTransferPrefix + "from:"
 	callbackTransferToPrefix   = callbackTransferPrefix + "to:"
+	callbackLanguagePrefix     = "v1:" + commandLanguage + ":"
 )
 
 type fsmState struct {

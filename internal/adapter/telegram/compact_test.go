@@ -33,9 +33,11 @@ func TestCompact(t *testing.T) {
 		{name: "consecutive empty rename keeps first", in: []string{"/rename", "/rename"}, want: []string{"/rename"}},
 		{name: "consecutive empty transfer keeps first", in: []string{"/transfer", "/transfer"}, want: []string{"/transfer"}},
 		{name: "consecutive empty feedback keeps first", in: []string{"/feedback", "/feedback"}, want: []string{"/feedback"}},
+		{name: "consecutive empty language keeps first", in: []string{"/language", "/language"}, want: []string{"/language"}},
 		{name: "consecutive empty cancel keeps first", in: []string{"/cancel", "/cancel"}, want: []string{"/cancel"}},
 
 		{name: "empty add then spend keeps later flow", in: []string{"/add", "/spend"}, want: []string{"/spend"}},
+		{name: "empty add then language keeps later flow", in: []string{"/add", "/language"}, want: []string{"/language"}},
 		{name: "empty transfer then add keeps later flow", in: []string{"/transfer", "/add"}, want: []string{"/add"}},
 		{name: "empty wizard chain keeps last flow", in: []string{"/add", "/spend", "/set"}, want: []string{"/set"}},
 		{name: "empty newbank then named newbank keeps named", in: []string{"/newbank", "/newbank Holiday"}, want: []string{"/newbank Holiday"}},

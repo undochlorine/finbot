@@ -19,7 +19,7 @@ internal/
     memorycache/     in-process Cache for unit tests; owns Clock
     clock/           real clock
   config/            env-based config
-  text/              locale-keyed strings (`en` only until 4.12)
+  text/              locale-keyed strings (`en`, `ru`, `uk`, `md`)
 ```
 
 ```mermaid

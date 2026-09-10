@@ -167,3 +167,51 @@ func TestUserRepositorySetReferredByIfEmpty(t *testing.T) {
 		t.Fatalf("missing user: %v", err)
 	}
 }
+
+func TestUserRepositorySetLocale(t *testing.T) {
+	db := mustOpenReset(t)
+	users := NewUserRepository(db)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	if _, err := users.Upsert(ctx, testUser(1, now)); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	at := now.Add(time.Hour)
+	if err := users.SetLocale(ctx, 1, domain.LocaleRU, at); err != nil {
+		t.Fatalf("set locale: %v", err)
+	}
+	got, err := users.Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Locale != domain.LocaleRU {
+		t.Fatalf("locale %q", got.Locale)
+	}
+	if !got.UpdatedAt.Equal(at) {
+		t.Fatalf("updated_at %v, want %v", got.UpdatedAt, at)
+	}
+
+	later := at.Add(time.Hour)
+	rewritten, err := users.Upsert(ctx, domain.User{
+		TelegramID:     1,
+		Username:       "u",
+		LastActivityAt: later,
+		Plan:           domain.PlanFree,
+		TrialEndsAt:    later,
+		Locale:         domain.LocaleEN,
+		CreatedAt:      later,
+		UpdatedAt:      later,
+	})
+	if err != nil {
+		t.Fatalf("upsert again: %v", err)
+	}
+	if rewritten.Locale != domain.LocaleRU {
+		t.Fatalf("locale rewritten: %q", rewritten.Locale)
+	}
+
+	err = users.SetLocale(ctx, 99, domain.LocaleUK, at)
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		t.Fatalf("got %v, want ErrUserNotFound", err)
+	}
+}

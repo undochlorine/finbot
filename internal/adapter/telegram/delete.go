@@ -38,7 +38,7 @@ func (h *Bot) continueDelete(
 	case stepBank:
 		h.progressDelete(ctx, b, chatID, userID, st, raw)
 	case stepConfirm:
-		yes, parsed := domain.ParseYesNo(strings.TrimSpace(raw))
+		yes, parsed := parseYesNo(ctx, raw)
 		if !parsed {
 			h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).AskDeleteConfirm(st.Name), deleteConfirmKeyboard(ctx, st.BankID))
 			return

@@ -187,18 +187,31 @@ func newTestBot(
 	setup func(*mocks.MockService, *mocks.MockCache, *mocks.MockHTTPClient),
 ) *Bot {
 	t.Helper()
+	return newTestBotUser(t, ctx, domain.User{
+		TelegramID: domain.UserID(telegramUserID),
+		Username:   "alice",
+		Locale:     domain.LocaleEN,
+	}, setup)
+}
+
+func newTestBotUser(
+	t *testing.T,
+	ctx context.Context,
+	user domain.User,
+	setup func(*mocks.MockService, *mocks.MockCache, *mocks.MockHTTPClient),
+) *Bot {
+	t.Helper()
 
 	svc := mocks.NewMockService(t)
-	svc.EXPECT().
-		UpsertUser(ctx, domain.UserID(telegramUserID), "alice").
-		Return(domain.User{TelegramID: domain.UserID(telegramUserID), Username: "alice"}, nil).
-		Maybe()
-
 	cache := mocks.NewMockCache(t)
 	client := expectGetMe(t, http.StatusOK, getMeOKBody)
 	expectSetMyCommands(t, client, nil)
 	setup(svc, cache, client)
 
+	svc.EXPECT().
+		UpsertUser(ctx, domain.UserID(telegramUserID), "alice").
+		Return(user, nil).
+		Maybe()
 	cache.EXPECT().Get(mock.Anything, mock.Anything).Return(nil, false, nil).Maybe()
 
 	b, err := New("123:token", svc, cache, client)

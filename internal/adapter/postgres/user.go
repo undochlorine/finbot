@@ -106,6 +106,24 @@ func (r *UserRepository) SetReferredByIfEmpty(ctx context.Context, userID, refer
 	return nil
 }
 
+func (r *UserRepository) SetLocale(ctx context.Context, userID domain.UserID, locale string, at time.Time) error {
+	res, err := conn(ctx, r.db).ExecContext(ctx, `
+		UPDATE users
+		SET locale = $1, updated_at = $2
+		WHERE telegram_id = $3`, locale, utcTime(at), userID)
+	if err != nil {
+		return fmt.Errorf("set locale: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set locale rows: %w", err)
+	}
+	if n == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
+}
+
 func scanUser(row *sql.Row) (domain.User, error) {
 	var (
 		u          domain.User
