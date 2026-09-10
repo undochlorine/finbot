@@ -10,4 +10,5 @@ var (
 	ErrSameBank         = errors.New("same bank")
 	ErrCurrencyMismatch = errors.New("currency mismatch")
 	ErrUserNotFound     = errors.New("user not found")
+	ErrUnknownLocale    = errors.New("unknown locale")
 )

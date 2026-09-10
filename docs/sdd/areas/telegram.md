@@ -12,9 +12,10 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 
 | Command | Flow |
 | --- | --- |
-| `/start` | Upsert user, short intro, point to `/help`. First valid `/start <telegram-id>` stores `referred_by` if still null. Later payloads do not overwrite. Self-referral is ignored. No rewards until `4.15`. |
-| `/help` | List commands |
-| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no`). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
+| `/start` | Upsert user. If `locale` is empty/unknown, ask language (buttons: English, Русский, Українська, Moldovenească) then show the welcome in that catalog. If locale is already set, short intro and point to `/help`. First valid `/start <telegram-id>` stores `referred_by` if still null. Later payloads do not overwrite. Self-referral is ignored. No rewards until `4.15`. |
+| `/help` | List commands (catalog-keyed; slash names stay English) |
+| `/language` | Re-offer the same language buttons. Persist `users.locale`. Command-menu descriptions stay English (`setMyCommands` is bot-wide). |
+| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no` or the catalog Yes/No). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
 | `/add` | Pick bank (buttons or arg) → amount. Adds to balance |
 | `/spend` | Same as add, subtracts (negative allowed) |
 | `/set` | Pick bank → amount. Sets absolute balance |
@@ -29,7 +30,7 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. If that full name is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. |
 | `/transfer` | Pick from-bank → to-bank (other banks) → amount. Same currency only. Reject same bank / invalid amount. |
 
-**Later (`4.x`):** `/history`, `/language`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
+**Later (`4.x`):** `/history`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
@@ -37,7 +38,7 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
-**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, `v1:rename:<bankID>`, `v1:transfer:from:<bankID>`, `v1:transfer:to:<bankID>`.
+**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, `v1:rename:<bankID>`, `v1:transfer:from:<bankID>`, `v1:transfer:to:<bankID>`, `v1:language:<code>`.
 
 ## Chat hygiene
 
@@ -100,7 +101,7 @@ The FIFO only orders. `WithNotAsyncHandlers` alone is not the fix: it serializes
 | Pattern | Keep | Drop |
 | --- | --- | --- |
 | Consecutive identical **idempotent** slash text (`/help`, `/start`, `/banks`, `/total`, `/all`, `/bank <name>`) | first | the rest of the run |
-| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/transfer`, `/feedback`, `/cancel` with no args) | first | the rest of the run |
+| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/transfer`, `/feedback`, `/language`, `/cancel` with no args) | first | the rest of the run |
 | Empty wizard start whose **next waiting slash** is also a flow-start (would replace per FSM polish) | the later flow-start | the empty one. **Do not** drop if the next item is `/cancel`, `/help`, `/start`, `/banks`, `/total`, `/all`, or a typed/callback update |
 | Consecutive identical `/newbank <same name>` | first | later copies (second would be name-taken) |
 | Consecutive identical `/delete <same name>` | first | later copies (second would be unknown bank) |

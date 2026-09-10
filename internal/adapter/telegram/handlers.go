@@ -19,6 +19,7 @@ func (h *Bot) registerHandlers() {
 	}{
 		{commandStart, h.handleStart},
 		{commandHelp, h.handleHelp},
+		{commandLanguage, h.handleLanguage},
 		{domain.CommandNewBank, h.handleNewBank},
 		{domain.CommandAdd, h.handleAdd},
 		{domain.CommandSpend, h.handleSpend},
@@ -49,6 +50,7 @@ func (h *Bot) registerHandlers() {
 		{callbackTogglePrefix, h.handleToggleCallback},
 		{callbackRenamePrefix, h.handleRenameCallback},
 		{callbackTransferPrefix, h.handleTransferCallback},
+		{callbackLanguagePrefix, h.handleLanguageCallback},
 	} {
 		h.inner.RegisterHandler(bot.HandlerTypeCallbackQueryData, item.prefix, bot.MatchTypePrefix, item.fn)
 	}
@@ -89,6 +91,16 @@ func (h *Bot) handleStart(ctx context.Context, b *bot.Bot, update *models.Update
 				logHandlerErr(domain.UserID(from.ID), commandStart, "set referred by", err)
 			}
 		}
+	}
+	if !domain.KnownLocale(localeFrom(ctx)) {
+		if from == nil {
+			return
+		}
+		chatID := messageChatID(update)
+		userID := domain.UserID(from.ID)
+		h.replacePending(ctx, b, chatID, userID)
+		h.offerLanguage(ctx, b, chatID, userID, commandStart)
+		return
 	}
 	reply(ctx, b, messageChatID(update), copyFrom(ctx).Start, nil)
 }
@@ -176,6 +188,22 @@ func reply(ctx context.Context, b *bot.Bot, chatID int64, message string, markup
 func replyErr(ctx context.Context, b *bot.Bot, chatID int64, op string, err error) {
 	slog.Error(op, logAttrs(ctx, slog.Any("err", err))...)
 	reply(ctx, b, chatID, copyFrom(ctx).SomethingWentWrong, nil)
+}
+
+func parseYesNo(ctx context.Context, raw string) (bool, bool) {
+	raw = strings.TrimSpace(raw)
+	if v, ok := domain.ParseYesNo(raw); ok {
+		return v, true
+	}
+	c := copyFrom(ctx)
+	switch {
+	case strings.EqualFold(raw, c.Yes):
+		return true, true
+	case strings.EqualFold(raw, c.No):
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 func parseReferral(payload string, selfID int64) (int64, bool) {

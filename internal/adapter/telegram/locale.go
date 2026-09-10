@@ -18,6 +18,10 @@ func withUser(ctx context.Context, user domain.User) context.Context {
 	return ctx
 }
 
+func withLocale(ctx context.Context, locale string) context.Context {
+	return context.WithValue(ctx, localeCtxKey{}, locale)
+}
+
 func withCommand(ctx context.Context, command string) context.Context {
 	return context.WithValue(ctx, commandCtxKey{}, command)
 }

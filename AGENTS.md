@@ -9,7 +9,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 | Field | Value |
 | --- | --- |
 | **Current step** | `4.4` |
-| **Last done** | `4.3.2` Railway live (manual Actions deploy after `common`) |
+| **Last done** | `4.12` language picker (`en` / `ru` / `uk` / `md`) |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |

@@ -33,7 +33,7 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.4` — then only the files that 
 | 4.9 | `todo` | [Load resistance](4.09-load.md) |
 | 4.10 | `todo` | [Transaction history](4.10-history.md) |
 | 4.11 | `todo` | [Finance tips](4.11-tips.md) |
-| 4.12 | `todo` | [Language picker](4.12-language.md) |
+| 4.12 | `done` | [Language picker](4.12-language.md) |
 | 4.13 | `todo` | [Multi-currency banks](4.13-multi-currency.md) |
 | 4.14 | `todo` | [Cross-currency transfer](4.14-fx-transfer.md) |
 | 4.15 | `todo` | [Referral program](4.15-referral.md) |

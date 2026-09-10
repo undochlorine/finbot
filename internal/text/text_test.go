@@ -1,6 +1,7 @@
 package text
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -28,6 +29,7 @@ func TestHelpListsMVPCommands(t *testing.T) {
 	}{
 		{"/start", CmdDescStart},
 		{"/help", CmdDescHelp},
+		{"/language", CmdDescLanguage},
 		{"/newbank", CmdDescNewBank},
 		{"/add", CmdDescAdd},
 		{"/spend", CmdDescSpend},
@@ -192,6 +194,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "help", got: Help},
 		{name: "cmd desc start", got: CmdDescStart},
 		{name: "cmd desc help", got: CmdDescHelp},
+		{name: "cmd desc language", got: CmdDescLanguage},
 		{name: "cmd desc newbank", got: CmdDescNewBank},
 		{name: "cmd desc add", got: CmdDescAdd},
 		{name: "cmd desc spend", got: CmdDescSpend},
@@ -232,6 +235,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts")},
 		{name: "same bank", got: SameBank},
 		{name: "currency mismatch", got: CurrencyMismatch},
+		{name: "ask language", got: AskLanguage},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -356,6 +360,81 @@ func TestMoneyCopy(t *testing.T) {
 				if !strings.Contains(tt.got, w) {
 					t.Errorf("missing %q in %q", w, tt.got)
 				}
+			}
+		})
+	}
+}
+
+func TestCatalogsCompleteAndDistinct(t *testing.T) {
+	enCat := For(domain.LocaleEN)
+	for _, locale := range []string{domain.LocaleEN, domain.LocaleRU, domain.LocaleUK, domain.LocaleMD} {
+		c := For(locale)
+		v := reflect.ValueOf(c)
+		typ := v.Type()
+		for i := 0; i < v.NumField(); i++ {
+			if v.Field(i).String() == "" {
+				t.Errorf("%s %s is empty", locale, typ.Field(i).Name)
+			}
+		}
+		for _, cmd := range []string{
+			"/start", "/help", "/language", "/newbank", "/add", "/spend", "/set",
+			"/delete", "/bank", "/toggle", "/rename", "/transfer", "/banks",
+			"/total", "/all", "/cancel", "/feedback",
+		} {
+			if !strings.Contains(c.Help, cmd) {
+				t.Errorf("%s help missing %s", locale, cmd)
+			}
+		}
+		if strings.Contains(c.Help, "/язык") || strings.Contains(c.Help, "/мова") {
+			t.Errorf("%s help translated a slash command", locale)
+		}
+	}
+	if For(domain.LocaleRU).Start == enCat.Start {
+		t.Fatal("russian start should differ from english")
+	}
+	if For(domain.LocaleUK).Start == enCat.Start {
+		t.Fatal("ukrainian start should differ from english")
+	}
+	if For(domain.LocaleRU).Start == For(domain.LocaleUK).Start {
+		t.Fatal("russian and ukrainian start should differ")
+	}
+	if For(domain.LocaleMD).Start == enCat.Start {
+		t.Fatal("moldavian start should differ from english")
+	}
+}
+
+func TestLanguageOptions(t *testing.T) {
+	opts := LanguageOptions()
+	if len(opts) != 4 {
+		t.Fatalf("got %d options", len(opts))
+	}
+	want := []LanguageOption{
+		{Code: domain.LocaleEN, Label: "English"},
+		{Code: domain.LocaleRU, Label: "Русский"},
+		{Code: domain.LocaleUK, Label: "Українська"},
+		{Code: domain.LocaleMD, Label: "Moldovenească"},
+	}
+	for i, opt := range want {
+		if opts[i] != opt {
+			t.Errorf("option %d: %+v, want %+v", i, opts[i], opt)
+		}
+	}
+}
+
+func TestLanguageSetTo(t *testing.T) {
+	tests := []struct {
+		locale string
+		want   string
+	}{
+		{locale: domain.LocaleEN, want: "Language set to English."},
+		{locale: domain.LocaleRU, want: "Язык изменён на русский."},
+		{locale: domain.LocaleUK, want: "Мову змінено на українську."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.locale, func(t *testing.T) {
+			got := For(tt.locale).LanguageSetTo(tt.locale)
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
 	}

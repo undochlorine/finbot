@@ -8,7 +8,19 @@ const (
 	PlanTrial = "trial"
 	PlanFree  = "free"
 	LocaleEN  = "en"
+	LocaleRU  = "ru"
+	LocaleUK  = "uk"
+	LocaleMD  = "md"
 )
+
+func KnownLocale(locale string) bool {
+	switch locale {
+	case LocaleEN, LocaleRU, LocaleUK, LocaleMD:
+		return true
+	default:
+		return false
+	}
+}
 
 type User struct {
 	TelegramID      UserID

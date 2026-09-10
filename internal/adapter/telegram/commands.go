@@ -15,6 +15,7 @@ func menuCommands() []models.BotCommand {
 	return []models.BotCommand{
 		{Command: commandStart, Description: text.CmdDescStart},
 		{Command: commandHelp, Description: text.CmdDescHelp},
+		{Command: commandLanguage, Description: text.CmdDescLanguage},
 		{Command: domain.CommandNewBank, Description: text.CmdDescNewBank},
 		{Command: domain.CommandAdd, Description: text.CmdDescAdd},
 		{Command: domain.CommandSpend, Description: text.CmdDescSpend},
