@@ -64,12 +64,14 @@ type Bot struct {
 	notify  Notifier
 	adminID domain.UserID
 	pending *PendingCommands
+	fsmTTL  time.Duration
 }
 
-func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.Option) (*Bot, error) {
-	if strings.TrimSpace(token) == "" {
-		return nil, fmt.Errorf("telegram bot token is required")
+func New(cfg Config, svc Service, cache Cache, client HTTPClient, opts ...bot.Option) (*Bot, error) {
+	if err := cfg.ValidateWithContext(context.Background()); err != nil {
+		return nil, err
 	}
+	cfg.Token = strings.TrimSpace(cfg.Token)
 	if svc == nil {
 		return nil, fmt.Errorf("service is required")
 	}
@@ -80,7 +82,12 @@ func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.
 		return nil, fmt.Errorf("http client is required")
 	}
 
-	h := &Bot{svc: svc, cache: cache, pending: newPendingCommands()}
+	ttl, err := cfg.SessionTTL()
+	if err != nil {
+		return nil, fmt.Errorf("bot ttl: %w", err)
+	}
+
+	h := &Bot{svc: svc, cache: cache, pending: newPendingCommands(), fsmTTL: ttl}
 	defaults := []bot.Option{
 		bot.WithErrorsHandler(func(err error) {
 			slog.Error("telegram", slog.Any("err", err))
@@ -91,7 +98,7 @@ func New(token string, svc Service, cache Cache, client HTTPClient, opts ...bot.
 		bot.WithWorkers(1),
 		bot.WithNotAsyncHandlers(), // enqueue stays on the poll worker; drain still runs per-user FIFO
 	}
-	inner, err := bot.New(token, append(defaults, opts...)...)
+	inner, err := bot.New(cfg.Token, append(defaults, opts...)...)
 	if err != nil {
 		return nil, fmt.Errorf("init telegram bot: %w", err)
 	}

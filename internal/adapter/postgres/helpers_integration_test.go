@@ -27,8 +27,10 @@ func testService(db *sql.DB, currency string) *service.Service {
 		NewOperationRepository(db),
 		NewTransactor(db),
 		clock.New(),
-		time.Hour,
-		currency,
+		service.Config{
+			Trial:   service.TrialConfig{Duration: time.Hour.String()},
+			Default: service.DefaultConfig{Currency: currency},
+		},
 	)
 }
 

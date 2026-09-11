@@ -25,7 +25,14 @@ func newBankSvc(t *testing.T) (*Service, *mocks.MockBankRepository, *mocks.MockO
 	banks := mocks.NewMockBankRepository(t)
 	ops := mocks.NewMockOperationRepository(t)
 	clock := mocks.NewMockClock(t)
-	return New(banks, mocks.NewMockUserRepository(t), ops, passthroughTx(t), clock, 168*time.Hour, "USD"), banks, ops, clock
+	return New(banks, mocks.NewMockUserRepository(t), ops, passthroughTx(t), clock, testCfg(168*time.Hour, "USD")), banks, ops, clock
+}
+
+func testCfg(trial time.Duration, currency string) Config {
+	return Config{
+		Trial:   TrialConfig{Duration: trial.String()},
+		Default: DefaultConfig{Currency: currency},
+	}
 }
 
 func passthroughTx(t *testing.T) *mocks.MockTransactor {

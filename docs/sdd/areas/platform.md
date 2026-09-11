@@ -14,21 +14,23 @@ Human run/CI checklist is canonical in [`README.md`](../../../README.md). This f
 | `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check) |
 | `POSTGRES_TEST_URL` | no | Compose `finbot_test` URL in tests | Adapter integration tests. Unreachable Postgres **fails** (does not skip) |
 | `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0`. Missing or invalid fails load. Unreachable Redis fails startup |
+| `BOT_TTL` | no | `1h` | Sliding FSM TTL (Go duration, must be `> 0`) |
 | `REDIS_TEST_URL` | no | Compose Redis URL in tests | `rediscache` integration tests. Unreachable Redis **fails** (does not skip) |
+| `ENVFILE` | no | unset | Optional dotenv path for `config.ParseConfig`. Process env wins. Production does not set this |
 
-Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `.env`.
+Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`.
 
 ## Docker
 
 `Dockerfile` exists (multi-stage, static-ish Go binary). It does not store Postgres or Redis on a local volume; pass `DATABASE_URL` and `REDIS_URL` at run time.
 
-Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16` (healthcheck `pg_isready`, named volume, user/password `finbot`/`finbot`, databases `finbot` and `finbot_test`) and `redis:7-alpine` (port `6379`, `requirepass finbot`, `maxmemory 64mb`, `maxmemory-policy volatile-ttl`, healthcheck `redis-cli -a finbot ping`, no volume). Local/CI credentials only. `docker compose up -d` before `go run ./cmd/bot` or adapter tests. CI does **not** run Compose. Compose is not production.
+Local Compose: [`docker-compose.yml`](../../../docker-compose.yml) — `postgres:16`, `redis:7-alpine`, and `bot` (build of the Dockerfile). Postgres/Redis healthchecks and credentials are unchanged (local/CI only). The bot service waits until both are healthy, then gets Compose-internal URLs (`postgres:5432`, `redis:6379`) plus `${BOT_TOKEN}` and optional vars from the project `.env`. Host ports `5432`/`6379` stay published for adapter tests and `ENVFILE=.env go run ./cmd/bot`. `make up` is `docker compose up --build -d`. CI does **not** run Compose. Compose is not production.
 
 ## Hosting
 
 Production is live on Railway Hobby: one **worker** (not a web service), replica **1**, sleep off, no public domain. [`railway.toml`](../../../railway.toml) is the in-repo contract (Docker builder, image `ENTRYPOINT`, restart on failure, stop-then-start). Railway Config as Code may be ignored for new services; set the dashboard equivalents. Hosted `DATABASE_URL` should use TLS (`sslmode=require` or the vendor URL). App uses **private** plugin URLs. Two long-poll processes on the same bot token fight. Railway GitHub auto-deploy must stay **off**; Actions is the only deployer, and **deploy is manual** (`workflow_dispatch` + Deploy checkbox, `master`/`main` only, still `needs: common`). Distroless image has no shell — use deployment logs, not Railway Console.
 
-Postgres is the system of record for users, banks, and operations. Rows have **no TTL**; pool `ConnMaxLifetime` / statement timeouts are connection limits, not data expiry. Inactivity delete is `4.4`. Redis FSM is expendable (10-minute sliding TTL).
+Postgres is the system of record for users, banks, and operations. Rows have **no TTL**; pool `ConnMaxLifetime` / statement timeouts are connection limits, not data expiry. Inactivity delete is `4.4`. Redis FSM is expendable (`BOT_TTL`, default `1h`).
 
 ## CI
 

@@ -1,4 +1,4 @@
-.PHONY: generate lint test test-unit test-integration
+.PHONY: generate lint test test-unit test-integration up down
 
 generate:
 	go tool mockery
@@ -13,3 +13,9 @@ test-unit:
 
 test-integration:
 	go test -tags=integration ./internal/adapter/postgres/... ./internal/adapter/rediscache/...
+
+up:
+	docker compose up --build -d
+
+down:
+	docker compose down

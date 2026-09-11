@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -21,8 +20,6 @@ const (
 	commandLanguage = "language"
 	commandCancel   = "cancel"
 	commandFeedback = "feedback"
-
-	fsmTTL = 10 * time.Minute
 
 	stepName    = "name"
 	stepInclude = "include"
@@ -130,7 +127,7 @@ func (h *Bot) saveFSM(ctx context.Context, userID domain.UserID, st fsmState) {
 		slog.Error("fsm encode", logAttrs(ctx, slog.Any("err", err))...)
 		return
 	}
-	if err := h.cache.Set(ctx, fsmKey(userID), raw, fsmTTL); err != nil {
+	if err := h.cache.Set(ctx, fsmKey(userID), raw, h.fsmTTL); err != nil {
 		slog.Error("fsm set", logAttrs(ctx, slog.Any("err", err))...)
 	}
 }

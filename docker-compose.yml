@@ -34,5 +34,23 @@ services:
       timeout: 5s
       retries: 10
 
+  bot:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      DATABASE_URL: postgres://finbot:finbot@postgres:5432/finbot?sslmode=disable
+      REDIS_URL: redis://:finbot@redis:6379/0
+      BOT_TTL: ${BOT_TTL:-1h}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TRIAL_DURATION: ${TRIAL_DURATION:-168h}
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-USD}
+
 volumes:
   finbot_postgres:
