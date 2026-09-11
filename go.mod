@@ -3,8 +3,11 @@ module finbot
 go 1.27.0
 
 require (
+	github.com/caarlos0/env/v9 v9.0.0
+	github.com/go-ozzo/ozzo-validation/v4 v4.4.1
 	github.com/go-telegram/bot v1.25.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.11.1
 )

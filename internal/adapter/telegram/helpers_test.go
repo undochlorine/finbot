@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/mock"
@@ -161,7 +162,7 @@ func expectFSMSet(t *testing.T, cache *mocks.MockCache, _ context.Context, key s
 				return false
 			}
 			return true
-		}), fsmTTL).
+		}), time.Hour).
 		Return(nil)
 }
 
@@ -214,7 +215,7 @@ func newTestBotUser(
 		Maybe()
 	cache.EXPECT().Get(mock.Anything, mock.Anything).Return(nil, false, nil).Maybe()
 
-	b, err := New("123:token", svc, cache, client)
+	b, err := New(testCfg("123:token"), svc, cache, client)
 	require.NoError(t, err)
 	return b
 }
@@ -261,4 +262,8 @@ func mustFSM(t *testing.T, st fsmState) []byte {
 	raw, err := json.Marshal(st)
 	require.NoError(t, err)
 	return raw
+}
+
+func testCfg(token string) Config {
+	return Config{Token: token, TTL: "1h"}
 }

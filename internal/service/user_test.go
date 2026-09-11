@@ -39,7 +39,7 @@ func TestUpsertUser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			users := mocks.NewMockUserRepository(t)
 			clock := mocks.NewMockClock(t)
-			svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, tt.trial, "USD")
+			svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(tt.trial, "USD"))
 
 			want := domain.User{
 				TelegramID:     userA,
@@ -69,7 +69,7 @@ func TestTouchActivity(t *testing.T) {
 	t.Run("updates last activity", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
 		clock := mocks.NewMockClock(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(168*time.Hour, "USD"))
 		clock.EXPECT().Now().Return(now)
 		users.EXPECT().TouchActivity(ctx, userA, now).Return(nil)
 
@@ -80,7 +80,7 @@ func TestTouchActivity(t *testing.T) {
 	t.Run("unknown user", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
 		clock := mocks.NewMockClock(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(168*time.Hour, "USD"))
 		clock.EXPECT().Now().Return(now)
 		users.EXPECT().TouchActivity(ctx, userB, now).Return(domain.ErrUserNotFound)
 
@@ -94,7 +94,7 @@ func TestSetReferredByIfEmpty(t *testing.T) {
 
 	t.Run("stores referrer", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), testCfg(168*time.Hour, "USD"))
 		users.EXPECT().SetReferredByIfEmpty(ctx, userA, userB).Return(nil)
 
 		require.NoError(t, svc.SetReferredByIfEmpty(ctx, userA, userB))
@@ -102,7 +102,7 @@ func TestSetReferredByIfEmpty(t *testing.T) {
 
 	t.Run("self does not call repository", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), testCfg(168*time.Hour, "USD"))
 
 		require.NoError(t, svc.SetReferredByIfEmpty(ctx, userA, userA))
 		require.True(t, users.AssertNotCalled(t, "SetReferredByIfEmpty"))
@@ -116,7 +116,7 @@ func TestSetLocale(t *testing.T) {
 	t.Run("persists a known locale", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
 		clock := mocks.NewMockClock(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(168*time.Hour, "USD"))
 		clock.EXPECT().Now().Return(now)
 		users.EXPECT().SetLocale(ctx, userA, domain.LocaleRU, now).Return(nil)
 
@@ -125,7 +125,7 @@ func TestSetLocale(t *testing.T) {
 
 	t.Run("rejects unknown locale", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), mocks.NewMockClock(t), testCfg(168*time.Hour, "USD"))
 
 		err := svc.SetLocale(ctx, userA, "fr")
 		require.ErrorIs(t, err, domain.ErrUnknownLocale)
@@ -135,7 +135,7 @@ func TestSetLocale(t *testing.T) {
 	t.Run("unknown user", func(t *testing.T) {
 		users := mocks.NewMockUserRepository(t)
 		clock := mocks.NewMockClock(t)
-		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, 168*time.Hour, "USD")
+		svc := New(mocks.NewMockBankRepository(t), users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(168*time.Hour, "USD"))
 		clock.EXPECT().Now().Return(now)
 		users.EXPECT().SetLocale(ctx, userB, domain.LocaleUK, now).Return(domain.ErrUserNotFound)
 

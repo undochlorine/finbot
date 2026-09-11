@@ -70,7 +70,7 @@ func TestNewRegistersMenuCommands(t *testing.T) {
 		Once()
 	expectSetMyCommands(t, client, &body)
 
-	_, err := New("123:token", mocks.NewMockService(t), mocks.NewMockCache(t), client)
+	_, err := New(testCfg("123:token"), mocks.NewMockService(t), mocks.NewMockCache(t), client)
 	require.NoError(t, err)
 
 	for _, cmd := range menuCommands() {
@@ -94,7 +94,7 @@ func TestNewSetMyCommandsError(t *testing.T) {
 		Return(resp, nil).
 		Once()
 
-	_, err := New("123:token", mocks.NewMockService(t), mocks.NewMockCache(t), client)
+	_, err := New(testCfg("123:token"), mocks.NewMockService(t), mocks.NewMockCache(t), client)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "register telegram commands")
 }

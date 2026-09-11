@@ -37,14 +37,14 @@ func runMain() int {
 }
 
 func run(ctx context.Context) error {
-	cfg, err := config.Load()
+	cfg, err := config.ParseConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
 
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel})))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.Log.SlogLevel()})))
 
-	db, err := postgres.Open(ctx, cfg.DatabaseURL)
+	db, err := postgres.Open(ctx, cfg.Postgres.URL)
 	if err != nil {
 		return fmt.Errorf("postgres: %w", err)
 	}
@@ -54,7 +54,7 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	cache, err := rediscache.Open(ctx, cfg.RedisURL, "")
+	cache, err := rediscache.Open(ctx, cfg.Redis.URL, "")
 	if err != nil {
 		return fmt.Errorf("redis: %w", err)
 	}
@@ -71,12 +71,11 @@ func run(ctx context.Context) error {
 		postgres.NewOperationRepository(db),
 		postgres.NewTransactor(db),
 		clk,
-		cfg.TrialDuration,
-		cfg.DefaultCurrency,
+		cfg.Service,
 	)
 
 	b, err := telegram.New(
-		cfg.BotToken,
+		cfg.Bot,
 		svc,
 		cache,
 		&http.Client{Timeout: telegramHTTPTimeout},
@@ -84,8 +83,8 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("telegram: %w", err)
 	}
-	if cfg.AdminTelegramID != 0 {
-		b.SetAdmin(domain.UserID(cfg.AdminTelegramID), b)
+	if cfg.Admin.ID != 0 {
+		b.SetAdmin(domain.UserID(cfg.Admin.ID), b)
 	}
 
 	b.Start(ctx)

@@ -27,16 +27,18 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | `BOT_TOKEN` | yes | — | From [@BotFather](https://t.me/BotFather) |
 | `DATABASE_URL` | yes | — | Postgres URL. Local Compose: `postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable` |
 | `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0` |
+| `BOT_TTL` | no | `1h` | Sliding conversation FSM TTL (Go duration). Must be `> 0` |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
 | `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check). Existing banks keep the migration default `USD`. Hidden in copy until later. |
+| `ENVFILE` | no | unset | If set, load that dotenv file first. Process environment still wins. Railway does not set this. |
 
-Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `.env`.
+Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`. Compose reads `.env` for `${BOT_TOKEN}` interpolation; the bot container gets in-network `DATABASE_URL` / `REDIS_URL` from `docker-compose.yml`, not the host URLs in `.env`.
 
 ## Run locally
 
-A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker** (for local Postgres and Redis), a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other.
+A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker**, a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other. Use a **dev BotFather token** locally; leave the production token on Railway.
 
 ```bash
 git clone https://github.com/undochlorine/finbot.git
@@ -58,25 +60,28 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Leave `DATABASE_URL` and `REDIS_URL` at the Compose defaults unless you point at another Postgres or Redis. Leave `LOG_LEVEL`, `TRIAL_DURATION`, and `DEFAULT_CURRENCY` at the defaults unless you need to change them. You can export the same variables in the shell instead; real env wins over `.env`.
+Set `BOT_TOKEN` in `.env` to the **dev** token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Optional: `LOG_LEVEL`, `TRIAL_DURATION`, `DEFAULT_CURRENCY`, `BOT_TTL`. Host URLs in `.env` (`DATABASE_URL`, `REDIS_URL`) are for `ENVFILE=.env go run ./cmd/bot` against published Compose ports. `make up` always points the bot container at the `postgres` and `redis` services.
 
-### 3. Start Postgres and Redis
-
-```bash
-docker compose up -d
-```
-
-Wait until the `postgres` and `redis` services are healthy. The bot database is `finbot`; integration tests use `finbot_test`. Redis holds conversation FSM (10-minute TTL). There is no Redis volume; a Redis restart drops in-flight wizards.
-
-### 4. Start the process
+### 3. Start Postgres, Redis, and the bot
 
 ```bash
-go run ./cmd/bot
+make up
 ```
 
-The process loads config, opens Postgres (`DATABASE_URL`) and Redis (`REDIS_URL`), migrates if needed, registers the slash command menu with Telegram, and long-polls until Ctrl+C (SIGINT) or SIGTERM. Missing `BOT_TOKEN`, a missing or invalid `DATABASE_URL` or `REDIS_URL`, unreachable Postgres or Redis, or an invalid `LOG_LEVEL` / `TRIAL_DURATION` / `ADMIN_TELEGRAM_ID` is a non-zero exit. The host needs outbound HTTPS to `api.telegram.org`. Docker run passes `DATABASE_URL` and `REDIS_URL` at run time; the image does not store Postgres or Redis data.
+That is `docker compose up --build -d`: Postgres, Redis, and the bot image. Wait until `postgres` and `redis` are healthy; the bot starts after that. Follow bot logs with `docker compose logs -f bot`. The bot database is `finbot`; integration tests use `finbot_test`. Redis holds conversation FSM (default TTL `1h`, `BOT_TTL`). There is no Redis volume; a Redis restart drops in-flight wizards.
 
-### 5. Open Telegram
+Stop with `make down`.
+
+To run the bot on the host instead of in Compose (same `.env`, published ports):
+
+```bash
+docker compose up -d postgres redis
+ENVFILE=.env go run ./cmd/bot
+```
+
+Do not combine `make up` and `go run` with the same `BOT_TOKEN`.
+
+### 4. Open Telegram
 
 Find the bot by the username you gave BotFather and send `/start`. `/help` lists commands. The `/` hint and Commands button should show the menu after the process has started. If an old Telegram client still shows no Commands hint, close and reopen the chat.
 
@@ -86,7 +91,7 @@ Try `/newbank Travelling`, then `/banks`. To confirm Postgres keeps rows across 
 
 Banks live in Postgres at `DATABASE_URL`. A process restart must keep them.
 
-1. Start Compose (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
+1. Start Compose (`make up`, or `docker compose up -d postgres redis` plus `ENVFILE=.env go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
 2. Create a bank (`/newbank Travelling`) and note `/banks`.
 3. Stop the process with Ctrl+C (SIGINT) or SIGTERM. Do not wipe the Compose volume.
 4. Start the same command again with the same `DATABASE_URL`.
@@ -100,9 +105,9 @@ go test -tags=integration -count=1 ./internal/adapter/postgres/ -run TestReopenK
 
 ## Verify session cache
 
-Conversation FSM lives in Redis at `REDIS_URL` (JSON blob, 10-minute sliding TTL). A **process** restart must keep an in-flight wizard if Redis still holds the key. A **Redis** restart drops wizards (same as expiry — start over).
+Conversation FSM lives in Redis at `REDIS_URL` (JSON blob, sliding TTL from `BOT_TTL`, default `1h`). A **process** restart must keep an in-flight wizard if Redis still holds the key. A **Redis** restart drops wizards (same as expiry — start over).
 
-1. Start Compose (`docker compose up -d`) and the bot (`go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
+1. Start Compose (`make up`, or `docker compose up -d postgres redis` plus `ENVFILE=.env go run ./cmd/bot`) with stable `DATABASE_URL` and `REDIS_URL`.
 2. Start a wizard and stop before finishing (for example `/newbank` and do not send the name).
 3. Stop the bot process with Ctrl+C. Leave Redis running.
 4. Start the same command again. The wizard is still in flight (typed name continues the same `/newbank`).
@@ -121,10 +126,10 @@ make lint               # golangci-lint using .golangci.yaml
 
 Postgres and Redis adapter tests are tagged `//go:build integration` so they are not part of `make test-unit`. Unit tests do not need Postgres or Redis.
 
-Local Postgres and Redis for the bot and adapter tests:
+Local Postgres and Redis for adapter tests (bot container not required):
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis
 ```
 
 `make test-integration` connects to `POSTGRES_TEST_URL` and `REDIS_TEST_URL`, or defaults to `postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable` and `redis://:finbot@127.0.0.1:6379/0`. If Postgres or Redis is unreachable the tests **fail** (they do not skip) and tell you to start Compose. CI uses GitHub Actions service containers, not Compose.
@@ -188,6 +193,7 @@ Set these on the Railway worker. The app uses **private** plugin URLs, not the p
 | `BOT_TOKEN` | yes | From [@BotFather](https://t.me/BotFather) |
 | `DATABASE_URL` | yes | Private Postgres URL. Use TLS (`sslmode=require` or the vendor URL as issued) |
 | `REDIS_URL` | yes | Private Redis URL (`redis://` or `rediss://`, or the vendor URL as issued) |
+| `BOT_TTL` | no | Default `1h`. Omit to keep the default |
 | `LOG_LEVEL` | no | `info` in production |
 | `ADMIN_TELEGRAM_ID` | no | Numeric Telegram user id for `/feedback` |
 | `TRIAL_DURATION` | no | Default `168h`. Not enforced until later |
@@ -209,7 +215,7 @@ The project **Logs** sidebar mixes every service. `checkpoint starting` / `check
 
 ### Postgres and Redis access
 
-Banks, users, and operations live in Postgres until you delete them (or until step `4.4` inactivity). There is **no row TTL** and no Redis cache of balances. Redis only holds the conversation FSM (10-minute sliding TTL).
+Banks, users, and operations live in Postgres until you delete them (or until step `4.4` inactivity). There is **no row TTL** and no Redis cache of balances. Redis only holds the conversation FSM (sliding TTL from `BOT_TTL`, default `1h`).
 
 1. **Browser:** Railway Postgres data tab / query UI and Redis UI.
 2. **Local client:** enable the plugin TCP proxy (public URL + TLS + password). Connect with TablePlus / `psql` / Redis Insight / `redis-cli`. Do not open Postgres or Redis to `0.0.0.0` without TLS and a password. Do not tunnel through the bot process.

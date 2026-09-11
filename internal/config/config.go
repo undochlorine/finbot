@@ -1,193 +1,123 @@
 package config
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
-	"time"
+
+	"github.com/caarlos0/env/v9"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/joho/godotenv"
+
+	"finbot/internal/adapter/postgres"
+	"finbot/internal/adapter/rediscache"
+	"finbot/internal/adapter/telegram"
+	"finbot/internal/service"
 )
 
-const (
-	defaultLogLevel      = "info"
-	defaultTrialDuration = 168 * time.Hour
-	defaultCurrency      = "USD"
-	dotEnvPath           = ".env"
-)
+type LogConfig struct {
+	Level string `env:"LEVEL" envDefault:"info"`
+}
 
 type Config struct {
-	BotToken        string
-	LogLevel        slog.Level
-	TrialDuration   time.Duration
-	AdminTelegramID int64
-	DefaultCurrency string
-	DatabaseURL     string
-	PostgresTestURL string
-	RedisURL        string
-	RedisTestURL    string
+	Log      LogConfig            `envPrefix:"LOG_"`
+	Bot      telegram.Config      `envPrefix:"BOT_"`
+	Admin    telegram.AdminConfig `envPrefix:"ADMIN_TELEGRAM_"`
+	Postgres postgres.Config      `envPrefix:"DATABASE_"`
+	Redis    rediscache.Config    `envPrefix:"REDIS_"`
+	Service  service.Config
 }
 
-func Load() (Config, error) {
-	if err := applyDotEnv(dotEnvPath); err != nil {
+func ParseConfig(ctx context.Context) (Config, error) {
+	var cfg Config
+
+	if envFile := os.Getenv("ENVFILE"); len(envFile) > 0 {
+		if err := godotenv.Load(envFile); err != nil {
+			return Config{}, fmt.Errorf("loading .env file: %w", err)
+		}
+	}
+
+	if err := clearEmptyOptionalEnv(); err != nil {
 		return Config{}, err
 	}
 
-	token := os.Getenv("BOT_TOKEN")
-	if token == "" {
-		return Config{}, fmt.Errorf("BOT_TOKEN is required")
+	if err := env.Parse(&cfg); err != nil {
+		return Config{}, fmt.Errorf("env, parse: %w", err)
 	}
 
-	databaseURL, err := parseDatabaseURL(os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return Config{}, err
+	if err := cfg.ValidateWithContext(ctx); err != nil {
+		return Config{}, fmt.Errorf("validate config: %w", err)
 	}
 
-	level, err := parseLogLevel(os.Getenv("LOG_LEVEL"))
-	if err != nil {
-		return Config{}, err
-	}
-
-	trial, err := parseTrialDuration(os.Getenv("TRIAL_DURATION"))
-	if err != nil {
-		return Config{}, err
-	}
-
-	adminID, err := parseAdminTelegramID(os.Getenv("ADMIN_TELEGRAM_ID"))
-	if err != nil {
-		return Config{}, err
-	}
-
-	redisURL, err := parseRedisURL(os.Getenv("REDIS_URL"))
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		BotToken:        token,
-		LogLevel:        level,
-		TrialDuration:   trial,
-		AdminTelegramID: adminID,
-		DefaultCurrency: parseDefaultCurrency(os.Getenv("DEFAULT_CURRENCY")),
-		DatabaseURL:     databaseURL,
-		PostgresTestURL: strings.TrimSpace(os.Getenv("POSTGRES_TEST_URL")),
-		RedisURL:        redisURL,
-		RedisTestURL:    strings.TrimSpace(os.Getenv("REDIS_TEST_URL")),
-	}, nil
+	return cfg, nil
 }
 
-func parseDatabaseURL(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
+func (c *Config) ValidateWithContext(ctx context.Context) error {
+	for _, err := range []error{
+		c.Log.ValidateWithContext(ctx),
+		c.Bot.ValidateWithContext(ctx),
+		c.Admin.ValidateWithContext(ctx),
+		c.Postgres.ValidateWithContext(ctx),
+		c.Redis.ValidateWithContext(ctx),
+		c.Service.ValidateWithContext(ctx),
+	} {
+		if err != nil {
+			return fmt.Errorf("validate config via lib: %w", err)
+		}
+	}
+	return nil
+}
+
+func (c *LogConfig) ValidateWithContext(ctx context.Context) error {
+	c.Level = strings.TrimSpace(c.Level)
+	return validation.ValidateStructWithContext(ctx, c,
+		validation.Field(&c.Level, validation.By(requireLogLevel)),
+	)
+}
+
+func (c LogConfig) SlogLevel() slog.Level {
+	switch strings.ToLower(strings.TrimSpace(c.Level)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+func requireLogLevel(value any) error {
+	raw, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("LOG_LEVEL must be debug, info, warn, or error")
+	}
 	if raw == "" {
-		return "", fmt.Errorf("DATABASE_URL is required")
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", fmt.Errorf("DATABASE_URL is invalid: %w", err)
-	}
-	if (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
-		return "", fmt.Errorf("DATABASE_URL is invalid")
-	}
-	return raw, nil
-}
-
-func parseRedisURL(raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", fmt.Errorf("REDIS_URL is required")
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", fmt.Errorf("REDIS_URL is invalid: %w", err)
-	}
-	if (u.Scheme != "redis" && u.Scheme != "rediss") || u.Host == "" {
-		return "", fmt.Errorf("REDIS_URL is invalid")
-	}
-	return raw, nil
-}
-
-func parseDefaultCurrency(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return defaultCurrency
-	}
-	return raw
-}
-
-func parseLogLevel(raw string) (slog.Level, error) {
-	if raw == "" {
-		raw = defaultLogLevel
+		raw = "info"
 	}
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "debug":
-		return slog.LevelDebug, nil
-	case "info":
-		return slog.LevelInfo, nil
-	case "warn":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("LOG_LEVEL must be debug, info, warn, or error")
-	}
-}
-
-func parseTrialDuration(raw string) (time.Duration, error) {
-	if raw == "" {
-		return defaultTrialDuration, nil
-	}
-	parsed, err := time.ParseDuration(raw)
-	if err != nil {
-		return 0, fmt.Errorf("TRIAL_DURATION: %w", err)
-	}
-	if parsed < 0 {
-		return 0, fmt.Errorf("TRIAL_DURATION must be >= 0")
-	}
-	return parsed, nil
-}
-
-func parseAdminTelegramID(raw string) (int64, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0, nil
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("ADMIN_TELEGRAM_ID must be a Telegram user id")
-	}
-	if id < 0 {
-		return 0, fmt.Errorf("ADMIN_TELEGRAM_ID must be >= 0")
-	}
-	return id, nil
-}
-
-func applyDotEnv(path string) error {
-	data, err := os.ReadFile(path) //nolint:gosec // path is the fixed local .env file
-	if errors.Is(err, os.ErrNotExist) {
+	case "debug", "info", "warn", "error":
 		return nil
+	default:
+		return fmt.Errorf("LOG_LEVEL must be debug, info, warn, or error")
 	}
-	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
+}
 
-	for _, raw := range strings.Split(string(data), "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, val, ok := strings.Cut(line, "=")
-		if !ok {
-			return fmt.Errorf("%s: invalid line %q", path, line)
-		}
-		key = strings.TrimSpace(key)
-		val = strings.Trim(strings.TrimSpace(val), `"'`)
-		if _, exists := os.LookupEnv(key); exists {
-			continue
-		}
-		if err := os.Setenv(key, val); err != nil {
-			return fmt.Errorf("set %s: %w", key, err)
+func clearEmptyOptionalEnv() error {
+	for _, key := range []string{
+		"LOG_LEVEL",
+		"BOT_TTL",
+		"TRIAL_DURATION",
+		"ADMIN_TELEGRAM_ID",
+		"DEFAULT_CURRENCY",
+	} {
+		if strings.TrimSpace(os.Getenv(key)) == "" {
+			if err := os.Unsetenv(key); err != nil {
+				return fmt.Errorf("unset %s: %w", key, err)
+			}
 		}
 	}
 	return nil

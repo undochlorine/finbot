@@ -1,9 +1,16 @@
 package config
 
 import (
+	"context"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
-	"time"
+
+	"finbot/internal/adapter/postgres"
+	"finbot/internal/adapter/rediscache"
+	"finbot/internal/adapter/telegram"
+	"finbot/internal/service"
 )
 
 const (
@@ -11,23 +18,15 @@ const (
 	testRedisURL    = "redis://:finbot@127.0.0.1:6379/0"
 )
 
-func TestLoad(t *testing.T) {
+func TestParseConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		env     map[string]string
 		want    Config
 		wantErr bool
 	}{
-		{
-			name:    "missing token",
-			env:     map[string]string{},
-			wantErr: true,
-		},
-		{
-			name:    "missing database url",
-			env:     map[string]string{"BOT_TOKEN": "tok"},
-			wantErr: true,
-		},
+		{name: "missing token", env: map[string]string{}, wantErr: true},
+		{name: "missing database url", env: map[string]string{"BOT_TOKEN": "tok"}, wantErr: true},
 		{
 			name: "blank database url",
 			env: map[string]string{
@@ -67,15 +66,7 @@ func TestLoad(t *testing.T) {
 				"DATABASE_URL": testDatabaseURL,
 				"REDIS_URL":    testRedisURL,
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        testRedisURL,
-			},
+			want: validCfg("tok", testDatabaseURL, testRedisURL),
 		},
 		{
 			name: "overrides",
@@ -85,60 +76,41 @@ func TestLoad(t *testing.T) {
 				"TRIAL_DURATION":    "24h",
 				"ADMIN_TELEGRAM_ID": "12345",
 				"DEFAULT_CURRENCY":  "EUR",
-				"DATABASE_URL":      "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
-				"POSTGRES_TEST_URL": "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
-				"REDIS_URL":         "redis://:finbot@127.0.0.1:6379/0",
-				"REDIS_TEST_URL":    "redis://:finbot@127.0.0.1:6379/0",
+				"DATABASE_URL":      testDatabaseURL,
+				"REDIS_URL":         testRedisURL,
+				"BOT_TTL":           "30m",
 			},
 			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelDebug,
-				TrialDuration:   24 * time.Hour,
-				AdminTelegramID: 12345,
-				DefaultCurrency: "EUR",
-				DatabaseURL:     "postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
-				PostgresTestURL: "postgres://finbot:finbot@127.0.0.1:5432/finbot_test?sslmode=disable",
-				RedisURL:        "redis://:finbot@127.0.0.1:6379/0",
-				RedisTestURL:    "redis://:finbot@127.0.0.1:6379/0",
+				Log:   LogConfig{Level: "DEBUG"},
+				Bot:   telegram.Config{Token: "tok", TTL: "30m"},
+				Admin: telegram.AdminConfig{ID: 12345},
+				Postgres: postgres.Config{
+					URL: testDatabaseURL,
+				},
+				Redis: rediscache.Config{URL: testRedisURL},
+				Service: service.Config{
+					Trial:   service.TrialConfig{Duration: "24h"},
+					Default: service.DefaultConfig{Currency: "EUR"},
+				},
 			},
 		},
 		{
 			name: "trims postgres urls",
 			env: map[string]string{
-				"BOT_TOKEN":         "tok",
-				"DATABASE_URL":      "  postgres://local/finbot  ",
-				"POSTGRES_TEST_URL": "  postgres://local/finbot_test  ",
-				"REDIS_URL":         testRedisURL,
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": "  postgres://local/finbot  ",
+				"REDIS_URL":    testRedisURL,
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     "postgres://local/finbot",
-				PostgresTestURL: "postgres://local/finbot_test",
-				RedisURL:        testRedisURL,
-			},
+			want: validCfg("tok", "postgres://local/finbot", testRedisURL),
 		},
 		{
 			name: "trims redis urls",
 			env: map[string]string{
-				"BOT_TOKEN":      "tok",
-				"DATABASE_URL":   testDatabaseURL,
-				"REDIS_URL":      "  redis://:finbot@127.0.0.1:6379/0  ",
-				"REDIS_TEST_URL": "  redis://:finbot@127.0.0.1:6379/0  ",
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    "  redis://:finbot@127.0.0.1:6379/0  ",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        "redis://:finbot@127.0.0.1:6379/0",
-				RedisTestURL:    "redis://:finbot@127.0.0.1:6379/0",
-			},
+			want: validCfg("tok", testDatabaseURL, "redis://:finbot@127.0.0.1:6379/0"),
 		},
 		{
 			name: "rediss scheme",
@@ -147,15 +119,7 @@ func TestLoad(t *testing.T) {
 				"DATABASE_URL": testDatabaseURL,
 				"REDIS_URL":    "rediss://cache.example:6379/0",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        "rediss://cache.example:6379/0",
-			},
+			want: validCfg("tok", testDatabaseURL, "rediss://cache.example:6379/0"),
 		},
 		{
 			name: "blank redis url",
@@ -200,15 +164,7 @@ func TestLoad(t *testing.T) {
 				"DATABASE_URL": "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
 				"REDIS_URL":    testRedisURL,
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable",
-				RedisURL:        testRedisURL,
-			},
+			want: validCfg("tok", "postgresql://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable", testRedisURL),
 		},
 		{
 			name: "empty currency uses USD",
@@ -218,15 +174,7 @@ func TestLoad(t *testing.T) {
 				"REDIS_URL":        testRedisURL,
 				"DEFAULT_CURRENCY": "   ",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: "USD",
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        testRedisURL,
-			},
+			want: validCfg("tok", testDatabaseURL, testRedisURL),
 		},
 		{
 			name: "currency kept as trimmed",
@@ -236,15 +184,11 @@ func TestLoad(t *testing.T) {
 				"REDIS_URL":        testRedisURL,
 				"DEFAULT_CURRENCY": " eur ",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: "eur",
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        testRedisURL,
-			},
+			want: func() Config {
+				cfg := validCfg("tok", testDatabaseURL, testRedisURL)
+				cfg.Service.Default.Currency = "eur"
+				return cfg
+			}(),
 		},
 		{
 			name: "zero trial means none",
@@ -254,15 +198,11 @@ func TestLoad(t *testing.T) {
 				"REDIS_URL":      testRedisURL,
 				"TRIAL_DURATION": "0",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   0,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        testRedisURL,
-			},
+			want: func() Config {
+				cfg := validCfg("tok", testDatabaseURL, testRedisURL)
+				cfg.Service.Trial.Duration = "0"
+				return cfg
+			}(),
 		},
 		{
 			name: "zero admin id is unset",
@@ -272,15 +212,7 @@ func TestLoad(t *testing.T) {
 				"REDIS_URL":         testRedisURL,
 				"ADMIN_TELEGRAM_ID": "0",
 			},
-			want: Config{
-				BotToken:        "tok",
-				LogLevel:        slog.LevelInfo,
-				TrialDuration:   defaultTrialDuration,
-				AdminTelegramID: 0,
-				DefaultCurrency: defaultCurrency,
-				DatabaseURL:     testDatabaseURL,
-				RedisURL:        testRedisURL,
-			},
+			want: validCfg("tok", testDatabaseURL, testRedisURL),
 		},
 		{
 			name: "invalid admin id",
@@ -327,24 +259,36 @@ func TestLoad(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "zero bot ttl rejected",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    testRedisURL,
+				"BOT_TTL":      "0",
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative bot ttl rejected",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    testRedisURL,
+				"BOT_TTL":      "-1h",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("BOT_TOKEN", "")
-			t.Setenv("LOG_LEVEL", "")
-			t.Setenv("TRIAL_DURATION", "")
-			t.Setenv("ADMIN_TELEGRAM_ID", "")
-			t.Setenv("DEFAULT_CURRENCY", "")
-			t.Setenv("DATABASE_URL", "")
-			t.Setenv("POSTGRES_TEST_URL", "")
-			t.Setenv("REDIS_URL", "")
-			t.Setenv("REDIS_TEST_URL", "")
+			resetParseEnv(t)
 			for k, v := range tt.env {
 				t.Setenv(k, v)
 			}
 
-			got, err := Load()
+			got, err := ParseConfig(context.Background())
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -361,32 +305,73 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-func TestParseLogLevel(t *testing.T) {
-	tests := []struct {
-		in      string
-		want    slog.Level
-		wantErr bool
-	}{
-		{in: "", want: slog.LevelInfo},
-		{in: "warn", want: slog.LevelWarn},
-		{in: "error", want: slog.LevelError},
-		{in: "trace", wantErr: true},
+func TestParseConfigENVFILE(t *testing.T) {
+	resetParseEnv(t)
+
+	path := filepath.Join(t.TempDir(), ".env")
+	content := "BOT_TOKEN=from-file\nDATABASE_URL=" + testDatabaseURL + "\nREDIS_URL=" + testRedisURL + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			got, err := parseLogLevel(tt.in)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.want {
-				t.Fatalf("got %v, want %v", got, tt.want)
-			}
-		})
+	t.Setenv("ENVFILE", path)
+	if err := os.Unsetenv("DATABASE_URL"); err != nil {
+		t.Fatal(err)
 	}
+	if err := os.Unsetenv("REDIS_URL"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BOT_TOKEN", "from-process")
+
+	got, err := ParseConfig(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bot.Token != "from-process" {
+		t.Fatalf("process env should win, got %q", got.Bot.Token)
+	}
+}
+
+func TestParseConfigENVFILEMissing(t *testing.T) {
+	resetParseEnv(t)
+	t.Setenv("ENVFILE", filepath.Join(t.TempDir(), "missing.env"))
+
+	_, err := ParseConfig(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLogConfigSlogLevel(t *testing.T) {
+	if (LogConfig{Level: ""}).SlogLevel() != slog.LevelInfo {
+		t.Fatal("empty defaults to info")
+	}
+	if (LogConfig{Level: "warn"}).SlogLevel() != slog.LevelWarn {
+		t.Fatal("warn")
+	}
+}
+
+func validCfg(token, databaseURL, redisURL string) Config {
+	return Config{
+		Log:      LogConfig{Level: "info"},
+		Bot:      telegram.Config{Token: token, TTL: "1h"},
+		Postgres: postgres.Config{URL: databaseURL},
+		Redis:    rediscache.Config{URL: redisURL},
+		Service: service.Config{
+			Trial:   service.TrialConfig{Duration: "168h"},
+			Default: service.DefaultConfig{Currency: "USD"},
+		},
+	}
+}
+
+func resetParseEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("ENVFILE", "")
+	t.Setenv("BOT_TOKEN", "")
+	t.Setenv("BOT_TTL", "")
+	t.Setenv("LOG_LEVEL", "")
+	t.Setenv("TRIAL_DURATION", "")
+	t.Setenv("ADMIN_TELEGRAM_ID", "")
+	t.Setenv("DEFAULT_CURRENCY", "")
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("REDIS_URL", "")
 }
