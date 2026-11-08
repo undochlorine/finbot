@@ -36,6 +36,8 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`. Compose reads `.env` for `${BOT_TOKEN}` interpolation; the bot container gets in-network `DATABASE_URL` / `REDIS_URL` from `docker-compose.yml`, not the host URLs in `.env`.
 
+Each TTL belongs to one kind of data. `BOT_TTL` is only the conversation FSM. A new cache or expiry gets its own variable, with the default in code; leave it unset to keep that default.
+
 ## Run locally
 
 A new machine needs **Go 1.27** ([install](https://go.dev/dl/)), **Docker**, a Telegram account, and a bot token. Clone this repo and work from its root. Talk to the bot in a **private chat** (one user ↔ one bot). Keep a single process per token: two long-polling clients on the same token fight each other. Use a **dev BotFather token** locally; leave the production token on Railway.

@@ -8,7 +8,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.4` |
+| **Current step** | `4.13` (specified, not started — implement `4.13.1`) |
 | **Last done** | `4.12` language picker (`en` / `ru` / `uk` / `md`) |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
@@ -27,6 +27,7 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 6. After a logical Go code scope: `make lint`.
 7. Do not create a GitHub remote or commit unless the user asks.
 8. Tests: table-driven unit tests for business logic with **mockery on the consumer’s interfaces**. Integration: Postgres (and Redis after `4.2.1`) via Compose locally and GitHub Actions service containers in CI. **Do not hand-write stubs/fakes/spies** for an interface mockery can generate. A custom test double needs a written reason **and explicit user approval**. Plain cases always use mockery. CI: `make test-unit`, `make lint`, `make test-integration`.
+9. Operator-tunable values (TTLs, durations, limits) are environment variables with the default on the config struct (`envDefault`). One variable per kind of data. Do not reuse another entity’s TTL (`BOT_TTL` is only the conversation FSM). Blank or unset keeps the default. Pool sizes and statement timeouts stay code constants.
 
 ## Routing
 
@@ -53,8 +54,13 @@ For `let's move to step X.Y` also read `docs/sdd/requirements.md` and the step f
 | 4.10 | persistence, telegram, service | `docs/sdd/steps/4.10-history.md` |
 | 4.11 | telegram, persistence | `docs/sdd/steps/4.11-tips.md` |
 | 4.12 | telegram, persistence | `docs/sdd/steps/4.12-language.md` |
-| 4.13 | persistence, telegram, service | `docs/sdd/steps/4.13-multi-currency.md` |
-| 4.14 | telegram, persistence, service | `docs/sdd/steps/4.14-fx-transfer.md` |
+| 4.13 | persistence, telegram, service | `docs/sdd/steps/4.13-multi-currency.md` (umbrella; do not implement — start `4.13.1`) |
+| 4.13.1 | persistence, service | `docs/sdd/steps/4.13.1-currency-model.md` |
+| 4.13.2 | telegram, service, persistence | `docs/sdd/steps/4.13.2-currency-display.md` |
+| 4.13.3 | telegram, persistence, service | `docs/sdd/steps/4.13.3-currency-picker.md` |
+| 4.14 | telegram, persistence, service | `docs/sdd/steps/4.14-fx-transfer.md` (umbrella; do not implement — start `4.14.1`) |
+| 4.14.1 | service, telegram | `docs/sdd/steps/4.14.1-fx-rates.md` |
+| 4.14.2 | telegram, persistence, service | `docs/sdd/steps/4.14.2-fx-transfer.md` |
 | 4.15 | billing, telegram | `docs/sdd/steps/4.15-referral.md` |
 | 4.16 | billing | `docs/sdd/steps/4.16-contributors.md` |
 | 4.17 | platform | `docs/sdd/steps/4.17-dashboards.md` |
@@ -67,6 +73,6 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.4`
+`Follow AGENTS.md. Let's move to step 4.13.1`
 
-Inactivity warn-then-delete from `LastActivityAt` (exact TTLs decided with the operator). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md). Human run/CI: [`README.md`](README.md).
+Currency model only (codes, `$` / `€` / ISO display, backfill `USD`, `users.last_currency`). Do not start `4.13.2` in the same session. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).

@@ -9,7 +9,7 @@ Monetization sequence (do not skip `4.6`):
 3. `4.7` billing against that strategy
 4. `4.8` Telegram admin whitelist privileges (`100` / `50` / `30` / custom % off)
 
-Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Redis is split the same way: `4.2.1` foundation+adapter → `4.2.2` cutover. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). Hosting is split: `4.3.1` packaging → `4.3.2` provision. Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](../../superpowers/specs/2026-09-09-hosting-design.md). Product after money: `4.10`–`4.21`.
+Postgres is split so one session cannot swallow the cutover: `4.1.1` foundation → `4.1.2` adapter → `4.1.3` cutover. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../../superpowers/specs/2026-09-09-postgresql-migration-design.md). Redis is split the same way: `4.2.1` foundation+adapter → `4.2.2` cutover. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../../superpowers/specs/2026-09-09-redis-cache-design.md). Hosting is split: `4.3.1` packaging → `4.3.2` provision. Design: [`docs/superpowers/specs/2026-09-09-hosting-design.md`](../../superpowers/specs/2026-09-09-hosting-design.md). Product after money: `4.10`–`4.21`. Multi-currency is split: `4.13.1` model → `4.13.2` display → `4.13.3` picker, then `4.14.1` FX cache → `4.14.2` converted `/transfer`. Rules: [`requirements.md`](../requirements.md) (Currencies and FX).
 
 Pickup: `Follow AGENTS.md. Let's move to step 4.4` — then only the files that row lists.
 
@@ -34,8 +34,13 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.4` — then only the files that 
 | 4.10 | `todo` | [Transaction history](4.10-history.md) |
 | 4.11 | `todo` | [Finance tips](4.11-tips.md) |
 | 4.12 | `done` | [Language picker](4.12-language.md) |
-| 4.13 | `todo` | [Multi-currency banks](4.13-multi-currency.md) |
-| 4.14 | `todo` | [Cross-currency transfer](4.14-fx-transfer.md) |
+| 4.13 | `todo` | [Multi-currency banks (umbrella)](4.13-multi-currency.md) |
+| 4.13.1 | `todo` | [Currency model](4.13.1-currency-model.md) |
+| 4.13.2 | `todo` | [Currency display](4.13.2-currency-display.md) |
+| 4.13.3 | `todo` | [Currency picker](4.13.3-currency-picker.md) |
+| 4.14 | `todo` | [Cross-currency transfer (umbrella)](4.14-fx-transfer.md) |
+| 4.14.1 | `todo` | [FX rates](4.14.1-fx-rates.md) |
+| 4.14.2 | `todo` | [FX transfer](4.14.2-fx-transfer.md) |
 | 4.15 | `todo` | [Referral program](4.15-referral.md) |
 | 4.16 | `todo` | [Contributors program](4.16-contributors.md) |
 | 4.17 | `todo` | [Dashboards / metrics](4.17-dashboards.md) |
