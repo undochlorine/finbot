@@ -20,6 +20,8 @@ Human run/CI checklist is canonical in [`README.md`](../../../README.md). This f
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`.
 
+Operator-tunable durations and limits are env vars with `envDefault` on the struct. One variable per entity: `BOT_TTL` is only the FSM. A later cache (FX quotes in `4.14.1`) gets its own names. Blank or unset keeps the default. Pool sizes and statement timeouts stay code constants.
+
 ## Docker
 
 `Dockerfile` exists (multi-stage, static-ish Go binary). It does not store Postgres or Redis on a local volume; pass `DATABASE_URL` and `REDIS_URL` at run time.
