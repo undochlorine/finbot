@@ -38,6 +38,7 @@ func TestHelpListsMVPCommands(t *testing.T) {
 		{"/bank", CmdDescBank},
 		{"/toggle", CmdDescToggle},
 		{"/rename", CmdDescRename},
+		{"/currency", CmdDescCurrency},
 		{"/transfer", CmdDescTransfer},
 		{"/banks", CmdDescBanks},
 		{"/total", CmdDescTotal},
@@ -105,6 +106,12 @@ func TestHelpMentionsCommandShortcuts(t *testing.T) {
 	if !strings.Contains(Help, "/rename Holiday Trips") {
 		t.Fatal("help should show a /rename old-new shortcut")
 	}
+	if !strings.Contains(Help, "/currency Holiday") {
+		t.Fatal("help should show a /currency shortcut")
+	}
+	if !strings.Contains(Help, "/currency Holiday UAH") {
+		t.Fatal("help should show a /currency code shortcut")
+	}
 	if !strings.Contains(Help, "/transfer Holiday Gifts 50") {
 		t.Fatal("help should show a /transfer shortcut")
 	}
@@ -123,13 +130,18 @@ func TestOutcomeEmojis(t *testing.T) {
 		},
 		{
 			name: "bank created included",
-			got:  BankCreated("Holiday", true),
-			want: "✅ Created bank \"Holiday\". It counts toward your total.",
+			got:  BankCreated("Holiday", "$", true),
+			want: "✅ Created bank \"Holiday\" in $. It counts toward your total.",
 		},
 		{
 			name: "bank created excluded",
-			got:  BankCreated("Gifts", false),
-			want: "✅ Created bank \"Gifts\". It does not count toward your total.",
+			got:  BankCreated("Gifts", "UAH", false),
+			want: "✅ Created bank \"Gifts\" in UAH. It does not count toward your total.",
+		},
+		{
+			name: "currency changed",
+			got:  CurrencyChanged("Holiday", "UAH", "100.00 UAH"),
+			want: "✅ \"Holiday\" now uses UAH. Balance is 100.00 UAH.",
 		},
 		{
 			name: "added",
@@ -203,6 +215,7 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "cmd desc bank", got: CmdDescBank},
 		{name: "cmd desc toggle", got: CmdDescToggle},
 		{name: "cmd desc rename", got: CmdDescRename},
+		{name: "cmd desc currency", got: CmdDescCurrency},
 		{name: "cmd desc transfer", got: CmdDescTransfer},
 		{name: "cmd desc banks", got: CmdDescBanks},
 		{name: "cmd desc total", got: CmdDescTotal},
@@ -211,6 +224,11 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "cmd desc feedback", got: CmdDescFeedback},
 		{name: "new bank ask name", got: NewBankAskName},
 		{name: "new bank ask include", got: NewBankAskInclude},
+		{name: "ask currency", got: AskCurrency},
+		{name: "invalid currency", got: InvalidCurrency},
+		{name: "currency already", got: CurrencyAlready("Holiday", "$")},
+		{name: "ask currency confirm", got: AskCurrencyConfirm("Holiday", "$100.00", "100.00 UAH")},
+		{name: "currency kept", got: CurrencyKept("$")},
 		{name: "invalid bank name", got: InvalidBankName},
 		{name: "something went wrong", got: SomethingWentWrong},
 		{name: "no banks", got: NoBanks},
@@ -264,15 +282,19 @@ func TestBankCreated(t *testing.T) {
 	tests := []struct {
 		name     string
 		bank     string
+		unit     string
 		included bool
 		want     string
 	}{
-		{name: "included", bank: "Holiday", included: true, want: "counts toward your total"},
-		{name: "excluded", bank: "Gifts", included: false, want: "does not count toward your total"},
+		{name: "included", bank: "Holiday", unit: "$", included: true, want: "counts toward your total"},
+		{name: "excluded", bank: "Gifts", unit: "UAH", included: false, want: "does not count toward your total"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BankCreated(tt.bank, tt.included)
+			got := BankCreated(tt.bank, tt.unit, tt.included)
+			if !strings.Contains(got, tt.unit) {
+				t.Errorf("missing unit %q in %q", tt.unit, got)
+			}
 			if !strings.Contains(got, tt.bank) {
 				t.Errorf("missing name %q in %q", tt.bank, got)
 			}
@@ -399,7 +421,7 @@ func TestCatalogsCompleteAndDistinct(t *testing.T) {
 		}
 		for _, cmd := range []string{
 			"/start", "/help", "/language", "/newbank", "/add", "/spend", "/set",
-			"/delete", "/bank", "/toggle", "/rename", "/transfer", "/banks",
+			"/delete", "/bank", "/toggle", "/rename", "/currency", "/transfer", "/banks",
 			"/total", "/all", "/cancel", "/feedback",
 		} {
 			if !strings.Contains(c.Help, cmd) {

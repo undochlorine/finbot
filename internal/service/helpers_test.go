@@ -22,12 +22,13 @@ func fixedNow() time.Time {
 	return time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 }
 
-func newBankSvc(t *testing.T) (*Service, *mocks.MockBankRepository, *mocks.MockOperationRepository, *mocks.MockClock) {
+func newBankSvc(t *testing.T) (*Service, *mocks.MockBankRepository, *mocks.MockOperationRepository, *mocks.MockClock, *mocks.MockUserRepository) {
 	t.Helper()
 	banks := mocks.NewMockBankRepository(t)
+	users := mocks.NewMockUserRepository(t)
 	ops := mocks.NewMockOperationRepository(t)
 	clock := mocks.NewMockClock(t)
-	return New(banks, mocks.NewMockUserRepository(t), ops, passthroughTx(t), clock, testCfg(168*time.Hour, "USD")), banks, ops, clock
+	return New(banks, users, ops, passthroughTx(t), clock, testCfg(168*time.Hour, "USD")), banks, ops, clock, users
 }
 
 func testCfg(trial time.Duration, currency string) Config {

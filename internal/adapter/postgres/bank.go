@@ -103,13 +103,15 @@ func (r *BankRepository) Update(ctx context.Context, userID domain.UserID, bank 
 	}
 	row := conn(ctx, r.db).QueryRowContext(ctx, `
 		UPDATE banks
-		SET name = $1, name_normalized = $2, balance_cents = $3, include_in_total = $4, updated_at = $5
-		WHERE id = $6 AND user_id = $7
+		SET name = $1, name_normalized = $2, balance_cents = $3, include_in_total = $4,
+		    currency = $5, updated_at = $6
+		WHERE id = $7 AND user_id = $8
 		RETURNING id, user_id, name, balance_cents, include_in_total, currency, created_at, updated_at`,
 		bank.Name,
 		norm,
 		int64(bank.Balance),
 		bank.IncludeInTotal,
+		bank.Currency,
 		utcTime(bank.UpdatedAt),
 		bank.ID,
 		userID,

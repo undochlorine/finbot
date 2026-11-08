@@ -30,34 +30,40 @@ type Catalog struct {
 	AskTransferFrom     string
 	SameBank            string
 	CurrencyMismatch    string
+	AskCurrency         string
+	InvalidCurrency     string
 
-	BankCreatedIncluded  string
-	BankCreatedExcluded  string
-	BankNameTakenFmt     string
-	UnknownBankFmt       string
-	AskAddAmountFmt      string
-	AskSpendAmountFmt    string
-	AskSetAmountFmt      string
-	AddedFmt             string
-	SpentFmt             string
-	SetToFmt             string
-	AskDeleteConfirmFmt  string
-	BankDeletedFmt       string
-	BankCardIncludedFmt  string
-	BankCardExcludedFmt  string
-	TotalFmt             string
-	ToggledIncludedFmt   string
-	ToggledExcludedFmt   string
-	AskRenameNameFmt     string
-	BankRenamedFmt       string
-	AskTransferToFmt     string
-	AskTransferAmountFmt string
-	TransferredFmt       string
-	LanguageSetFmt       string
-	LanguageNameEN       string
-	LanguageNameRU       string
-	LanguageNameUK       string
-	LanguageNameMD       string
+	BankCreatedIncluded   string
+	BankCreatedExcluded   string
+	BankNameTakenFmt      string
+	UnknownBankFmt        string
+	AskAddAmountFmt       string
+	AskSpendAmountFmt     string
+	AskSetAmountFmt       string
+	AddedFmt              string
+	SpentFmt              string
+	SetToFmt              string
+	AskDeleteConfirmFmt   string
+	BankDeletedFmt        string
+	BankCardIncludedFmt   string
+	BankCardExcludedFmt   string
+	TotalFmt              string
+	ToggledIncludedFmt    string
+	ToggledExcludedFmt    string
+	AskRenameNameFmt      string
+	BankRenamedFmt        string
+	AskTransferToFmt      string
+	AskTransferAmountFmt  string
+	TransferredFmt        string
+	CurrencyAlreadyFmt    string
+	AskCurrencyConfirmFmt string
+	CurrencyKeptFmt       string
+	CurrencyChangedFmt    string
+	LanguageSetFmt        string
+	LanguageNameEN        string
+	LanguageNameRU        string
+	LanguageNameUK        string
+	LanguageNameMD        string
 }
 
 type LanguageOption struct {
@@ -80,11 +86,11 @@ func LanguageOptions() []LanguageOption {
 	}
 }
 
-func (c Catalog) BankCreated(name string, included bool) string {
+func (c Catalog) BankCreated(name, unit string, included bool) string {
 	if included {
-		return fmt.Sprintf(c.BankCreatedIncluded, name)
+		return fmt.Sprintf(c.BankCreatedIncluded, name, unit)
 	}
-	return fmt.Sprintf(c.BankCreatedExcluded, name)
+	return fmt.Sprintf(c.BankCreatedExcluded, name, unit)
 }
 
 func (c Catalog) BankNameTaken(name string) string {
@@ -176,6 +182,22 @@ func (c Catalog) Transferred(fromName, toName, amount, fromBalance, toBalance st
 	return fmt.Sprintf(c.TransferredFmt, amount, fromName, toName, fromName, fromBalance, toName, toBalance)
 }
 
+func (c Catalog) CurrencyAlready(name, unit string) string {
+	return fmt.Sprintf(c.CurrencyAlreadyFmt, name, unit)
+}
+
+func (c Catalog) AskCurrencyConfirm(name, current, next string) string {
+	return fmt.Sprintf(c.AskCurrencyConfirmFmt, name, current, next)
+}
+
+func (c Catalog) CurrencyKept(unit string) string {
+	return fmt.Sprintf(c.CurrencyKeptFmt, unit)
+}
+
+func (c Catalog) CurrencyChanged(name, unit, balance string) string {
+	return fmt.Sprintf(c.CurrencyChangedFmt, name, unit, balance)
+}
+
 func (c Catalog) LanguageSetTo(locale string) string {
 	return fmt.Sprintf(c.LanguageSetFmt, c.languageName(locale))
 }
@@ -231,10 +253,12 @@ var (
 	AskTransferFrom     = en.AskTransferFrom
 	SameBank            = en.SameBank
 	CurrencyMismatch    = en.CurrencyMismatch
+	AskCurrency         = en.AskCurrency
+	InvalidCurrency     = en.InvalidCurrency
 )
 
-func BankCreated(name string, included bool) string {
-	return en.BankCreated(name, included)
+func BankCreated(name, unit string, included bool) string {
+	return en.BankCreated(name, unit, included)
 }
 
 func BankNameTaken(name string) string {
@@ -319,4 +343,20 @@ func Transferred(fromName, toName, amount, fromBalance, toBalance string) string
 
 func LanguageSetTo(locale string) string {
 	return en.LanguageSetTo(locale)
+}
+
+func CurrencyAlready(name, unit string) string {
+	return en.CurrencyAlready(name, unit)
+}
+
+func AskCurrencyConfirm(name, current, next string) string {
+	return en.AskCurrencyConfirm(name, current, next)
+}
+
+func CurrencyKept(unit string) string {
+	return en.CurrencyKept(unit)
+}
+
+func CurrencyChanged(name, unit, balance string) string {
+	return en.CurrencyChanged(name, unit, balance)
 }

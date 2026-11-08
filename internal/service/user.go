@@ -16,6 +16,8 @@ type UserRepository interface {
 	TouchActivity(ctx context.Context, userID domain.UserID, at time.Time) error
 	SetReferredByIfEmpty(ctx context.Context, userID, referredBy domain.UserID) error
 	SetLocale(ctx context.Context, userID domain.UserID, locale string, at time.Time) error
+	LastCurrency(ctx context.Context, userID domain.UserID) (string, error)
+	SetLastCurrency(ctx context.Context, userID domain.UserID, code string, at time.Time) error
 }
 
 func (s *Service) UpsertUser(ctx context.Context, userID domain.UserID, username string) (domain.User, error) {
@@ -50,6 +52,14 @@ func (s *Service) SetReferredByIfEmpty(ctx context.Context, userID, referredBy d
 		return fmt.Errorf("set referred by: %w", err)
 	}
 	return nil
+}
+
+func (s *Service) LastCurrency(ctx context.Context, userID domain.UserID) (string, error) {
+	code, err := s.users.LastCurrency(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("last currency: %w", err)
+	}
+	return code, nil
 }
 
 func (s *Service) SetLocale(ctx context.Context, userID domain.UserID, locale string) error {

@@ -9,6 +9,7 @@ const (
 	CommandBank     = "bank"
 	CommandToggle   = "toggle"
 	CommandRename   = "rename"
+	CommandCurrency = "currency"
 	CommandTransfer = "transfer"
 	CommandBanks    = "banks"
 	CommandTotal    = "total"

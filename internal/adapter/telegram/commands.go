@@ -24,6 +24,7 @@ func menuCommands() []models.BotCommand {
 		{Command: domain.CommandBank, Description: text.CmdDescBank},
 		{Command: domain.CommandToggle, Description: text.CmdDescToggle},
 		{Command: domain.CommandRename, Description: text.CmdDescRename},
+		{Command: domain.CommandCurrency, Description: text.CmdDescCurrency},
 		{Command: domain.CommandTransfer, Description: text.CmdDescTransfer},
 		{Command: domain.CommandBanks, Description: text.CmdDescBanks},
 		{Command: domain.CommandTotal, Description: text.CmdDescTotal},

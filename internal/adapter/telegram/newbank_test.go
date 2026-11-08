@@ -235,14 +235,16 @@ func TestNewBankPendingIncludeText(t *testing.T) {
 		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
-		svc.EXPECT().
-			CreateBank(anyCtx, userID, "Holiday", false).
-			Return(domain.Bank{ID: 1, UserID: userID, Name: "Holiday"}, nil)
-		cache.EXPECT().Delete(anyCtx, key).Return(nil)
+		svc.EXPECT().LastCurrency(anyCtx, userID).Return(domain.CurrencyUSD, nil)
+		expectFSMSet(t, cache, ctx, key, fsmState{
+			Flow: domain.CommandNewBank, Step: stepCurrency, Name: "Holiday",
+		})
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate(domain.No))
-	require.Contains(t, sent, text.BankCreated("Holiday", false))
+	require.Contains(t, sent, text.AskCurrency)
+	requireCallbackOrder(t, sent, domain.CurrencyEUR, domain.CurrencyUSD, domain.CurrencyUSDT)
+	require.NotContains(t, sent, callbackCCYPrefix+"UAH")
 }
 
 func TestNewBankCallbackCreatesBank(t *testing.T) {
@@ -255,15 +257,16 @@ func TestNewBankCallbackCreatesBank(t *testing.T) {
 		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
 			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
 		}), true, nil)
-		svc.EXPECT().
-			CreateBank(anyCtx, userID, "Holiday", true).
-			Return(domain.Bank{ID: 1, UserID: userID, Name: "Holiday", IncludeInTotal: true}, nil)
-		cache.EXPECT().Delete(anyCtx, key).Return(nil)
+		svc.EXPECT().LastCurrency(anyCtx, userID).Return("uah", nil)
+		expectFSMSet(t, cache, ctx, key, fsmState{
+			Flow: domain.CommandNewBank, Step: stepCurrency, Name: "Holiday", Include: true,
+		})
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackNewBankIncludeYes))
-	require.Contains(t, sent, text.BankCreated("Holiday", true))
+	require.Contains(t, sent, text.AskCurrency)
+	requireCallbackOrder(t, sent, domain.CurrencyEUR, domain.CurrencyUSD, domain.CurrencyUSDT, "UAH")
 }
 
 func TestNewBankCallbackDuplicate(t *testing.T) {
@@ -274,16 +277,16 @@ func TestNewBankCallbackDuplicate(t *testing.T) {
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{
-			Flow: domain.CommandNewBank, Step: stepInclude, Name: "Holiday",
+			Flow: domain.CommandNewBank, Step: stepCurrency, Name: "Holiday", Include: true,
 		}), true, nil)
 		svc.EXPECT().
-			CreateBank(anyCtx, userID, "Holiday", true).
+			CreateBank(anyCtx, userID, "Holiday", true, domain.CurrencyUSD).
 			Return(domain.Bank{}, domain.ErrBankNameTaken)
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectAnswerCallbackQuery(t, client)
 		expectSendMessage(t, client, &sent)
 	})
-	b.ProcessUpdate(ctx, callbackUpdate(callbackNewBankIncludeYes))
+	b.ProcessUpdate(ctx, callbackUpdate(callbackCCYPrefix+domain.CurrencyUSD))
 	require.Contains(t, sent, text.BankNameTaken("Holiday"))
 }
 

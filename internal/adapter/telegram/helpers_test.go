@@ -155,6 +155,9 @@ func expectFSMSet(t *testing.T, cache *mocks.MockCache, _ context.Context, key s
 			if got.ToName != want.ToName || got.ToBankID != want.ToBankID {
 				return false
 			}
+			if got.Include != want.Include || got.Currency != want.Currency {
+				return false
+			}
 			if want.PromptID != 0 && got.PromptID != want.PromptID {
 				return false
 			}

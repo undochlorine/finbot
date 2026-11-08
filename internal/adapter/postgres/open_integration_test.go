@@ -48,6 +48,16 @@ func TestOpenIsIdempotent(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("schema_migrations 002_currency_usd rows = %d, want 1", n)
 	}
+
+	err = second.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schema_migrations WHERE version = $1`, "003_operation_currency",
+	).Scan(&n)
+	if err != nil {
+		t.Fatalf("count 003_operation_currency: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("schema_migrations 003_operation_currency rows = %d, want 1", n)
+	}
 }
 
 func TestOpenCreatesExpectedSchema(t *testing.T) {

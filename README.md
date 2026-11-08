@@ -31,7 +31,7 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
-| `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check). Existing banks keep the migration default `USD`. Hidden in copy until later. |
+| `DEFAULT_CURRENCY` | no | `USD` | Accepted and ignored. Kept so existing process configs still start. A bank's currency comes from `/newbank` or `/currency`. Empty or missing still parses as `USD`. |
 | `ENVFILE` | no | unset | If set, load that dotenv file first. Process environment still wins. Railway does not set this. |
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`. Compose reads `.env` for `${BOT_TOKEN}` interpolation; the bot container gets in-network `DATABASE_URL` / `REDIS_URL` from `docker-compose.yml`, not the host URLs in `.env`.
@@ -199,7 +199,7 @@ Set these on the Railway worker. The app uses **private** plugin URLs, not the p
 | `LOG_LEVEL` | no | `info` in production |
 | `ADMIN_TELEGRAM_ID` | no | Numeric Telegram user id for `/feedback` |
 | `TRIAL_DURATION` | no | Default `168h`. Not enforced until later |
-| `DEFAULT_CURRENCY` | no | Default `USD` |
+| `DEFAULT_CURRENCY` | no | Accepted and ignored. Unset parses as `USD`. It does not choose a bank's currency. |
 
 Do not commit production URLs.
 

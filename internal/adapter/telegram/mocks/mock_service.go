@@ -192,9 +192,87 @@ func (_c *MockService_All_Call) RunAndReturn(run func(ctx context.Context, userI
 	return _c
 }
 
+// ChangeCurrency provides a mock function for the type MockService
+func (_mock *MockService) ChangeCurrency(ctx context.Context, userID domain.UserID, bankID int64, currency string) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, bankID, currency)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChangeCurrency")
+	}
+
+	var r0 domain.Bank
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, string) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, bankID, currency)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, int64, string) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, bankID, currency)
+	} else {
+		r0 = ret.Get(0).(domain.Bank)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, int64, string) error); ok {
+		r1 = returnFunc(ctx, userID, bankID, currency)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_ChangeCurrency_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeCurrency'
+type MockService_ChangeCurrency_Call struct {
+	*mock.Call
+}
+
+// ChangeCurrency is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - bankID int64
+//   - currency string
+func (_e *MockService_Expecter) ChangeCurrency(ctx interface{}, userID interface{}, bankID interface{}, currency interface{}) *MockService_ChangeCurrency_Call {
+	return &MockService_ChangeCurrency_Call{Call: _e.mock.On("ChangeCurrency", ctx, userID, bankID, currency)}
+}
+
+func (_c *MockService_ChangeCurrency_Call) Run(run func(ctx context.Context, userID domain.UserID, bankID int64, currency string)) *MockService_ChangeCurrency_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ChangeCurrency_Call) Return(bank domain.Bank, err error) *MockService_ChangeCurrency_Call {
+	_c.Call.Return(bank, err)
+	return _c
+}
+
+func (_c *MockService_ChangeCurrency_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, bankID int64, currency string) (domain.Bank, error)) *MockService_ChangeCurrency_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateBank provides a mock function for the type MockService
-func (_mock *MockService) CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error) {
-	ret := _mock.Called(ctx, userID, name, includeInTotal)
+func (_mock *MockService) CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool, currency string) (domain.Bank, error) {
+	ret := _mock.Called(ctx, userID, name, includeInTotal, currency)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateBank")
@@ -202,16 +280,16 @@ func (_mock *MockService) CreateBank(ctx context.Context, userID domain.UserID, 
 
 	var r0 domain.Bank
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool) (domain.Bank, error)); ok {
-		return returnFunc(ctx, userID, name, includeInTotal)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool, string) (domain.Bank, error)); ok {
+		return returnFunc(ctx, userID, name, includeInTotal, currency)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool) domain.Bank); ok {
-		r0 = returnFunc(ctx, userID, name, includeInTotal)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, bool, string) domain.Bank); ok {
+		r0 = returnFunc(ctx, userID, name, includeInTotal, currency)
 	} else {
 		r0 = ret.Get(0).(domain.Bank)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, string, bool) error); ok {
-		r1 = returnFunc(ctx, userID, name, includeInTotal)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, string, bool, string) error); ok {
+		r1 = returnFunc(ctx, userID, name, includeInTotal, currency)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -228,11 +306,12 @@ type MockService_CreateBank_Call struct {
 //   - userID domain.UserID
 //   - name string
 //   - includeInTotal bool
-func (_e *MockService_Expecter) CreateBank(ctx interface{}, userID interface{}, name interface{}, includeInTotal interface{}) *MockService_CreateBank_Call {
-	return &MockService_CreateBank_Call{Call: _e.mock.On("CreateBank", ctx, userID, name, includeInTotal)}
+//   - currency string
+func (_e *MockService_Expecter) CreateBank(ctx interface{}, userID interface{}, name interface{}, includeInTotal interface{}, currency interface{}) *MockService_CreateBank_Call {
+	return &MockService_CreateBank_Call{Call: _e.mock.On("CreateBank", ctx, userID, name, includeInTotal, currency)}
 }
 
-func (_c *MockService_CreateBank_Call) Run(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool)) *MockService_CreateBank_Call {
+func (_c *MockService_CreateBank_Call) Run(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool, currency string)) *MockService_CreateBank_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -250,11 +329,16 @@ func (_c *MockService_CreateBank_Call) Run(run func(ctx context.Context, userID 
 		if args[3] != nil {
 			arg3 = args[3].(bool)
 		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -265,7 +349,7 @@ func (_c *MockService_CreateBank_Call) Return(bank domain.Bank, err error) *Mock
 	return _c
 }
 
-func (_c *MockService_CreateBank_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error)) *MockService_CreateBank_Call {
+func (_c *MockService_CreateBank_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string, includeInTotal bool, currency string) (domain.Bank, error)) *MockService_CreateBank_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -473,6 +557,72 @@ func (_c *MockService_GetByName_Call) Return(bank domain.Bank, err error) *MockS
 }
 
 func (_c *MockService_GetByName_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)) *MockService_GetByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LastCurrency provides a mock function for the type MockService
+func (_mock *MockService) LastCurrency(ctx context.Context, userID domain.UserID) (string, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LastCurrency")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (string, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) string); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_LastCurrency_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LastCurrency'
+type MockService_LastCurrency_Call struct {
+	*mock.Call
+}
+
+// LastCurrency is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+func (_e *MockService_Expecter) LastCurrency(ctx interface{}, userID interface{}) *MockService_LastCurrency_Call {
+	return &MockService_LastCurrency_Call{Call: _e.mock.On("LastCurrency", ctx, userID)}
+}
+
+func (_c *MockService_LastCurrency_Call) Run(run func(ctx context.Context, userID domain.UserID)) *MockService_LastCurrency_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_LastCurrency_Call) Return(s string, err error) *MockService_LastCurrency_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockService_LastCurrency_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) (string, error)) *MockService_LastCurrency_Call {
 	_c.Call.Return(run)
 	return _c
 }

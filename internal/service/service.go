@@ -8,13 +8,12 @@ import (
 )
 
 type Service struct {
-	banks           BankRepository
-	users           UserRepository
-	ops             OperationRepository
-	tx              Transactor
-	clock           Clock
-	trialDuration   time.Duration
-	defaultCurrency string
+	banks         BankRepository
+	users         UserRepository
+	ops           OperationRepository
+	tx            Transactor
+	clock         Clock
+	trialDuration time.Duration
 }
 
 func New(
@@ -30,13 +29,12 @@ func New(
 		trial = 0
 	}
 	return &Service{
-		banks:           banks,
-		users:           users,
-		ops:             ops,
-		tx:              tx,
-		clock:           clock,
-		trialDuration:   trial,
-		defaultCurrency: cfg.Default.Parsed(),
+		banks:         banks,
+		users:         users,
+		ops:           ops,
+		tx:            tx,
+		clock:         clock,
+		trialDuration: trial,
 	}
 }
 

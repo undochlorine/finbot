@@ -11,7 +11,7 @@ Human run/CI checklist is canonical in [`README.md`](../../../README.md). This f
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error`. Invalid values fail startup |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative rejected. Not enforced until `4.5` |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` unavailable. Negative and non-numeric fail startup |
-| `DEFAULT_CURRENCY` | no | `USD` | Stored on **new** banks. Empty/missing uses `USD`. Any other trimmed value is kept as-is (no ISO check) |
+| `DEFAULT_CURRENCY` | no | `USD` | Accepted and ignored. Empty or missing still parses as `USD`. A bank's currency comes from `/newbank` or `/currency` |
 | `POSTGRES_TEST_URL` | no | Compose `finbot_test` URL in tests | Adapter integration tests. Unreachable Postgres **fails** (does not skip) |
 | `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0`. Missing or invalid fails load. Unreachable Redis fails startup |
 | `BOT_TTL` | no | `1h` | Sliding FSM TTL (Go duration, must be `> 0`) |

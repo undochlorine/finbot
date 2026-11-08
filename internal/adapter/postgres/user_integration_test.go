@@ -168,6 +168,48 @@ func TestUserRepositorySetReferredByIfEmpty(t *testing.T) {
 	}
 }
 
+func TestUserRepositorySetLastCurrency(t *testing.T) {
+	db := mustOpenReset(t)
+	users := NewUserRepository(db)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	if _, err := users.Upsert(ctx, testUser(1, now)); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	at := now.Add(time.Hour)
+	if err := users.SetLastCurrency(ctx, 1, "UAH", at); err != nil {
+		t.Fatalf("set last: %v", err)
+	}
+	got, err := users.LastCurrency(ctx, 1)
+	if err != nil {
+		t.Fatalf("last: %v", err)
+	}
+	if got != "UAH" {
+		t.Fatalf("last_currency %q", got)
+	}
+	user, err := users.Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if user.LastCurrency != "UAH" || !user.UpdatedAt.Equal(at) {
+		t.Fatalf("user %+v", user)
+	}
+
+	rewritten, err := users.Upsert(ctx, testUser(1, at.Add(time.Hour)))
+	if err != nil {
+		t.Fatalf("upsert again: %v", err)
+	}
+	if rewritten.LastCurrency != "UAH" {
+		t.Fatalf("upsert rewrote last_currency %q", rewritten.LastCurrency)
+	}
+
+	err = users.SetLastCurrency(ctx, 99, "EUR", at)
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		t.Fatalf("missing user: %v", err)
+	}
+}
+
 func TestUserRepositorySetLocale(t *testing.T) {
 	db := mustOpenReset(t)
 	users := NewUserRepository(db)

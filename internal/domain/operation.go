@@ -10,6 +10,7 @@ const (
 	OperationSet      OperationType = "set"
 	OperationDelete   OperationType = "delete"
 	OperationRename   OperationType = "rename"
+	OperationCurrency OperationType = "currency"
 	OperationTransfer OperationType = "transfer"
 )
 

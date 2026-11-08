@@ -21,14 +21,15 @@ const (
 	commandCancel   = "cancel"
 	commandFeedback = "feedback"
 
-	stepName    = "name"
-	stepInclude = "include"
-	stepBank    = "bank"
-	stepAmount  = "amount"
-	stepConfirm = "confirm"
-	stepText    = "text"
-	stepTo      = "to"
-	stepPick    = "pick"
+	stepName     = "name"
+	stepInclude  = "include"
+	stepBank     = "bank"
+	stepAmount   = "amount"
+	stepConfirm  = "confirm"
+	stepCurrency = "currency"
+	stepText     = "text"
+	stepTo       = "to"
+	stepPick     = "pick"
 
 	callbackNewBankPrefix     = "v1:" + domain.CommandNewBank + ":"
 	callbackNewBankIncludeYes = callbackNewBankPrefix + stepInclude + ":1"
@@ -43,6 +44,10 @@ const (
 	callbackBankPrefix         = "v1:" + domain.CommandBank + ":"
 	callbackTogglePrefix       = "v1:" + domain.CommandToggle + ":"
 	callbackRenamePrefix       = "v1:" + domain.CommandRename + ":"
+	callbackCurrencyPrefix     = "v1:" + domain.CommandCurrency + ":"
+	callbackCurrencyYes        = callbackCurrencyPrefix + domain.Yes + ":"
+	callbackCurrencyNo         = callbackCurrencyPrefix + domain.No + ":"
+	callbackCCYPrefix          = "v1:ccy:"
 	callbackTransferPrefix     = "v1:" + domain.CommandTransfer + ":"
 	callbackTransferFromPrefix = callbackTransferPrefix + "from:"
 	callbackTransferToPrefix   = callbackTransferPrefix + "to:"
@@ -54,6 +59,7 @@ type fsmState struct {
 	Step     string `json:"step"`
 	Name     string `json:"name,omitempty"`
 	BankID   int64  `json:"bank_id,omitempty"`
+	Include  bool   `json:"include,omitempty"`
 	Currency string `json:"currency,omitempty"`
 	ToName   string `json:"to_name,omitempty"`
 	ToBankID int64  `json:"to_bank_id,omitempty"`

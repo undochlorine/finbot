@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -17,64 +18,83 @@ func TestCreateBank(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		bank    string
-		include bool
-		setup   func(*mocks.MockBankRepository, *mocks.MockClock)
-		want    domain.Bank
-		wantErr error
+		name     string
+		bank     string
+		include  bool
+		currency string
+		setup    func(*mocks.MockBankRepository, *mocks.MockUserRepository, *mocks.MockClock)
+		want     domain.Bank
+		wantErr  error
 	}{
 		{
-			name:    "stores typed casing",
-			bank:    "Holiday",
-			include: true,
-			setup: func(banks *mocks.MockBankRepository, clock *mocks.MockClock) {
+			name:     "stores typed casing and chosen code",
+			bank:     "Holiday",
+			include:  true,
+			currency: "usd",
+			setup: func(banks *mocks.MockBankRepository, users *mocks.MockUserRepository, clock *mocks.MockClock) {
 				in := sampleBank(userA, 0, "Holiday", 0, true)
 				out := in
 				out.ID = 1
 				banks.EXPECT().GetByName(ctx, userA, "Holiday").Return(domain.Bank{}, domain.ErrBankNotFound)
 				clock.EXPECT().Now().Return(now)
 				banks.EXPECT().Create(ctx, userA, in).Return(out, nil)
+				users.EXPECT().SetLastCurrency(ctx, userA, domain.CurrencyUSD, now).Return(nil)
 			},
 			want: sampleBank(userA, 1, "Holiday", 0, true),
 		},
 		{
-			name:    "unicode name",
-			bank:    "Подарки",
-			include: false,
-			setup: func(banks *mocks.MockBankRepository, clock *mocks.MockClock) {
+			name:     "unicode name",
+			bank:     "Подарки",
+			include:  false,
+			currency: domain.CurrencyEUR,
+			setup: func(banks *mocks.MockBankRepository, users *mocks.MockUserRepository, clock *mocks.MockClock) {
 				in := sampleBank(userA, 0, "Подарки", 0, false)
+				in.Currency = domain.CurrencyEUR
 				out := in
 				out.ID = 1
 				banks.EXPECT().GetByName(ctx, userA, "Подарки").Return(domain.Bank{}, domain.ErrBankNotFound)
 				clock.EXPECT().Now().Return(now)
 				banks.EXPECT().Create(ctx, userA, in).Return(out, nil)
+				users.EXPECT().SetLastCurrency(ctx, userA, domain.CurrencyEUR, now).Return(nil)
 			},
-			want: sampleBank(userA, 1, "Подарки", 0, false),
+			want: func() domain.Bank {
+				bank := sampleBank(userA, 1, "Подарки", 0, false)
+				bank.Currency = domain.CurrencyEUR
+				return bank
+			}(),
 		},
 		{
-			name:    "empty name",
-			bank:    "",
-			wantErr: domain.ErrInvalidBankName,
+			name:     "empty name",
+			bank:     "",
+			currency: domain.CurrencyUSD,
+			wantErr:  domain.ErrInvalidBankName,
 		},
 		{
-			name:    "whitespace name",
-			bank:    "   ",
-			wantErr: domain.ErrInvalidBankName,
+			name:     "whitespace name",
+			bank:     "   ",
+			currency: domain.CurrencyUSD,
+			wantErr:  domain.ErrInvalidBankName,
+		},
+		{
+			name:     "invalid currency",
+			bank:     "Holiday",
+			currency: "BTC",
+			wantErr:  domain.ErrInvalidCurrency,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, ops, clock := newBankSvc(t)
+			svc, banks, ops, clock, users := newBankSvc(t)
 			if tt.setup != nil {
-				tt.setup(banks, clock)
+				tt.setup(banks, users, clock)
 			}
 
-			got, err := svc.CreateBank(ctx, userA, tt.bank, tt.include)
+			got, err := svc.CreateBank(ctx, userA, tt.bank, tt.include, tt.currency)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				require.True(t, banks.AssertNotCalled(t, "Create"))
+				require.True(t, users.AssertNotCalled(t, "SetLastCurrency"))
 				return
 			}
 			require.NoError(t, err)
@@ -99,17 +119,131 @@ func TestCreateBankDuplicate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _, _ := newBankSvc(t)
+			svc, banks, _, _, users := newBankSvc(t)
 			found := existing
 			if tt.dup == "подарки" {
 				found = sampleBank(userA, 1, "Подарки", 10000, true)
 			}
 			banks.EXPECT().GetByName(ctx, userA, tt.dup).Return(found, nil)
 
-			_, err := svc.CreateBank(ctx, userA, tt.dup, false)
+			_, err := svc.CreateBank(ctx, userA, tt.dup, false, domain.CurrencyUSD)
 			require.ErrorIs(t, err, domain.ErrBankNameTaken)
 			require.True(t, banks.AssertNotCalled(t, "Create"))
 			require.True(t, banks.AssertNotCalled(t, "Update"))
+			require.True(t, users.AssertNotCalled(t, "SetLastCurrency"))
+		})
+	}
+}
+
+func TestCreateBankUsesArgumentNotConfig(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+	banks := mocks.NewMockBankRepository(t)
+	users := mocks.NewMockUserRepository(t)
+	clock := mocks.NewMockClock(t)
+	svc := New(banks, users, mocks.NewMockOperationRepository(t), passthroughTx(t), clock, testCfg(time.Hour, "EUR"))
+
+	in := sampleBank(userA, 0, "Holiday", 0, true)
+	in.Currency = "UAH"
+	out := in
+	out.ID = 1
+	banks.EXPECT().GetByName(ctx, userA, "Holiday").Return(domain.Bank{}, domain.ErrBankNotFound)
+	clock.EXPECT().Now().Return(now)
+	banks.EXPECT().Create(ctx, userA, in).Return(out, nil)
+	users.EXPECT().SetLastCurrency(ctx, userA, "UAH", now).Return(nil)
+
+	got, err := svc.CreateBank(ctx, userA, "Holiday", true, "uah")
+	require.NoError(t, err)
+	require.Equal(t, "UAH", got.Currency)
+}
+
+func TestChangeCurrency(t *testing.T) {
+	ctx := context.Background()
+	now := fixedNow()
+	holiday := sampleBank(userA, 1, "Holiday", 10000, true)
+
+	tests := []struct {
+		name     string
+		user     domain.UserID
+		code     string
+		setup    func(*mocks.MockBankRepository, *mocks.MockUserRepository, *mocks.MockOperationRepository, *mocks.MockClock)
+		want     string
+		wantBal  domain.Money
+		wantErr  error
+		noAppend bool
+	}{
+		{
+			name: "usd to uah keeps cents and writes the change",
+			user: userA,
+			code: "uah",
+			setup: func(banks *mocks.MockBankRepository, users *mocks.MockUserRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, holiday.ID).Return(holiday, nil)
+				clock.EXPECT().Now().Return(now)
+				updated := holiday
+				updated.Currency = "UAH"
+				updated.UpdatedAt = now
+				banks.EXPECT().Update(ctx, userA, updated).Return(updated, nil)
+				users.EXPECT().SetLastCurrency(ctx, userA, "UAH", now).Return(nil)
+				after := holiday.Balance
+				ops.EXPECT().Append(ctx, matchOp(
+					userA, domain.OperationCurrency, holiday.Balance, holiday.ID, &after, "USD -> UAH", now,
+				)).Return(nil)
+			},
+			want:    "UAH",
+			wantBal: holiday.Balance,
+		},
+		{
+			name: "same code writes nothing and still sets last currency",
+			user: userA,
+			code: domain.CurrencyUSD,
+			setup: func(banks *mocks.MockBankRepository, users *mocks.MockUserRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userA, holiday.ID).Return(holiday, nil)
+				clock.EXPECT().Now().Return(now)
+				users.EXPECT().SetLastCurrency(ctx, userA, domain.CurrencyUSD, now).Return(nil)
+			},
+			want:     domain.CurrencyUSD,
+			wantBal:  holiday.Balance,
+			noAppend: true,
+		},
+		{
+			name: "other users bank is not visible",
+			user: userB,
+			code: "UAH",
+			setup: func(banks *mocks.MockBankRepository, users *mocks.MockUserRepository, ops *mocks.MockOperationRepository, clock *mocks.MockClock) {
+				banks.EXPECT().GetByID(ctx, userB, holiday.ID).Return(domain.Bank{}, domain.ErrBankNotFound)
+			},
+			wantErr:  domain.ErrBankNotFound,
+			noAppend: true,
+		},
+		{
+			name:     "invalid code",
+			user:     userA,
+			code:     "BTC",
+			wantErr:  domain.ErrInvalidCurrency,
+			noAppend: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, banks, ops, clock, users := newBankSvc(t)
+			if tt.setup != nil {
+				tt.setup(banks, users, ops, clock)
+			}
+			got, err := svc.ChangeCurrency(ctx, tt.user, holiday.ID, tt.code)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.True(t, ops.AssertNotCalled(t, "Append"))
+				require.True(t, banks.AssertNotCalled(t, "Update"))
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got.Currency)
+			require.Equal(t, tt.wantBal, got.Balance)
+			if tt.noAppend {
+				require.True(t, ops.AssertNotCalled(t, "Append"))
+				require.True(t, banks.AssertNotCalled(t, "Update"))
+			}
 		})
 	}
 }
@@ -144,7 +278,7 @@ func TestAddSpendSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, ops, clock := newBankSvc(t)
+			svc, banks, ops, clock, _ := newBankSvc(t)
 			start := sampleBank(userA, 1, "Live", tt.start, true)
 			id := start.ID
 			if !tt.noIO {
@@ -185,7 +319,7 @@ func TestDelete(t *testing.T) {
 	bank := sampleBank(userA, 1, "Live", 10000, true)
 
 	t.Run("removes bank and appends delete", func(t *testing.T) {
-		svc, banks, ops, clock := newBankSvc(t)
+		svc, banks, ops, clock, _ := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, bank.ID).Return(bank, nil)
 		clock.EXPECT().Now().Return(now)
 		ops.EXPECT().Append(ctx, matchOp(userA, domain.OperationDelete, bank.Balance, bank.ID, nil, bank.Name, now)).Return(nil)
@@ -195,7 +329,7 @@ func TestDelete(t *testing.T) {
 	})
 
 	t.Run("unknown bank does not append", func(t *testing.T) {
-		svc, banks, ops, _ := newBankSvc(t)
+		svc, banks, ops, _, _ := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
 
 		err := svc.Delete(ctx, userA, 99)
@@ -212,7 +346,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	excluded := sampleBank(userA, 2, "Gifts", 2500, false)
 
 	t.Run("empty list and total", func(t *testing.T) {
-		svc, banks, _, _ := newBankSvc(t)
+		svc, banks, _, _, _ := newBankSvc(t)
 		banks.EXPECT().List(ctx, userA).Return([]domain.Bank{}, nil).Twice()
 		banks.EXPECT().TotalIncluded(ctx, userA).Return(nil, nil).Twice()
 
@@ -231,7 +365,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("excluded omitted from total", func(t *testing.T) {
-		svc, banks, _, _ := newBankSvc(t)
+		svc, banks, _, _, _ := newBankSvc(t)
 		list := []domain.Bank{included, excluded}
 		includedOnly := []domain.CurrencyTotal{{Currency: included.Currency, Amount: included.Balance}}
 		banks.EXPECT().List(ctx, userA).Return(list, nil)
@@ -244,7 +378,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("only excluded is usd zero", func(t *testing.T) {
-		svc, banks, _, _ := newBankSvc(t)
+		svc, banks, _, _, _ := newBankSvc(t)
 		banks.EXPECT().TotalIncluded(ctx, userA).Return(nil, nil)
 
 		total, err := svc.Total(ctx, userA)
@@ -253,7 +387,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("toggle excluded into total without changing balance", func(t *testing.T) {
-		svc, banks, ops, clock := newBankSvc(t)
+		svc, banks, ops, clock, _ := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, excluded.ID).Return(excluded, nil)
 		clock.EXPECT().Now().Return(now)
 		updated := excluded
@@ -269,7 +403,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	})
 
 	t.Run("toggle included out of total without changing balance", func(t *testing.T) {
-		svc, banks, ops, clock := newBankSvc(t)
+		svc, banks, ops, clock, _ := newBankSvc(t)
 		banks.EXPECT().GetByID(ctx, userA, included.ID).Return(included, nil)
 		clock.EXPECT().Now().Return(now)
 		updated := included
@@ -368,7 +502,7 @@ func TestRename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, ops, clock := newBankSvc(t)
+			svc, banks, ops, clock, _ := newBankSvc(t)
 			if tt.setup != nil {
 				tt.setup(banks, ops, clock)
 			}
@@ -535,7 +669,7 @@ func TestTransfer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, ops, clock := newBankSvc(t)
+			svc, banks, ops, clock, _ := newBankSvc(t)
 			if tt.setup != nil {
 				tt.setup(banks, ops, clock)
 			}
@@ -559,7 +693,7 @@ func TestTransferLocksBanksByAscendingID(t *testing.T) {
 	now := fixedNow()
 	low := sampleBank(userA, 1, "Holiday", 10000, true)
 	high := sampleBank(userA, 2, "Gifts", 2500, false)
-	svc, banks, ops, clock := newBankSvc(t)
+	svc, banks, ops, clock, _ := newBankSvc(t)
 
 	var gotIDs []int64
 	banks.EXPECT().GetByID(ctx, userA, low.ID).RunAndReturn(
@@ -592,7 +726,7 @@ func TestTransferLocksBanksByAscendingID(t *testing.T) {
 }
 
 func TestToggleUnknownBank(t *testing.T) {
-	svc, banks, _, _ := newBankSvc(t)
+	svc, banks, _, _, _ := newBankSvc(t)
 	ctx := context.Background()
 	banks.EXPECT().GetByID(ctx, userA, int64(99)).Return(domain.Bank{}, domain.ErrBankNotFound)
 
@@ -693,7 +827,7 @@ func TestBanksIsolatedByUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _, _ := newBankSvc(t)
+			svc, banks, _, _, _ := newBankSvc(t)
 			tt.setup(banks)
 			tt.run(t, svc)
 		})
@@ -753,7 +887,7 @@ func TestTotalGroupsByCurrency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, banks, _, _ := newBankSvc(t)
+			svc, banks, _, _, _ := newBankSvc(t)
 			banks.EXPECT().TotalIncluded(ctx, userA).Return(tt.rows, nil)
 			got, err := svc.Total(ctx, userA)
 			require.NoError(t, err)
