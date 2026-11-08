@@ -31,6 +31,7 @@ type User struct {
 	DiscountPercent *int
 	Locale          string
 	ReferredBy      *UserID
+	LastCurrency    string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

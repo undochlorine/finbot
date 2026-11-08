@@ -10,8 +10,8 @@ import (
 
 type UserRepository interface {
 	// Upsert inserts on first seen. Existing trial_ends_at, plan, discount_percent,
-	// locale, and referred_by are left unchanged. New users are inserted with an empty
-	// locale until they pick one.
+	// locale, referred_by, and last_currency are left unchanged. New users are inserted
+	// with an empty locale until they pick one. last_currency stays the column default.
 	Upsert(ctx context.Context, user domain.User) (domain.User, error)
 	TouchActivity(ctx context.Context, userID domain.UserID, at time.Time) error
 	SetReferredByIfEmpty(ctx context.Context, userID, referredBy domain.UserID) error

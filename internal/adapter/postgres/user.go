@@ -24,7 +24,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 func (r *UserRepository) Get(ctx context.Context, userID domain.UserID) (domain.User, error) {
 	row := conn(ctx, r.db).QueryRowContext(ctx, `
 		SELECT telegram_id, username, last_activity_at, plan, trial_ends_at, discount_percent,
-		       locale, referred_by, created_at, updated_at
+		       locale, referred_by, last_currency, created_at, updated_at
 		FROM users
 		WHERE telegram_id = $1`, userID)
 	user, err := scanUser(row)
@@ -133,7 +133,7 @@ func scanUser(row *sql.Row) (domain.User, error) {
 	)
 	err := row.Scan(
 		&u.TelegramID, &username, &u.LastActivityAt, &u.Plan, &u.TrialEndsAt, &discount,
-		&u.Locale, &referredBy, &u.CreatedAt, &u.UpdatedAt,
+		&u.Locale, &referredBy, &u.LastCurrency, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("scan user: %w", err)
