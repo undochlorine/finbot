@@ -15,7 +15,7 @@ func TestHygieneStoresPromptID(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -34,7 +34,7 @@ func TestHygieneAddCallbackEditsPrompt(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday"}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -49,7 +49,7 @@ func TestHygieneAddCallbackEditsPrompt(t *testing.T) {
 		expectEditMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackAddPrefix+"7"))
-	require.Contains(t, sent, text.AskAddAmount("Holiday"))
+	require.Contains(t, sent, text.AskAddAmount("Holiday", "$"))
 	require.NotContains(t, sent, callbackAddPrefix+"7")
 }
 
@@ -69,13 +69,13 @@ func TestHygieneAddAmountEditsAndSweeps(t *testing.T) {
 		}), true, nil)
 		svc.EXPECT().
 			Add(anyCtx, userID, testBankID, domain.Money(10000)).
-			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
+			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000, Currency: domain.CurrencyUSD}, nil)
 		expectDeleteMessages(t, client)
 		expectEditMessage(t, client, &sent)
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 	})
 	b.ProcessUpdate(ctx, commandUpdateID("100", testUserMsgID))
-	require.Contains(t, sent, text.Added("Holiday", "100.00", "150.00"))
+	require.Contains(t, sent, text.Added("Holiday", "$100.00", "$150.00"))
 	require.Contains(t, sent, `"inline_keyboard":[]`)
 }
 
@@ -123,17 +123,17 @@ func TestHygieneShortcutDoesNotDeleteCommand(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 		svc.EXPECT().
 			Add(anyCtx, userID, testBankID, domain.Money(10000)).
-			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}, nil)
+			Return(domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000, Currency: domain.CurrencyUSD}, nil)
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdateID("/add Holiday 100", testUserMsgID))
-	require.Contains(t, sent, text.Added("Holiday", "100.00", "150.00"))
+	require.Contains(t, sent, text.Added("Holiday", "$100.00", "$150.00"))
 }

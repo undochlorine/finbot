@@ -16,11 +16,12 @@ func TestViewCommandFlow(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 	holiday := domain.Bank{
-		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true,
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 	}
 	gifts := domain.Bank{
-		ID: 8, UserID: userID, Name: "Gifts", Balance: 1250, IncludeInTotal: false,
+		ID: 8, UserID: userID, Name: "Gifts", Balance: 1250, IncludeInTotal: false, Currency: domain.CurrencyUSD,
 	}
+	usd := []domain.CurrencyTotal{{Currency: domain.CurrencyUSD, Amount: holiday.Balance}}
 
 	tests := []struct {
 		name     string
@@ -52,7 +53,7 @@ func TestViewCommandFlow(t *testing.T) {
 			name: "all no banks",
 			text: "/all",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().All(anyCtx, userID).Return(nil, 0, nil)
+				svc.EXPECT().All(anyCtx, userID).Return(nil, nil, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: []string{text.NoBanks},
@@ -61,10 +62,10 @@ func TestViewCommandFlow(t *testing.T) {
 			name: "total no banks is zero",
 			text: "/total",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().Total(anyCtx, userID).Return(domain.Money(0), nil)
+				svc.EXPECT().Total(anyCtx, userID).Return([]domain.CurrencyTotal{{Currency: domain.CurrencyUSD}}, nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: []string{text.Total("0.00")},
+			wantText: []string{text.Total([]string{"$0.00"})},
 			notText:  []string{text.NoBanks},
 		},
 		{
@@ -85,17 +86,17 @@ func TestViewCommandFlow(t *testing.T) {
 				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: []string{text.BankCard("Holiday", "50.00", true)},
+			wantText: []string{text.BankCard("Holiday", "$50.00", true)},
 		},
 		{
 			name: "bank spaced name shortcut",
 			text: "/bank Holiday Fund",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 100, IncludeInTotal: false}
+				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 100, IncludeInTotal: false, Currency: domain.CurrencyUSD}
 				svc.EXPECT().GetByName(anyCtx, userID, "Holiday Fund").Return(fund, nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: []string{text.BankCard("Holiday Fund", "1.00", false)},
+			wantText: []string{text.BankCard("Holiday Fund", "$1.00", false)},
 		},
 		{
 			name: "bank unknown",
@@ -113,7 +114,7 @@ func TestViewCommandFlow(t *testing.T) {
 				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: []string{text.BankCard("Holiday", "50.00", true)},
+			wantText: []string{text.BankCard("Holiday", "$50.00", true)},
 		},
 		{
 			name: "banks lists excluded separately from total flag",
@@ -123,34 +124,47 @@ func TestViewCommandFlow(t *testing.T) {
 				expectSendMessage(t, client, sent)
 			},
 			wantText: []string{
-				text.BankCard("Holiday", "50.00", true),
-				text.BankCard("Gifts", "12.50", false),
+				text.BankCard("Holiday", "$50.00", true),
+				text.BankCard("Gifts", "$12.50", false),
 			},
-			notText: []string{text.Total("50.00"), text.Total("62.50")},
+			notText: []string{text.Total([]string{"$50.00"}), text.Total([]string{"$62.50"})},
 		},
 		{
 			name: "total is included banks only",
 			text: "/total",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().Total(anyCtx, userID).Return(holiday.Balance, nil)
+				svc.EXPECT().Total(anyCtx, userID).Return(usd, nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: []string{text.Total("50.00")},
+			wantText: []string{text.Total([]string{"$50.00"})},
 			notText:  []string{"12.50", "Gifts"},
+		},
+		{
+			name: "total lists each currency",
+			text: "/total",
+			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
+				svc.EXPECT().Total(anyCtx, userID).Return([]domain.CurrencyTotal{
+					{Currency: domain.CurrencyUSD, Amount: 1000},
+					{Currency: domain.CurrencyUSDT, Amount: 2000},
+				}, nil)
+				expectSendMessage(t, client, sent)
+			},
+			wantText: []string{text.Total([]string{"$10.00", "20.00 USDT"})},
+			notText:  []string{"$30.00", "30.00"},
 		},
 		{
 			name: "all lists excluded banks but total excludes them",
 			text: "/all",
 			setup: func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				svc.EXPECT().All(anyCtx, userID).Return([]domain.Bank{holiday, gifts}, holiday.Balance, nil)
+				svc.EXPECT().All(anyCtx, userID).Return([]domain.Bank{holiday, gifts}, usd, nil)
 				expectSendMessage(t, client, sent)
 			},
 			wantText: []string{
-				text.BankCard("Holiday", "50.00", true),
-				text.BankCard("Gifts", "12.50", false),
-				text.Total("50.00"),
+				text.BankCard("Holiday", "$50.00", true),
+				text.BankCard("Gifts", "$12.50", false),
+				text.Total([]string{"$50.00"}),
 			},
-			notText: []string{text.Total("62.50")},
+			notText: []string{text.Total([]string{"$62.50"}), "30.00"},
 		},
 	}
 
@@ -179,7 +193,7 @@ func TestBankPendingNameShowsCard(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -189,14 +203,14 @@ func TestBankPendingNameShowsCard(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday"))
-	require.Contains(t, sent, text.BankCard("Holiday", "50.00", true))
+	require.Contains(t, sent, text.BankCard("Holiday", "$50.00", true))
 }
 
 func TestBankCallbackShowsCard(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -207,7 +221,37 @@ func TestBankCallbackShowsCard(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackBankPrefix+"7"))
-	require.Contains(t, sent, text.BankCard("Holiday", "50.00", true))
+	require.Contains(t, sent, text.BankCard("Holiday", "$50.00", true))
+}
+
+func TestBankCardRendersCurrency(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		bank domain.Bank
+		want string
+	}{
+		{
+			name: "usd",
+			bank: domain.Bank{Name: "Holiday", Balance: 1000, IncludeInTotal: true, Currency: domain.CurrencyUSD},
+			want: `Holiday: $10.00 (in total)`,
+		},
+		{
+			name: "uah",
+			bank: domain.Bank{Name: "Cash", Balance: 1000, IncludeInTotal: true, Currency: "UAH"},
+			want: `Cash: 10.00 UAH (in total)`,
+		},
+		{
+			name: "negative usd",
+			bank: domain.Bank{Name: "Holiday", Balance: -100, IncludeInTotal: false, Currency: domain.CurrencyUSD},
+			want: `Holiday: -$1.00 (not in total)`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, bankCard(ctx, tt.bank))
+		})
+	}
 }
 
 func TestCommandAtStartViews(t *testing.T) {

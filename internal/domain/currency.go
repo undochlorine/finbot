@@ -24,6 +24,11 @@ func ParseCurrency(raw string) (string, error) {
 	return unit.String(), nil
 }
 
+type CurrencyTotal struct {
+	Currency string
+	Amount   Money
+}
+
 func FormatMoney(m Money, code string) string {
 	amount := m.Format()
 	switch strings.ToUpper(code) {
@@ -33,6 +38,17 @@ func FormatMoney(m Money, code string) string {
 		return withSymbol(amount, "€")
 	default:
 		return amount + " " + code
+	}
+}
+
+func CurrencyUnit(code string) string {
+	switch strings.ToUpper(code) {
+	case CurrencyUSD:
+		return "$"
+	case CurrencyEUR:
+		return "€"
+	default:
+		return code
 	}
 }
 

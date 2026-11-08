@@ -16,6 +16,8 @@ const (
 	userB domain.UserID = 2
 )
 
+var usdZero = []domain.CurrencyTotal{{Currency: domain.CurrencyUSD, Amount: 0}}
+
 func fixedNow() time.Time {
 	return time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 }

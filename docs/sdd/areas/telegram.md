@@ -16,25 +16,27 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/help` | List commands (catalog-keyed; slash names stay English) |
 | `/language` | Re-offer the same language buttons. Persist `users.locale`. Command-menu descriptions stay English (`setMyCommands` is bot-wide). |
 | `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no` or the catalog Yes/No). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
-| `/add` | Pick bank (buttons or arg) → amount. Adds to balance |
+| `/add` | Pick bank (buttons or arg) → amount in that bank’s currency. Adds to balance |
 | `/spend` | Same as add, subtracts (negative allowed) |
-| `/set` | Pick bank → amount. Sets absolute balance |
+| `/set` | Pick bank → amount in that bank’s currency. Sets absolute balance |
 | `/delete` | Pick bank → confirm button → delete bank |
-| `/bank` | Pick bank or arg → show one bank |
+| `/bank` | Pick bank or arg → one card: `Name: $10.00 (in total)` or `Name: 10.00 UAH (not in total)` |
 | `/toggle` | Pick bank → flip `include_in_total` → confirm new state |
-| `/banks` | List all banks (name, balance, whether in total) |
-| `/total` | Sum of included banks only |
-| `/all` | Full list + total |
+| `/banks` | Same card line per bank, included and excluded. No total block |
+| `/total` | One heading, then one amount per included currency. No conversion. No included banks → `$0.00` |
+| `/all` | Full list, then the `/total` block. Excluded banks stay in the list and stay out of the block |
 | `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. |
 | `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. |
 | `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. If that full name is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. |
-| `/transfer` | Pick from-bank → to-bank (other banks) → amount. Same currency only. Reject same bank / invalid amount. |
+| `/transfer` | Pick from-bank → to-bank (other banks) → amount in the source currency. Same currency only. Reject same bank / invalid amount. |
 
 **Later (`4.x`):** `/history`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer Holiday Gifts 50` (exactly two names and an amount; otherwise the full remainder is the from-bank).
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer Holiday Gifts 50` (exactly two names and an amount; otherwise the full remainder is the from-bank). Amount shortcuts take a number only (`$100` and `100 USD` are invalid amounts).
+
+Amount questions name the unit and still ask for a number: `How much should I add to "Travelling" ($)?`, `How much should I transfer from "A" to "B" ($)?` (source bank). `USD` is `$`, `EUR` is `€`, every other code is the code itself.
 
 `/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
 
@@ -76,7 +78,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Delete last bank → allowed
 - Concurrent updates from the **same** user → FIFO (not a SQLite race). Two different users may overlap.
 - Very large amounts → reject if cents would overflow `int64`
-- User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
+- User with zero banks asking `/total` → `$0.00`. `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
 - `/rename`: unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds. Slash args try the full remainder as the current name first; if missing, first word is the old name and the rest is the new name.
 - `/transfer`: reject different currency, same bank, invalid amount (including zero); empty state same as `/add`; one bank → need another `/newbank`. Slash args: exactly `From To Amount` (two words + money) tries both banks; if a bank is missing, or the payload is not that shape, the full remainder is the from-name only.
 

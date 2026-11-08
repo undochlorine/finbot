@@ -45,7 +45,7 @@ flowchart LR
 
 Owned by **service**:
 
-- `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
+- `BankRepository` — CRUD, list, and included totals grouped by currency; **all methods take `userID`**
 - `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
 - `OperationRepository` — append-only operations
 - `Transactor` — `InTx` for add/spend/set/delete/rename/transfer. Postgres retries up to 3 times on deadlock (`40P01`) and serialization (`40001`)
@@ -86,7 +86,7 @@ type Bank struct {
     Name           string
     Balance        Money
     IncludeInTotal bool
-    Currency       string // unused in copy until 4.13
+    Currency       string
     CreatedAt      time.Time
     UpdatedAt      time.Time
 }
@@ -100,12 +100,19 @@ type User struct {
     DiscountPercent *int // nil = not whitelisted; 100 = free; 50 = 50% off
     Locale          string // default "en"
     ReferredBy      *UserID // set once from /start payload
+    LastCurrency    string  // default USD; Upsert does not write it
     CreatedAt       time.Time
     UpdatedAt       time.Time
 }
 ```
 
-Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 decimal places.
+`ParseCurrency` accepts `USDT` or an active ISO 4217 code from `golang.org/x/text/currency.ParseISO`. Input is trimmed and uppercased. Symbols, names, and other crypto are invalid.
+
+`FormatMoney` keeps two decimal places and a `.` for every code. `USD` is `$10.00` / `-$10.00`. `EUR` is `€10.00` / `-€10.00`. Every other code is `10.00 UAH` / `10.00 USDT` / `-10.00 UAH`. `CurrencyUnit` is `$`, `€`, or the code, for amount prompts.
+
+`Total` returns `[]CurrencyTotal`: one sum per included currency, sorted `USD`, `EUR`, `USDT`, then other codes A→Z. `All` returns the bank list plus that set. An empty included set is `USD` and `0`. The service does not add those groups into one number.
+
+Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 decimal places. A currency token (`$100`, `100 USD`) is an invalid amount.
 
 ## Layer rules
 

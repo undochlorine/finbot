@@ -35,8 +35,8 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.4` — then only the files that 
 | 4.11 | `todo` | [Finance tips](4.11-tips.md) |
 | 4.12 | `done` | [Language picker](4.12-language.md) |
 | 4.13 | `todo` | [Multi-currency banks (umbrella)](4.13-multi-currency.md) |
-| 4.13.1 | `to review` | [Currency model](4.13.1-currency-model.md) |
-| 4.13.2 | `todo` | [Currency display](4.13.2-currency-display.md) |
+| 4.13.1 | `done` | [Currency model](4.13.1-currency-model.md) |
+| 4.13.2 | `done` | [Currency display](4.13.2-currency-display.md) |
 | 4.13.3 | `todo` | [Currency picker](4.13.3-currency-picker.md) |
 | 4.14 | `todo` | [Cross-currency transfer (umbrella)](4.14-fx-transfer.md) |
 | 4.14.1 | `todo` | [FX rates](4.14.1-fx-rates.md) |

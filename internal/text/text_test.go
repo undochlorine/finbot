@@ -224,15 +224,15 @@ func TestQuietCopyHasNoEmoji(t *testing.T) {
 		{name: "feedback unavailable", got: FeedbackUnavailable},
 		{name: "bank name taken", got: BankNameTaken("Holiday")},
 		{name: "unknown bank", got: UnknownBank("Holiday")},
-		{name: "ask add", got: AskAddAmount("Holiday")},
-		{name: "ask spend", got: AskSpendAmount("Gifts")},
-		{name: "ask set", got: AskSetAmount("Live")},
+		{name: "ask add", got: AskAddAmount("Holiday", "$")},
+		{name: "ask spend", got: AskSpendAmount("Gifts", "$")},
+		{name: "ask set", got: AskSetAmount("Live", "$")},
 		{name: "ask delete", got: AskDeleteConfirm("Holiday")},
 		{name: "ask rename", got: AskRenameName("Holiday")},
 		{name: "need two banks", got: NeedTwoBanks},
 		{name: "ask transfer from", got: AskTransferFrom},
 		{name: "ask transfer to", got: AskTransferTo("Holiday")},
-		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts")},
+		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts", "$")},
 		{name: "same bank", got: SameBank},
 		{name: "currency mismatch", got: CurrencyMismatch},
 		{name: "ask language", got: AskLanguage},
@@ -297,9 +297,9 @@ func TestMoneyCopy(t *testing.T) {
 		want []string
 	}{
 		{name: "unknown", got: UnknownBank("Holiday"), want: []string{"Holiday", "/banks"}},
-		{name: "ask add", got: AskAddAmount("Holiday"), want: []string{"Holiday"}},
-		{name: "ask spend", got: AskSpendAmount("Gifts"), want: []string{"Gifts"}},
-		{name: "ask set", got: AskSetAmount("Live"), want: []string{"Live"}},
+		{name: "ask add", got: AskAddAmount("Holiday", "$"), want: []string{"Holiday", "($)"}},
+		{name: "ask spend", got: AskSpendAmount("Gifts", "$"), want: []string{"Gifts", "($)"}},
+		{name: "ask set", got: AskSetAmount("Live", "$"), want: []string{"Live", "($)"}},
 		{name: "added", got: Added("Holiday", "100.00", "150.00"), want: []string{"Holiday", "100.00", "150.00"}},
 		{name: "spent", got: Spent("Gifts", "12.50", "87.50"), want: []string{"Gifts", "12.50", "87.50"}},
 		{name: "set", got: SetTo("Live", "0.00"), want: []string{"Live", "0.00"}},
@@ -315,7 +315,7 @@ func TestMoneyCopy(t *testing.T) {
 		{name: "need two banks", got: NeedTwoBanks, want: []string{"/newbank"}},
 		{name: "ask transfer from", got: AskTransferFrom, want: []string{"from"}},
 		{name: "ask transfer to", got: AskTransferTo("Holiday"), want: []string{"Holiday", "to"}},
-		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts"), want: []string{"Holiday", "Gifts"}},
+		{name: "ask transfer amount", got: AskTransferAmount("Holiday", "Gifts", "$"), want: []string{"Holiday", "Gifts", "($)"}},
 		{name: "same bank", got: SameBank, want: []string{"different"}},
 		{name: "currency mismatch", got: CurrencyMismatch, want: []string{"currenc"}},
 		{name: "bank included", got: BankCard("Holiday", "50.00", true), want: []string{"Holiday", "50.00", "in total"}},
@@ -346,12 +346,12 @@ func TestMoneyCopy(t *testing.T) {
 			got:  FeedbackForward(42, "", "please add history"),
 			want: []string{"42", "please add history"},
 		},
-		{name: "total", got: Total("123.45"), want: []string{"123.45"}},
-		{name: "empty total", got: Total("0.00"), want: []string{"0.00"}},
+		{name: "total", got: Total([]string{"$10.00", "20.00 USDT"}), want: []string{"Total:", "$10.00", "20.00 USDT"}},
+		{name: "empty total", got: Total([]string{"$0.00"}), want: []string{"Total:", "$0.00"}},
 		{
 			name: "all",
-			got:  All("Holiday: 50.00 (in total)\nGifts: 12.50 (not in total)", Total("50.00")),
-			want: []string{"Holiday", "50.00", "in total", "Gifts", "12.50", "not in total", "50.00"},
+			got:  All("Holiday: $50.00 (in total)\nGifts: $12.50 (not in total)", Total([]string{"$50.00"})),
+			want: []string{"Holiday", "$50.00", "in total", "Gifts", "$12.50", "not in total", "Total:"},
 		},
 	}
 	for _, tt := range tests {
@@ -360,6 +360,27 @@ func TestMoneyCopy(t *testing.T) {
 				if !strings.Contains(tt.got, w) {
 					t.Errorf("missing %q in %q", w, tt.got)
 				}
+			}
+		})
+	}
+}
+
+func TestTotalHeadings(t *testing.T) {
+	lines := []string{"$10.00", "20.00 USDT"}
+	tests := []struct {
+		locale string
+		want   string
+	}{
+		{locale: domain.LocaleEN, want: "Total:\n$10.00\n20.00 USDT"},
+		{locale: domain.LocaleRU, want: "Итог:\n$10.00\n20.00 USDT"},
+		{locale: domain.LocaleUK, want: "Підсумок:\n$10.00\n20.00 USDT"},
+		{locale: domain.LocaleMD, want: "Тотал:\n$10.00\n20.00 USDT"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.locale, func(t *testing.T) {
+			got := For(tt.locale).Total(lines)
+			if got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
 			}
 		})
 	}

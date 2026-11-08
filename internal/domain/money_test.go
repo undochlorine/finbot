@@ -35,6 +35,7 @@ func TestParseMoney(t *testing.T) {
 		{name: "comma", in: "1,00", wantErr: true},
 		{name: "scientific", in: "1e2", wantErr: true},
 		{name: "currency", in: "$100", wantErr: true},
+		{name: "iso suffix", in: "100 USD", wantErr: true},
 		{name: "sign only", in: "-", wantErr: true},
 		{name: "plus only", in: "+", wantErr: true},
 		{name: "internal space", in: "1 00", wantErr: true},

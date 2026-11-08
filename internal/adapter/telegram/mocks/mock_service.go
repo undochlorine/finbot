@@ -117,7 +117,7 @@ func (_c *MockService_Add_Call) RunAndReturn(run func(ctx context.Context, userI
 }
 
 // All provides a mock function for the type MockService
-func (_mock *MockService) All(ctx context.Context, userID domain.UserID) ([]domain.Bank, domain.Money, error) {
+func (_mock *MockService) All(ctx context.Context, userID domain.UserID) ([]domain.Bank, []domain.CurrencyTotal, error) {
 	ret := _mock.Called(ctx, userID)
 
 	if len(ret) == 0 {
@@ -125,9 +125,9 @@ func (_mock *MockService) All(ctx context.Context, userID domain.UserID) ([]doma
 	}
 
 	var r0 []domain.Bank
-	var r1 domain.Money
+	var r1 []domain.CurrencyTotal
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.Bank, domain.Money, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.Bank, []domain.CurrencyTotal, error)); ok {
 		return returnFunc(ctx, userID)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) []domain.Bank); ok {
@@ -137,10 +137,12 @@ func (_mock *MockService) All(ctx context.Context, userID domain.UserID) ([]doma
 			r0 = ret.Get(0).([]domain.Bank)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) domain.Money); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) []domain.CurrencyTotal); ok {
 		r1 = returnFunc(ctx, userID)
 	} else {
-		r1 = ret.Get(1).(domain.Money)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]domain.CurrencyTotal)
+		}
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context, domain.UserID) error); ok {
 		r2 = returnFunc(ctx, userID)
@@ -180,12 +182,12 @@ func (_c *MockService_All_Call) Run(run func(ctx context.Context, userID domain.
 	return _c
 }
 
-func (_c *MockService_All_Call) Return(banks []domain.Bank, money domain.Money, err error) *MockService_All_Call {
-	_c.Call.Return(banks, money, err)
+func (_c *MockService_All_Call) Return(banks []domain.Bank, currencyTotals []domain.CurrencyTotal, err error) *MockService_All_Call {
+	_c.Call.Return(banks, currencyTotals, err)
 	return _c
 }
 
-func (_c *MockService_All_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) ([]domain.Bank, domain.Money, error)) *MockService_All_Call {
+func (_c *MockService_All_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) ([]domain.Bank, []domain.CurrencyTotal, error)) *MockService_All_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -976,22 +978,24 @@ func (_c *MockService_Toggle_Call) RunAndReturn(run func(ctx context.Context, us
 }
 
 // Total provides a mock function for the type MockService
-func (_mock *MockService) Total(ctx context.Context, userID domain.UserID) (domain.Money, error) {
+func (_mock *MockService) Total(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error) {
 	ret := _mock.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Total")
 	}
 
-	var r0 domain.Money
+	var r0 []domain.CurrencyTotal
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (domain.Money, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.CurrencyTotal, error)); ok {
 		return returnFunc(ctx, userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) domain.Money); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) []domain.CurrencyTotal); ok {
 		r0 = returnFunc(ctx, userID)
 	} else {
-		r0 = ret.Get(0).(domain.Money)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.CurrencyTotal)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
 		r1 = returnFunc(ctx, userID)
@@ -1031,12 +1035,12 @@ func (_c *MockService_Total_Call) Run(run func(ctx context.Context, userID domai
 	return _c
 }
 
-func (_c *MockService_Total_Call) Return(money domain.Money, err error) *MockService_Total_Call {
-	_c.Call.Return(money, err)
+func (_c *MockService_Total_Call) Return(currencyTotals []domain.CurrencyTotal, err error) *MockService_Total_Call {
+	_c.Call.Return(currencyTotals, err)
 	return _c
 }
 
-func (_c *MockService_Total_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) (domain.Money, error)) *MockService_Total_Call {
+func (_c *MockService_Total_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error)) *MockService_Total_Call {
 	_c.Call.Return(run)
 	return _c
 }

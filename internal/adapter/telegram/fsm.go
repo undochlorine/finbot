@@ -54,6 +54,7 @@ type fsmState struct {
 	Step     string `json:"step"`
 	Name     string `json:"name,omitempty"`
 	BankID   int64  `json:"bank_id,omitempty"`
+	Currency string `json:"currency,omitempty"`
 	ToName   string `json:"to_name,omitempty"`
 	ToBankID int64  `json:"to_bank_id,omitempty"`
 	PromptID int    `json:"prompt_id,omitempty"`

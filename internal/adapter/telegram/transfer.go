@@ -16,6 +16,7 @@ func (st fsmState) withTransferFrom(bank domain.Bank) fsmState {
 	st.Step = stepTo
 	st.Name = bank.Name
 	st.BankID = bank.ID
+	st.Currency = bank.Currency
 	st.ToName = ""
 	st.ToBankID = 0
 	return st
@@ -255,7 +256,8 @@ func (h *Bot) askTransferAmount(
 	to domain.Bank,
 ) {
 	st = st.withTransferTo(to)
-	h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).AskTransferAmount(st.Name, to.Name), nil)
+	unit := domain.CurrencyUnit(st.Currency)
+	h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).AskTransferAmount(st.Name, to.Name, unit), nil)
 }
 
 func (h *Bot) applyTransfer(
@@ -277,7 +279,11 @@ func (h *Bot) applyTransfer(
 		return
 	}
 	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).Transferred(
-		from.Name, to.Name, amount.Format(), from.Balance.Format(), to.Balance.Format(),
+		from.Name,
+		to.Name,
+		domain.FormatMoney(amount, from.Currency),
+		domain.FormatMoney(from.Balance, from.Currency),
+		domain.FormatMoney(to.Balance, to.Currency),
 	))
 }
 

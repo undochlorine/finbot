@@ -214,7 +214,7 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 	t.Run("empty list and total", func(t *testing.T) {
 		svc, banks, _, _ := newBankSvc(t)
 		banks.EXPECT().List(ctx, userA).Return([]domain.Bank{}, nil).Twice()
-		banks.EXPECT().TotalIncluded(ctx, userA).Return(domain.Money(0), nil).Twice()
+		banks.EXPECT().TotalIncluded(ctx, userA).Return(nil, nil).Twice()
 
 		list, err := svc.List(ctx, userA)
 		require.NoError(t, err)
@@ -222,33 +222,34 @@ func TestTotalToggleAndEmptyList(t *testing.T) {
 
 		total, err := svc.Total(ctx, userA)
 		require.NoError(t, err)
-		require.Equal(t, domain.Money(0), total)
+		require.Equal(t, usdZero, total)
 
 		all, allTotal, err := svc.All(ctx, userA)
 		require.NoError(t, err)
 		require.Empty(t, all)
-		require.Equal(t, domain.Money(0), allTotal)
+		require.Equal(t, usdZero, allTotal)
 	})
 
 	t.Run("excluded omitted from total", func(t *testing.T) {
 		svc, banks, _, _ := newBankSvc(t)
 		list := []domain.Bank{included, excluded}
+		includedOnly := []domain.CurrencyTotal{{Currency: included.Currency, Amount: included.Balance}}
 		banks.EXPECT().List(ctx, userA).Return(list, nil)
-		banks.EXPECT().TotalIncluded(ctx, userA).Return(included.Balance, nil)
+		banks.EXPECT().TotalIncluded(ctx, userA).Return(includedOnly, nil)
 
 		all, total, err := svc.All(ctx, userA)
 		require.NoError(t, err)
 		require.Equal(t, list, all)
-		require.Equal(t, included.Balance, total)
+		require.Equal(t, includedOnly, total)
 	})
 
-	t.Run("only excluded is zero total", func(t *testing.T) {
+	t.Run("only excluded is usd zero", func(t *testing.T) {
 		svc, banks, _, _ := newBankSvc(t)
-		banks.EXPECT().TotalIncluded(ctx, userA).Return(domain.Money(0), nil)
+		banks.EXPECT().TotalIncluded(ctx, userA).Return(nil, nil)
 
 		total, err := svc.Total(ctx, userA)
 		require.NoError(t, err)
-		require.Equal(t, domain.Money(0), total)
+		require.Equal(t, usdZero, total)
 	})
 
 	t.Run("toggle excluded into total without changing balance", func(t *testing.T) {
@@ -674,16 +675,18 @@ func TestBanksIsolatedByUser(t *testing.T) {
 		{
 			name: "totals are per user",
 			setup: func(banks *mocks.MockBankRepository) {
-				banks.EXPECT().TotalIncluded(ctx, userA).Return(a.Balance, nil)
-				banks.EXPECT().TotalIncluded(ctx, userB).Return(domain.Money(0), nil)
+				banks.EXPECT().TotalIncluded(ctx, userA).Return([]domain.CurrencyTotal{{
+					Currency: a.Currency, Amount: a.Balance,
+				}}, nil)
+				banks.EXPECT().TotalIncluded(ctx, userB).Return(nil, nil)
 			},
 			run: func(t *testing.T, svc *Service) {
 				totalA, err := svc.Total(ctx, userA)
 				require.NoError(t, err)
 				totalB, err := svc.Total(ctx, userB)
 				require.NoError(t, err)
-				require.Equal(t, a.Balance, totalA)
-				require.Equal(t, domain.Money(0), totalB)
+				require.Equal(t, []domain.CurrencyTotal{{Currency: a.Currency, Amount: a.Balance}}, totalA)
+				require.Equal(t, usdZero, totalB)
 			},
 		},
 	}
@@ -693,6 +696,68 @@ func TestBanksIsolatedByUser(t *testing.T) {
 			svc, banks, _, _ := newBankSvc(t)
 			tt.setup(banks)
 			tt.run(t, svc)
+		})
+	}
+}
+
+func TestTotalGroupsByCurrency(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		rows []domain.CurrencyTotal
+		want []domain.CurrencyTotal
+	}{
+		{
+			name: "usd and uah sums stay per code",
+			rows: []domain.CurrencyTotal{
+				{Currency: "UAH", Amount: 2500},
+				{Currency: domain.CurrencyUSD, Amount: 15000},
+			},
+			want: []domain.CurrencyTotal{
+				{Currency: domain.CurrencyUSD, Amount: 15000},
+				{Currency: "UAH", Amount: 2500},
+			},
+		},
+		{
+			name: "excluded banks are absent",
+			rows: []domain.CurrencyTotal{{Currency: domain.CurrencyUSD, Amount: 10000}},
+			want: []domain.CurrencyTotal{{Currency: domain.CurrencyUSD, Amount: 10000}},
+		},
+		{
+			name: "zero sum still appears",
+			rows: []domain.CurrencyTotal{{Currency: domain.CurrencyEUR, Amount: 0}},
+			want: []domain.CurrencyTotal{{Currency: domain.CurrencyEUR, Amount: 0}},
+		},
+		{
+			name: "no included banks",
+			want: usdZero,
+		},
+		{
+			name: "sort usd eur usdt then alpha",
+			rows: []domain.CurrencyTotal{
+				{Currency: "ZAR", Amount: 1},
+				{Currency: domain.CurrencyUSDT, Amount: 2},
+				{Currency: "GBP", Amount: 3},
+				{Currency: domain.CurrencyEUR, Amount: 4},
+				{Currency: domain.CurrencyUSD, Amount: 5},
+			},
+			want: []domain.CurrencyTotal{
+				{Currency: domain.CurrencyUSD, Amount: 5},
+				{Currency: domain.CurrencyEUR, Amount: 4},
+				{Currency: domain.CurrencyUSDT, Amount: 2},
+				{Currency: "GBP", Amount: 3},
+				{Currency: "ZAR", Amount: 1},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, banks, _, _ := newBankSvc(t)
+			banks.EXPECT().TotalIncluded(ctx, userA).Return(tt.rows, nil)
+			got, err := svc.Total(ctx, userA)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -80,7 +80,9 @@ func (h *Bot) toggleAndReply(
 		h.done(ctx, b, chatID, userID, st, copyFrom(ctx).SomethingWentWrong)
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).Toggled(bank.Name, bank.Balance.Format(), bank.IncludeInTotal))
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).Toggled(
+		bank.Name, domain.FormatMoney(bank.Balance, bank.Currency), bank.IncludeInTotal,
+	))
 }
 
 func (h *Bot) handleToggleCallback(ctx context.Context, b *bot.Bot, update *models.Update) {

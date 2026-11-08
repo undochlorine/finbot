@@ -88,11 +88,11 @@ flowchart TB
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). If the full arg is not a bank, `/rename Travelling Holiday` renames bank `Travelling` to `Holiday`. Unique per user stays case-insensitive. Recasing the same bank is allowed.
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
-- **Money:** `int64` minor units (cents). Display as `123.45` with a `.` in every language. Every currency uses 2 decimal places, including JPY and USDT. No multi-currency **UX** until `4.13.1`–`4.13.3`. Banks already store `currency` (hidden in copy; totals still sum). Cross-currency `/transfer` is `4.14.1`–`4.14.2`.
+- **Money:** `int64` minor units (cents). Display is `FormatMoney` (`$10.00`, `€10.00`, `10.00 UAH`) with a `.` in every language. Every currency uses 2 decimal places, including JPY and USDT. Choosing a currency is `4.13.3`. Cross-currency `/transfer` is `4.14.1`–`4.14.2`.
 
 ### Currencies and FX
 
-Specified 2026-11-08. Implement only in the sub-steps below. Until those steps are accepted, runtime copy and the ungrouped `SUM` stay as they are.
+Specified 2026-11-08. Display and grouped totals are live (`4.13.1`–`4.13.2`). Still to build: the picker (`4.13.3`) and FX transfer (`4.14`).
 
 - **Storage.** `banks.currency` is `TEXT NOT NULL DEFAULT 'USD'` (`001_init.sql`). `4.13.1` sets every existing bank to `USD` and adds `users.last_currency TEXT NOT NULL DEFAULT 'USD'`.
 - **Codes.** `USDT`, or an active ISO 4217 code accepted by `golang.org/x/text/currency.ParseISO`. Input is trimmed and uppercased. Symbols, names, and other crypto (`BTC`) are invalid.

@@ -2,6 +2,7 @@ package text
 
 import (
 	"fmt"
+	"strings"
 
 	"finbot/internal/domain"
 )
@@ -94,16 +95,16 @@ func (c Catalog) UnknownBank(name string) string {
 	return fmt.Sprintf(c.UnknownBankFmt, name)
 }
 
-func (c Catalog) AskAddAmount(name string) string {
-	return fmt.Sprintf(c.AskAddAmountFmt, name)
+func (c Catalog) AskAddAmount(name, unit string) string {
+	return fmt.Sprintf(c.AskAddAmountFmt, name, unit)
 }
 
-func (c Catalog) AskSpendAmount(name string) string {
-	return fmt.Sprintf(c.AskSpendAmountFmt, name)
+func (c Catalog) AskSpendAmount(name, unit string) string {
+	return fmt.Sprintf(c.AskSpendAmountFmt, name, unit)
 }
 
-func (c Catalog) AskSetAmount(name string) string {
-	return fmt.Sprintf(c.AskSetAmountFmt, name)
+func (c Catalog) AskSetAmount(name, unit string) string {
+	return fmt.Sprintf(c.AskSetAmountFmt, name, unit)
 }
 
 func (c Catalog) Added(name, amount, balance string) string {
@@ -140,8 +141,8 @@ func (c Catalog) BankCard(name, balance string, included bool) string {
 	return fmt.Sprintf(c.BankCardExcludedFmt, name, balance)
 }
 
-func (c Catalog) Total(amount string) string {
-	return fmt.Sprintf(c.TotalFmt, amount)
+func (c Catalog) Total(lines []string) string {
+	return c.TotalFmt + "\n" + strings.Join(lines, "\n")
 }
 
 func (c Catalog) All(banks, total string) string {
@@ -167,8 +168,8 @@ func (c Catalog) AskTransferTo(fromName string) string {
 	return fmt.Sprintf(c.AskTransferToFmt, fromName)
 }
 
-func (c Catalog) AskTransferAmount(fromName, toName string) string {
-	return fmt.Sprintf(c.AskTransferAmountFmt, fromName, toName)
+func (c Catalog) AskTransferAmount(fromName, toName, unit string) string {
+	return fmt.Sprintf(c.AskTransferAmountFmt, fromName, toName, unit)
 }
 
 func (c Catalog) Transferred(fromName, toName, amount, fromBalance, toBalance string) string {
@@ -244,16 +245,16 @@ func UnknownBank(name string) string {
 	return en.UnknownBank(name)
 }
 
-func AskAddAmount(name string) string {
-	return en.AskAddAmount(name)
+func AskAddAmount(name, unit string) string {
+	return en.AskAddAmount(name, unit)
 }
 
-func AskSpendAmount(name string) string {
-	return en.AskSpendAmount(name)
+func AskSpendAmount(name, unit string) string {
+	return en.AskSpendAmount(name, unit)
 }
 
-func AskSetAmount(name string) string {
-	return en.AskSetAmount(name)
+func AskSetAmount(name, unit string) string {
+	return en.AskSetAmount(name, unit)
 }
 
 func Added(name, amount, balance string) string {
@@ -284,8 +285,8 @@ func BankCard(name, balance string, included bool) string {
 	return en.BankCard(name, balance, included)
 }
 
-func Total(amount string) string {
-	return en.Total(amount)
+func Total(lines []string) string {
+	return en.Total(lines)
 }
 
 func All(banks, total string) string {
@@ -308,8 +309,8 @@ func AskTransferTo(fromName string) string {
 	return en.AskTransferTo(fromName)
 }
 
-func AskTransferAmount(fromName, toName string) string {
-	return en.AskTransferAmount(fromName, toName)
+func AskTransferAmount(fromName, toName, unit string) string {
+	return en.AskTransferAmount(fromName, toName, unit)
 }
 
 func Transferred(fromName, toName, amount, fromBalance, toBalance string) string {

@@ -144,16 +144,39 @@ func (r *BankRepository) Delete(ctx context.Context, userID domain.UserID, bankI
 	return nil
 }
 
-func (r *BankRepository) TotalIncluded(ctx context.Context, userID domain.UserID) (domain.Money, error) {
-	var cents int64
-	err := conn(ctx, r.db).QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(balance_cents), 0)
+func (r *BankRepository) TotalIncluded(
+	ctx context.Context,
+	userID domain.UserID,
+) (totals []domain.CurrencyTotal, err error) {
+	rows, err := conn(ctx, r.db).QueryContext(ctx, `
+		SELECT currency, COALESCE(SUM(balance_cents), 0)
 		FROM banks
-		WHERE user_id = $1 AND include_in_total = TRUE`, userID).Scan(&cents)
+		WHERE user_id = $1 AND include_in_total
+		GROUP BY currency`, userID)
 	if err != nil {
-		return 0, fmt.Errorf("total included: %w", err)
+		return nil, fmt.Errorf("total included: %w", err)
 	}
-	return domain.Money(cents), nil
+	defer func() {
+		if cerr := rows.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("total included close: %w", cerr)
+		}
+	}()
+
+	totals = make([]domain.CurrencyTotal, 0)
+	for rows.Next() {
+		var (
+			code  string
+			cents int64
+		)
+		if err = rows.Scan(&code, &cents); err != nil {
+			return nil, fmt.Errorf("total included: %w", err)
+		}
+		totals = append(totals, domain.CurrencyTotal{Currency: code, Amount: domain.Money(cents)})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("total included: %w", err)
+	}
+	return totals, nil
 }
 
 func scanBankRow(row *sql.Row, op string) (domain.Bank, error) {
