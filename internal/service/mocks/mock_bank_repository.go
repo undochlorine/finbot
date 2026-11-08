@@ -386,22 +386,24 @@ func (_c *MockBankRepository_List_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // TotalIncluded provides a mock function for the type MockBankRepository
-func (_mock *MockBankRepository) TotalIncluded(ctx context.Context, userID domain.UserID) (domain.Money, error) {
+func (_mock *MockBankRepository) TotalIncluded(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error) {
 	ret := _mock.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TotalIncluded")
 	}
 
-	var r0 domain.Money
+	var r0 []domain.CurrencyTotal
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (domain.Money, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.CurrencyTotal, error)); ok {
 		return returnFunc(ctx, userID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) domain.Money); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) []domain.CurrencyTotal); ok {
 		r0 = returnFunc(ctx, userID)
 	} else {
-		r0 = ret.Get(0).(domain.Money)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.CurrencyTotal)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
 		r1 = returnFunc(ctx, userID)
@@ -441,12 +443,12 @@ func (_c *MockBankRepository_TotalIncluded_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *MockBankRepository_TotalIncluded_Call) Return(money domain.Money, err error) *MockBankRepository_TotalIncluded_Call {
-	_c.Call.Return(money, err)
+func (_c *MockBankRepository_TotalIncluded_Call) Return(currencyTotals []domain.CurrencyTotal, err error) *MockBankRepository_TotalIncluded_Call {
+	_c.Call.Return(currencyTotals, err)
 	return _c
 }
 
-func (_c *MockBankRepository_TotalIncluded_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) (domain.Money, error)) *MockBankRepository_TotalIncluded_Call {
+func (_c *MockBankRepository_TotalIncluded_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error)) *MockBankRepository_TotalIncluded_Call {
 	_c.Call.Return(run)
 	return _c
 }

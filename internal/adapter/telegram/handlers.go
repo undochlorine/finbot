@@ -28,6 +28,7 @@ func (h *Bot) registerHandlers() {
 		{domain.CommandBank, h.handleBank},
 		{domain.CommandToggle, h.handleToggle},
 		{domain.CommandRename, h.handleRename},
+		{domain.CommandCurrency, h.handleCurrency},
 		{domain.CommandTransfer, h.handleTransfer},
 		{domain.CommandBanks, h.handleBanks},
 		{domain.CommandTotal, h.handleTotal},
@@ -49,6 +50,8 @@ func (h *Bot) registerHandlers() {
 		{callbackBankPrefix, h.handleBankCallback},
 		{callbackTogglePrefix, h.handleToggleCallback},
 		{callbackRenamePrefix, h.handleRenameCallback},
+		{callbackCurrencyPrefix, h.handleCurrencyCallback},
+		{callbackCCYPrefix, h.handleCCYCallback},
 		{callbackTransferPrefix, h.handleTransferCallback},
 		{callbackLanguagePrefix, h.handleLanguageCallback},
 	} {
@@ -166,6 +169,9 @@ func (h *Bot) handlePendingInput(ctx context.Context, b *bot.Bot, update *models
 	case domain.CommandRename:
 		st.note(msgID)
 		h.continueRename(ctx, b, chatID, userID, st, update.Message.Text)
+	case domain.CommandCurrency:
+		st.note(msgID)
+		h.continueCurrency(ctx, b, chatID, userID, st, update.Message.Text)
 	case domain.CommandTransfer:
 		st.note(msgID)
 		h.continueTransfer(ctx, b, chatID, userID, st, update.Message.Text)

@@ -39,6 +39,141 @@ func (_m *MockUserRepository) EXPECT() *MockUserRepository_Expecter {
 	return &MockUserRepository_Expecter{mock: &_m.Mock}
 }
 
+// LastCurrency provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) LastCurrency(ctx context.Context, userID domain.UserID) (string, error) {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LastCurrency")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (string, error)); ok {
+		return returnFunc(ctx, userID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) string); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUserRepository_LastCurrency_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LastCurrency'
+type MockUserRepository_LastCurrency_Call struct {
+	*mock.Call
+}
+
+// LastCurrency is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+func (_e *MockUserRepository_Expecter) LastCurrency(ctx interface{}, userID interface{}) *MockUserRepository_LastCurrency_Call {
+	return &MockUserRepository_LastCurrency_Call{Call: _e.mock.On("LastCurrency", ctx, userID)}
+}
+
+func (_c *MockUserRepository_LastCurrency_Call) Run(run func(ctx context.Context, userID domain.UserID)) *MockUserRepository_LastCurrency_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_LastCurrency_Call) Return(s string, err error) *MockUserRepository_LastCurrency_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockUserRepository_LastCurrency_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID) (string, error)) *MockUserRepository_LastCurrency_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetLastCurrency provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetLastCurrency(ctx context.Context, userID domain.UserID, code string, at time.Time) error {
+	ret := _mock.Called(ctx, userID, code, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetLastCurrency")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, string, time.Time) error); ok {
+		r0 = returnFunc(ctx, userID, code, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetLastCurrency_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLastCurrency'
+type MockUserRepository_SetLastCurrency_Call struct {
+	*mock.Call
+}
+
+// SetLastCurrency is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - code string
+//   - at time.Time
+func (_e *MockUserRepository_Expecter) SetLastCurrency(ctx interface{}, userID interface{}, code interface{}, at interface{}) *MockUserRepository_SetLastCurrency_Call {
+	return &MockUserRepository_SetLastCurrency_Call{Call: _e.mock.On("SetLastCurrency", ctx, userID, code, at)}
+}
+
+func (_c *MockUserRepository_SetLastCurrency_Call) Run(run func(ctx context.Context, userID domain.UserID, code string, at time.Time)) *MockUserRepository_SetLastCurrency_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Time
+		if args[3] != nil {
+			arg3 = args[3].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetLastCurrency_Call) Return(err error) *MockUserRepository_SetLastCurrency_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetLastCurrency_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, code string, at time.Time) error) *MockUserRepository_SetLastCurrency_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetLocale provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) SetLocale(ctx context.Context, userID domain.UserID, locale string, at time.Time) error {
 	ret := _mock.Called(ctx, userID, locale, at)

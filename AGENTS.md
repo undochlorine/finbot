@@ -8,8 +8,8 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.13` (specified, not started — implement `4.13.1`) |
-| **Last done** | `4.12` language picker (`en` / `ru` / `uk` / `md`) |
+| **Current step** | `4.14.1` (todo) |
+| **Last done** | `4.13.3` currency picker |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -54,7 +54,7 @@ For `let's move to step X.Y` also read `docs/sdd/requirements.md` and the step f
 | 4.10 | persistence, telegram, service | `docs/sdd/steps/4.10-history.md` |
 | 4.11 | telegram, persistence | `docs/sdd/steps/4.11-tips.md` |
 | 4.12 | telegram, persistence | `docs/sdd/steps/4.12-language.md` |
-| 4.13 | persistence, telegram, service | `docs/sdd/steps/4.13-multi-currency.md` (umbrella; do not implement — start `4.13.1`) |
+| 4.13 | persistence, telegram, service | `docs/sdd/steps/4.13-multi-currency.md` (umbrella; done — start `4.14.1`) |
 | 4.13.1 | persistence, service | `docs/sdd/steps/4.13.1-currency-model.md` |
 | 4.13.2 | telegram, service, persistence | `docs/sdd/steps/4.13.2-currency-display.md` |
 | 4.13.3 | telegram, persistence, service | `docs/sdd/steps/4.13.3-currency-picker.md` |
@@ -73,6 +73,6 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`Follow AGENTS.md. Let's move to step 4.13.1`
+`4.14.1` is next. `Follow AGENTS.md. Let's move to step 4.14.1`.
 
-Currency model only (codes, `$` / `€` / ISO display, backfill `USD`, `users.last_currency`). Do not start `4.13.2` in the same session. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).
+FX rate cache only. Do not start the converted `/transfer`. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).

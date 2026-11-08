@@ -15,30 +15,33 @@ The process registers these with Telegram `setMyCommands` on startup so clients 
 | `/start` | Upsert user. If `locale` is empty/unknown, ask language (buttons: English, Русский, Українська, Moldovenească) then show the welcome in that catalog. If locale is already set, short intro and point to `/help`. First valid `/start <telegram-id>` stores `referred_by` if still null. Later payloads do not overwrite. Self-referral is ignored. No rewards until `4.15`. |
 | `/help` | List commands (catalog-keyed; slash names stay English) |
 | `/language` | Re-offer the same language buttons. Persist `users.locale`. Command-menu descriptions stay English (`setMyCommands` is bot-wide). |
-| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no` or the catalog Yes/No). Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. |
-| `/add` | Pick bank (buttons or arg) → amount. Adds to balance |
+| `/newbank` | Ask name → duplicate-name error immediately if taken (stay on name) → else ask “Count in total?” yes/no buttons (or type `yes`/`no` or the catalog Yes/No) → currency. Shortcut: `/newbank Travelling`. Names may contain spaces, so `/newbank Holiday yes` is a bank named `Holiday yes`, not a name plus include flag. The bank is inserted only after a valid code. `/cancel` on the currency step writes nothing and does not change `last_currency`. |
+| `/add` | Pick bank (buttons or arg) → amount in that bank’s currency. Adds to balance |
 | `/spend` | Same as add, subtracts (negative allowed) |
-| `/set` | Pick bank → amount. Sets absolute balance |
+| `/set` | Pick bank → amount in that bank’s currency. Sets absolute balance |
 | `/delete` | Pick bank → confirm button → delete bank |
-| `/bank` | Pick bank or arg → show one bank |
+| `/bank` | Pick bank or arg → one card: `Name: $10.00 (in total)` or `Name: 10.00 UAH (not in total)` |
 | `/toggle` | Pick bank → flip `include_in_total` → confirm new state |
-| `/banks` | List all banks (name, balance, whether in total) |
-| `/total` | Sum of included banks only |
-| `/all` | Full list + total |
+| `/banks` | Same card line per bank, included and excluded. No total block |
+| `/total` | One heading, then one amount per included currency. No conversion. No included banks → `$0.00` |
+| `/all` | Full list, then the `/total` block. Excluded banks stay in the list and stay out of the block |
 | `/cancel` | Clear the in-flight flow. Idle `/cancel` says nothing is pending. |
 | `/feedback` | Ask for text → forward to `ADMIN_TELEGRAM_ID` (user id + username + body) → thank the user. If admin id is unset, say unavailable. No inbox table. |
 | `/rename` | Pick bank (buttons or arg) → type the new name. Duplicate-name error stays on the name step. Recasing the same bank is allowed. Shortcut: `/rename Travelling`. If that full name is missing, `/rename Travelling Holiday` renames `Travelling` → `Holiday`. |
-| `/transfer` | Pick from-bank → to-bank (other banks) → amount. Same currency only. Reject same bank / invalid amount. |
+| `/currency` | Pick bank → the same currency picker as `/newbank` → confirm when the code differs. Same code writes no operation and does not open confirm; it still sets `last_currency`. Shortcut: `/currency Travelling`. If that full name is missing, the first word is the bank and the rest is a code (`/currency Travelling UAH` skips the picker and confirms). A bad one-token code is the invalid-currency outcome, not a bank named `Travelling UAH`, when `Travelling` exists. Yes keeps the cents and writes one `currency` operation. No and `/cancel` write nothing. |
+| `/transfer` | Pick from-bank → to-bank (other banks) → amount in the source currency. Same currency only. Reject same bank / invalid amount. |
 
-**Later (`4.x`):** `/history`, currency on `/newbank`, finance tips, paid-promo copy on extra-bank commands.
+**Later (`4.x`):** `/history`, finance tips, paid-promo copy on extra-bank commands. Cross-currency `/transfer` is `4.14`.
 
 **Empty state:** if the user has no banks, mutating/list commands say so and point to `/newbank`.
 
-**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank). `/transfer Holiday Gifts 50` (exactly two names and an amount; otherwise the full remainder is the from-bank).
+**Shortcuts:** put details after the slash command instead of waiting for a prompt. Bank names may contain spaces. Examples: `/newbank Travelling`, `/add Travelling 100`, `/spend Gifts 12.50`, `/set Live 0`, `/bank Travelling`, `/delete Travelling`, `/rename Travelling`, `/rename Travelling Holiday` (only if `Travelling Holiday` is not itself a bank), `/currency Travelling`, `/currency Travelling UAH`. `/transfer Holiday Gifts 50` (exactly two names and an amount; otherwise the full remainder is the from-bank). Amount shortcuts take a number only (`$100` and `100 USD` are invalid amounts).
 
-`/newbank` does **not** take a yes/no include flag on the same line. After the name is accepted, the bot asks whether the bank counts in the total.
+Amount questions name the unit and still ask for a number: `How much should I add to "Travelling" ($)?`, `How much should I transfer from "A" to "B" ($)?` (source bank). `USD` is `$`, `EUR` is `€`, every other code is the code itself.
 
-**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, `v1:rename:<bankID>`, `v1:transfer:from:<bankID>`, `v1:transfer:to:<bankID>`, `v1:language:<code>`.
+`/newbank` does **not** take a yes/no include flag or a currency on the same line. After the name is accepted, the bot asks whether the bank counts in the total, then asks for a currency. One row: `€`, `$`, `USDT` (`v1:ccy:EUR`, `v1:ccy:USD`, `v1:ccy:USDT`). If `last_currency` is a valid code outside those three, that code is a fourth button on the right. A typed code goes through `ParseCurrency`. Invalid text edits the prompt and stays on the step. No emoji on the currency prompt.
+
+**Callback data:** versioned and namespaced, e.g. `v1:add:<bankID>`, `v1:rename:<bankID>`, `v1:currency:<bankID>`, `v1:currency:yes:<bankID>`, `v1:currency:no:<bankID>`, `v1:ccy:EUR`, `v1:transfer:from:<bankID>`, `v1:transfer:to:<bankID>`, `v1:language:<code>`.
 
 ## Chat hygiene
 
@@ -49,7 +52,7 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 | Kind | Why |
 | --- | --- |
 | Slash commands (`/add`, `/add Travelling 100`, `/start`, `/help`, `/cancel`, …) | The user’s intent and timestamp. Shortcuts *are* the record. Deleting them feels like the bot eating the chat. |
-| Outcomes | Created / added / spent / set / deleted / delete-cancelled / toggled / renamed / bank card / `/banks` / `/total` / `/all` |
+| Outcomes | Created / added / spent / set / deleted / delete-cancelled / toggled / renamed / currency changed / currency unchanged / bank card / `/banks` / `/total` / `/all` |
 | Terminal errors | No banks, unknown bank from a shortcut, something went wrong, feedback unavailable, nothing to cancel, flow expired |
 | The user’s `/feedback` body | The thanks line does not repeat it |
 | `/cancel` + `Canceled.` | Abort should stay visible |
@@ -58,8 +61,8 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 
 | Kind | Why |
 | --- | --- |
-| Bot prompts | Ask name / include / which bank / amount / delete confirm / new name / feedback ask. Same message is edited as the step advances; success edits it into the outcome and strips buttons. |
-| Typed answers in a flow | Bank name, amount, yes/no — already restated in the outcome |
+| Bot prompts | Ask name / include / currency / which bank / amount / delete confirm / currency confirm / new name / feedback ask. Same message is edited as the step advances; success edits it into the outcome and strips buttons. The currency prompt has no emoji. |
+| Typed answers in a flow | Bank name, amount, yes/no, currency code — already restated in the outcome |
 | Recovered validation prompts | Invalid amount/name, name taken: gone once the flow succeeds or is cancelled |
 | Replaced flow | Starting `/spend` while `/add` is pending deletes the add wizard. No extra `Canceled.` |
 
@@ -76,8 +79,9 @@ The chat should read as a ledger: what the user asked for, and what changed. Wiz
 - Delete last bank → allowed
 - Concurrent updates from the **same** user → FIFO (not a SQLite race). Two different users may overlap.
 - Very large amounts → reject if cents would overflow `int64`
-- User with zero banks asking `/total` → `0.00` (empty sum). `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
+- User with zero banks asking `/total` → `$0.00`. `/banks`, `/all`, and `/bank` with no banks still use the `/newbank` empty-state hint.
 - `/rename`: unknown bank → error, offer `/banks`; name taken by **another** bank → stay on the name step; empty name → ask again; recasing the same bank succeeds. Slash args try the full remainder as the current name first; if missing, first word is the old name and the rest is the new name.
+- `/currency`: unknown bank → error, offer `/banks`. Same code: `"Travelling" already uses $.` and `last_currency` is set, with no operation. A different code confirms first (`"Travelling" is $100.00. It will show as 100.00 UAH. The number does not change. Confirm?`). No says the current label stays. Slash args follow the `/rename` split. Empty `/currency` is an empty-wizard command for compact.
 - `/transfer`: reject different currency, same bank, invalid amount (including zero); empty state same as `/add`; one bank → need another `/newbank`. Slash args: exactly `From To Amount` (two words + money) tries both banks; if a bank is missing, or the payload is not that shape, the full remainder is the from-name only.
 
 Starting another flow command replaces the pending FSM. Read-only commands leave it in place. Plain text with no FSM stays silent. Expired callbacks (cache miss) ask to start over; stale callbacks (wrong in-flight flow) are ignored.
@@ -101,7 +105,7 @@ The FIFO only orders. `WithNotAsyncHandlers` alone is not the fix: it serializes
 | Pattern | Keep | Drop |
 | --- | --- | --- |
 | Consecutive identical **idempotent** slash text (`/help`, `/start`, `/banks`, `/total`, `/all`, `/bank <name>`) | first | the rest of the run |
-| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/transfer`, `/feedback`, `/language`, `/cancel` with no args) | first | the rest of the run |
+| Consecutive identical **empty wizard starts** (`/newbank`, `/add`, `/spend`, `/set`, `/delete`, `/toggle`, `/bank`, `/rename`, `/currency`, `/transfer`, `/feedback`, `/language`, `/cancel` with no args) | first | the rest of the run |
 | Empty wizard start whose **next waiting slash** is also a flow-start (would replace per FSM polish) | the later flow-start | the empty one. **Do not** drop if the next item is `/cancel`, `/help`, `/start`, `/banks`, `/total`, `/all`, or a typed/callback update |
 | Consecutive identical `/newbank <same name>` | first | later copies (second would be name-taken) |
 | Consecutive identical `/delete <same name>` | first | later copies (second would be unknown bank) |
@@ -110,7 +114,7 @@ The FIFO only orders. `WithNotAsyncHandlers` alone is not the fix: it serializes
 
 Collapsed items are **not** answered with an extra “skipped” line. The user’s slash messages stay in chat (hygiene keeps them).
 
-Empty `/transfer` is an empty-wizard command for compact.
+Empty `/transfer` and empty `/currency` are empty-wizard commands for compact.
 
 ## Emojis
 

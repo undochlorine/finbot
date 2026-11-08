@@ -114,11 +114,11 @@ func (h *Bot) replyTotal(ctx context.Context, b *bot.Bot, chatID int64, userID d
 		replyErr(ctx, b, chatID, "total", err)
 		return
 	}
-	reply(ctx, b, chatID, copyFrom(ctx).Total(total.Format()), nil)
+	reply(ctx, b, chatID, copyFrom(ctx).Total(moneyLines(total)), nil)
 }
 
 func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID domain.UserID) {
-	banks, total, err := h.svc.All(ctx, userID)
+	banks, totals, err := h.svc.All(ctx, userID)
 	if err != nil {
 		replyErr(ctx, b, chatID, "all banks", err)
 		return
@@ -128,7 +128,7 @@ func (h *Bot) replyAll(ctx context.Context, b *bot.Bot, chatID int64, userID dom
 		return
 	}
 	c := copyFrom(ctx)
-	reply(ctx, b, chatID, c.All(formatBanks(ctx, banks), c.Total(total.Format())), nil)
+	reply(ctx, b, chatID, c.All(formatBanks(ctx, banks), c.Total(moneyLines(totals))), nil)
 }
 
 func (h *Bot) handleBankCallback(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -162,5 +162,13 @@ func formatBanks(ctx context.Context, banks []domain.Bank) string {
 }
 
 func bankCard(ctx context.Context, bank domain.Bank) string {
-	return copyFrom(ctx).BankCard(bank.Name, bank.Balance.Format(), bank.IncludeInTotal)
+	return copyFrom(ctx).BankCard(bank.Name, domain.FormatMoney(bank.Balance, bank.Currency), bank.IncludeInTotal)
+}
+
+func moneyLines(totals []domain.CurrencyTotal) []string {
+	lines := make([]string, len(totals))
+	for i, total := range totals {
+		lines[i] = domain.FormatMoney(total.Amount, total.Currency)
+	}
+	return lines
 }

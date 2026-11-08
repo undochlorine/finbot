@@ -215,9 +215,9 @@ func TestPendingMoneyShortcutsApplyInEnqueueOrder(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	bank := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday"}
-	after100 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 10000}
-	after150 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000}
+	bank := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Currency: domain.CurrencyUSD}
+	after100 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 10000, Currency: domain.CurrencyUSD}
+	after150 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 15000, Currency: domain.CurrencyUSD}
 
 	firstStarted := make(chan struct{})
 	releaseFirst := make(chan struct{})
@@ -267,7 +267,10 @@ func TestPendingMoneyShortcutsApplyInEnqueueOrder(t *testing.T) {
 func TestPendingHelpThenBanksRepliesInOrder(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
+	holiday := domain.Bank{
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000,
+		IncludeInTotal: true, Currency: domain.CurrencyUSD,
+	}
 
 	helpStarted := make(chan struct{})
 	releaseHelp := make(chan struct{})
@@ -308,13 +311,18 @@ func TestPendingHelpThenBanksRepliesInOrder(t *testing.T) {
 func TestPendingBurstHelpAllHelpRepliesInSendOrder(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
+	holiday := domain.Bank{
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000,
+		IncludeInTotal: true, Currency: domain.CurrencyUSD,
+	}
 
 	var mu sync.Mutex
 	var sent []string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, _ *mocks.MockCache, client *mocks.MockHTTPClient) {
-		svc.EXPECT().All(anyCtx, userID).Return([]domain.Bank{holiday}, holiday.Balance, nil)
+		svc.EXPECT().All(anyCtx, userID).Return([]domain.Bank{holiday}, []domain.CurrencyTotal{{
+			Currency: holiday.Currency, Amount: holiday.Balance,
+		}}, nil)
 		for range 3 {
 			expectSendMessageCapture(t, client, &mu, &sent, nil, nil)
 		}
@@ -368,8 +376,8 @@ func TestPendingDoesNotBlockOtherUsers(t *testing.T) {
 	const otherUserID int64 = 99
 	otherID := domain.UserID(otherUserID)
 	key := fsmKey(userID)
-	bank := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday"}
-	after100 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 10000}
+	bank := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Currency: domain.CurrencyUSD}
+	after100 := domain.Bank{ID: testBankID, Name: "Holiday", Balance: 10000, Currency: domain.CurrencyUSD}
 
 	aStarted := make(chan struct{})
 	releaseA := make(chan struct{})

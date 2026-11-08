@@ -13,26 +13,33 @@ import (
 	"finbot/internal/domain"
 )
 
-func TestCreateBankUsesDefaultCurrency(t *testing.T) {
+func TestCreateBankStoresChosenCurrency(t *testing.T) {
 	db := mustOpenReset(t)
 	ctx := context.Background()
 	svc := testService(db, "EUR")
 	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
 		t.Fatalf("user: %v", err)
 	}
-	bank, err := svc.CreateBank(ctx, 1, "Holiday", true)
+	bank, err := svc.CreateBank(ctx, 1, "Holiday", true, "uah")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if bank.Currency != "EUR" {
-		t.Fatalf("currency %q, want EUR", bank.Currency)
+	if bank.Currency != "UAH" {
+		t.Fatalf("currency %q, want UAH", bank.Currency)
 	}
 	got, err := NewBankRepository(db).GetByID(ctx, 1, bank.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	if got.Currency != "EUR" {
-		t.Fatalf("stored %q, want EUR", got.Currency)
+	if got.Currency != "UAH" || got.Balance != 0 {
+		t.Fatalf("stored %+v", got)
+	}
+	user, err := NewUserRepository(db).Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	if user.LastCurrency != "UAH" {
+		t.Fatalf("last_currency %q, want UAH", user.LastCurrency)
 	}
 }
 
@@ -63,7 +70,7 @@ func TestAddSpendSetAndDeleteWriteOperations(t *testing.T) {
 	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
 		t.Fatalf("user: %v", err)
 	}
-	bank, err := svc.CreateBank(ctx, 1, "Live", true)
+	bank, err := svc.CreateBank(ctx, 1, "Live", true, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -127,14 +134,14 @@ func TestRenameWritesOperation(t *testing.T) {
 	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
 		t.Fatalf("user: %v", err)
 	}
-	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true)
+	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if _, err := svc.Add(ctx, 1, holiday.ID, 2500); err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create gifts: %v", err)
 	}
@@ -183,14 +190,14 @@ func TestTransferWritesOneOperation(t *testing.T) {
 	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
 		t.Fatalf("user: %v", err)
 	}
-	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true)
+	holiday, err := svc.CreateBank(ctx, 1, "Holiday", true, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create holiday: %v", err)
 	}
 	if _, err := svc.Add(ctx, 1, holiday.ID, 5000); err != nil {
 		t.Fatalf("add: %v", err)
 	}
-	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	gifts, err := svc.CreateBank(ctx, 1, "Gifts", false, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create gifts: %v", err)
 	}
@@ -239,7 +246,7 @@ func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
 		t.Fatalf("user: %v", err)
 	}
-	bank, err := svc.CreateBank(ctx, 1, "Live", true)
+	bank, err := svc.CreateBank(ctx, 1, "Live", true, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -317,7 +324,7 @@ func TestMutatorsRollBackWhenAppendFails(t *testing.T) {
 		t.Fatalf("rename left name %q", got.Name)
 	}
 
-	other, err := svc.CreateBank(ctx, 1, "Gifts", false)
+	other, err := svc.CreateBank(ctx, 1, "Gifts", false, domain.CurrencyUSD)
 	if err != nil {
 		t.Fatalf("create gifts: %v", err)
 	}
@@ -375,6 +382,77 @@ func assertOp(
 	}
 	if !gotMeta.Valid || gotMeta.String != meta {
 		t.Fatalf("%s meta %+v, want %q", typ, gotMeta, meta)
+	}
+}
+
+func TestChangeCurrencyKeepsCents(t *testing.T) {
+	db := mustOpenReset(t)
+	ctx := context.Background()
+	svc := testService(db, "EUR")
+	if _, err := svc.UpsertUser(ctx, 1, "alice"); err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	if _, err := svc.UpsertUser(ctx, 2, "bob"); err != nil {
+		t.Fatalf("other: %v", err)
+	}
+	bank, err := svc.CreateBank(ctx, 1, "Holiday", true, domain.CurrencyUSD)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Add(ctx, 1, bank.ID, 10000); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	changed, err := svc.ChangeCurrency(ctx, 1, bank.ID, "uah")
+	if err != nil {
+		t.Fatalf("change: %v", err)
+	}
+	if changed.Currency != "UAH" || changed.Balance != 10000 {
+		t.Fatalf("changed %+v", changed)
+	}
+	got, err := NewBankRepository(db).GetByID(ctx, 1, bank.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Currency != "UAH" || got.Balance != 10000 {
+		t.Fatalf("stored %+v", got)
+	}
+	user, err := NewUserRepository(db).Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	if user.LastCurrency != "UAH" {
+		t.Fatalf("last_currency %q", user.LastCurrency)
+	}
+	assertOp(t, db, "currency", 10000, 10000, true, bank.ID, true, "USD -> UAH")
+
+	if _, err := svc.ChangeCurrency(ctx, 1, bank.ID, "UAH"); err != nil {
+		t.Fatalf("same code: %v", err)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM operations WHERE type = 'currency'`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("currency ops %d, want 1", n)
+	}
+	user, err = NewUserRepository(db).Get(ctx, 1)
+	if err != nil {
+		t.Fatalf("user again: %v", err)
+	}
+	if user.LastCurrency != "UAH" {
+		t.Fatalf("last after same code %q", user.LastCurrency)
+	}
+
+	if _, err := svc.ChangeCurrency(ctx, 2, bank.ID, domain.CurrencyEUR); !errors.Is(err, domain.ErrBankNotFound) {
+		t.Fatalf("other user: %v", err)
+	}
+	got, err = NewBankRepository(db).GetByID(ctx, 1, bank.ID)
+	if err != nil {
+		t.Fatalf("get after other: %v", err)
+	}
+	if got.Currency != "UAH" || got.Balance != 10000 {
+		t.Fatalf("other user wrote %+v", got)
 	}
 }
 

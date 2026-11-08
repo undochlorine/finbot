@@ -20,6 +20,7 @@ var ru = Catalog{
 /bank - показать один банк
 /toggle - включить или исключить банк из итога
 /rename - переименовать банк
+/currency - сменить валюту банка
 /transfer - перевести деньги между банками
 /banks - список всех банков
 /total - сумма банков, входящих в итог
@@ -35,6 +36,7 @@ var ru = Catalog{
 Показать один банк: /bank Holiday.
 Включить или исключить банк из итога: /toggle Holiday.
 Переименовать банк: /rename Holiday или /rename Holiday Trips.
+Сменить валюту банка: /currency Holiday или /currency Holiday UAH.
 Перевести между банками: /transfer Holiday Gifts 50.`,
 
 	NewBankAskName:      "Как назвать этот банк?",
@@ -57,32 +59,40 @@ var ru = Catalog{
 	AskTransferFrom:     "С какого банка перевести?",
 	SameBank:            "Выберите другой банк для перевода.",
 	CurrencyMismatch:    "У этих банков разные валюты. Переводить можно только в одной валюте.",
+	AskCurrency: `Выберите валюту.
+Для другой отправьте её код, например UAH.`,
+	InvalidCurrency: "Это не валюта, которую я могу использовать. Выберите кнопку " +
+		"или отправьте трёхбуквенный код ISO, например UAH. USDT тоже подходит.",
 
-	BankCreatedIncluded:  `✅ Создан банк «%s». Он учитывается в итоге.`,
-	BankCreatedExcluded:  `✅ Создан банк «%s». Он не учитывается в итоге.`,
-	BankNameTakenFmt:     `У вас уже есть банк с названием «%s». Выберите другое имя.`,
-	UnknownBankFmt:       `Я не знаю банк с названием «%s». Отправьте /banks, чтобы увидеть список.`,
-	AskAddAmountFmt:      `Сколько добавить в «%s»?`,
-	AskSpendAmountFmt:    `Сколько списать из «%s»?`,
-	AskSetAmountFmt:      `Какой баланс установить для «%s»?`,
-	AddedFmt:             `💸 Добавлено %s в «%s». Баланс: %s.`,
-	SpentFmt:             `💸 Списано %s из «%s». Баланс: %s.`,
-	SetToFmt:             `✅ Банк «%s» установлен на %s.`,
-	AskDeleteConfirmFmt:  `Удалить «%s»? Это нельзя отменить.`,
-	BankDeletedFmt:       `🗑️ Банк «%s» удалён.`,
-	BankCardIncludedFmt:  `%s: %s (в итоге)`,
-	BankCardExcludedFmt:  `%s: %s (не в итоге)`,
-	TotalFmt:             `Итог: %s`,
-	ToggledIncludedFmt:   `✅ «%s» теперь учитывается в итоге. Баланс: %s.`,
-	ToggledExcludedFmt:   `✅ «%s» теперь не учитывается в итоге. Баланс: %s.`,
-	AskRenameNameFmt:     `Как назвать «%s»?`,
-	BankRenamedFmt:       `✏️ Банк «%s» переименован в «%s».`,
-	AskTransferToFmt:     `Перевести из «%s» в какой банк?`,
-	AskTransferAmountFmt: `Сколько перевести из «%s» в «%s»?`,
-	TransferredFmt:       "💸 Переведено %s из «%s» в «%s».\n%s: %s.\n%s: %s.",
-	LanguageSetFmt:       "Язык изменён на %s.",
-	LanguageNameEN:       "английский",
-	LanguageNameRU:       "русский",
-	LanguageNameUK:       "украинский",
-	LanguageNameMD:       "молдавский",
+	BankCreatedIncluded:   `✅ Создан банк «%s» в %s. Он учитывается в итоге.`,
+	BankCreatedExcluded:   `✅ Создан банк «%s» в %s. Он не учитывается в итоге.`,
+	BankNameTakenFmt:      `У вас уже есть банк с названием «%s». Выберите другое имя.`,
+	UnknownBankFmt:        `Я не знаю банк с названием «%s». Отправьте /banks, чтобы увидеть список.`,
+	AskAddAmountFmt:       `Сколько добавить в «%s» (%s)?`,
+	AskSpendAmountFmt:     `Сколько списать из «%s» (%s)?`,
+	AskSetAmountFmt:       `Какой баланс установить для «%s» (%s)?`,
+	AddedFmt:              `💸 Добавлено %s в «%s». Баланс: %s.`,
+	SpentFmt:              `💸 Списано %s из «%s». Баланс: %s.`,
+	SetToFmt:              `✅ Банк «%s» установлен на %s.`,
+	AskDeleteConfirmFmt:   `Удалить «%s»? Это нельзя отменить.`,
+	BankDeletedFmt:        `🗑️ Банк «%s» удалён.`,
+	BankCardIncludedFmt:   `%s: %s (в итоге)`,
+	BankCardExcludedFmt:   `%s: %s (не в итоге)`,
+	TotalFmt:              `Итог:`,
+	ToggledIncludedFmt:    `✅ «%s» теперь учитывается в итоге. Баланс: %s.`,
+	ToggledExcludedFmt:    `✅ «%s» теперь не учитывается в итоге. Баланс: %s.`,
+	AskRenameNameFmt:      `Как назвать «%s»?`,
+	BankRenamedFmt:        `✏️ Банк «%s» переименован в «%s».`,
+	AskTransferToFmt:      `Перевести из «%s» в какой банк?`,
+	AskTransferAmountFmt:  `Сколько перевести из «%s» в «%s» (%s)?`,
+	TransferredFmt:        "💸 Переведено %s из «%s» в «%s».\n%s: %s.\n%s: %s.",
+	CurrencyAlreadyFmt:    `«%s» уже использует %s.`,
+	AskCurrencyConfirmFmt: `«%s» — %s. Будет показано как %s. Число не изменится. Подтвердить?`,
+	CurrencyKeptFmt:       `Хорошо, валюта остаётся %s.`,
+	CurrencyChangedFmt:    `✅ «%s» теперь использует %s. Баланс: %s.`,
+	LanguageSetFmt:        "Язык изменён на %s.",
+	LanguageNameEN:        "английский",
+	LanguageNameRU:        "русский",
+	LanguageNameUK:        "украинский",
+	LanguageNameMD:        "молдавский",
 }

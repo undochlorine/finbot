@@ -29,6 +29,8 @@ func TestParseTransferTriple(t *testing.T) {
 		{name: "from plus amount is not a triple", payload: "Holiday 50"},
 		{name: "four tokens", payload: "Holiday Fund Gifts 50"},
 		{name: "invalid amount", payload: "Holiday Gifts abc"},
+		{name: "dollar token", payload: "Holiday Gifts $100"},
+		{name: "iso token", payload: "Holiday Gifts 100 USD"},
 		{name: "zero is a number", payload: "Holiday Gifts 0", wantFrom: "Holiday", wantTo: "Gifts", wantAmount: "0", ok: true},
 	}
 	for _, tt := range tests {
@@ -46,8 +48,8 @@ func TestTransferCommandFlow(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	both := []domain.Bank{holiday, gifts}
 
 	tests := []struct {
@@ -102,7 +104,7 @@ func TestTransferCommandFlow(t *testing.T) {
 			name: "spaced from name",
 			text: "/transfer Holiday Fund",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
-				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 5000}
+				fund := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 5000, Currency: domain.CurrencyUSD}
 				svc.EXPECT().List(anyCtx, userID).Return([]domain.Bank{fund, gifts}, nil).Times(2)
 				svc.EXPECT().GetByName(anyCtx, userID, "Holiday Fund").Return(fund, nil)
 				expectFSMSet(t, cache, ctx, key, fsmState{}.withTransferFrom(fund))
@@ -118,14 +120,14 @@ func TestTransferCommandFlow(t *testing.T) {
 				svc.EXPECT().GetByName(anyCtx, userID, "Holiday").Return(holiday, nil)
 				svc.EXPECT().GetByName(anyCtx, userID, "Gifts").Return(gifts, nil)
 				svc.EXPECT().Transfer(anyCtx, userID, holiday.ID, gifts.ID, domain.Money(5000)).Return(
-					domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0},
-					domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500},
+					domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0, Currency: domain.CurrencyUSD},
+					domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500, Currency: domain.CurrencyUSD},
 					nil,
 				)
 				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: text.Transferred("Holiday", "Gifts", "50.00", "0.00", "75.00"),
+			wantText: text.Transferred("Holiday", "Gifts", "$50.00", "$0.00", "$75.00"),
 		},
 		{
 			name: "from plus amount is from name",
@@ -227,8 +229,8 @@ func TestTransferPendingFromName(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -246,8 +248,8 @@ func TestTransferPendingToName(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -257,15 +259,15 @@ func TestTransferPendingToName(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Gifts"))
-	require.Contains(t, sent, text.AskTransferAmount("Holiday", "Gifts"))
+	require.Contains(t, sent, text.AskTransferAmount("Holiday", "Gifts", "$"))
 }
 
 func TestTransferPendingSameBank(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -284,30 +286,30 @@ func TestTransferPendingAmount(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
 		cache.EXPECT().Get(anyCtx, key).Return(mustFSM(t, fsmState{}.withTransferFrom(holiday).withTransferTo(gifts)), true, nil)
 		svc.EXPECT().Transfer(anyCtx, userID, holiday.ID, gifts.ID, domain.Money(5000)).Return(
-			domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0},
-			domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500},
+			domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0, Currency: domain.CurrencyUSD},
+			domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500, Currency: domain.CurrencyUSD},
 			nil,
 		)
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("50"))
-	require.Contains(t, sent, text.Transferred("Holiday", "Gifts", "50.00", "0.00", "75.00"))
+	require.Contains(t, sent, text.Transferred("Holiday", "Gifts", "$50.00", "$0.00", "$75.00"))
 }
 
 func TestTransferCallbackFromAsksTo(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -328,8 +330,8 @@ func TestTransferCallbackToAsksAmount(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -340,15 +342,15 @@ func TestTransferCallbackToAsksAmount(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackTransferToPrefix+"8"))
-	require.Contains(t, sent, text.AskTransferAmount("Holiday", "Gifts"))
+	require.Contains(t, sent, text.AskTransferAmount("Holiday", "Gifts", "$"))
 }
 
 func TestTransferHygieneEditsAndSweeps(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000}
-	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, Currency: domain.CurrencyUSD}
+	gifts := domain.Bank{ID: 8, UserID: userID, Name: "Gifts", Balance: 2500, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -362,8 +364,8 @@ func TestTransferHygieneEditsAndSweeps(t *testing.T) {
 			PromptID: testPromptID,
 		}), true, nil)
 		svc.EXPECT().Transfer(anyCtx, userID, holiday.ID, gifts.ID, domain.Money(5000)).Return(
-			domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0},
-			domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500},
+			domain.Bank{ID: holiday.ID, Name: "Holiday", Balance: 0, Currency: domain.CurrencyUSD},
+			domain.Bank{ID: gifts.ID, Name: "Gifts", Balance: 7500, Currency: domain.CurrencyUSD},
 			nil,
 		)
 		expectDeleteMessages(t, client)
@@ -371,7 +373,7 @@ func TestTransferHygieneEditsAndSweeps(t *testing.T) {
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 	})
 	b.ProcessUpdate(ctx, commandUpdateID("50", testUserMsgID))
-	require.Contains(t, sent, text.Transferred("Holiday", "Gifts", "50.00", "0.00", "75.00"))
+	require.Contains(t, sent, text.Transferred("Holiday", "Gifts", "$50.00", "$0.00", "$75.00"))
 	require.Contains(t, sent, `"inline_keyboard":[]`)
 }
 

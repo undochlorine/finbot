@@ -37,13 +37,21 @@ type Service interface {
 	GetByName(ctx context.Context, userID domain.UserID, name string) (domain.Bank, error)
 	Get(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)
 	List(ctx context.Context, userID domain.UserID) ([]domain.Bank, error)
-	CreateBank(ctx context.Context, userID domain.UserID, name string, includeInTotal bool) (domain.Bank, error)
+	CreateBank(
+		ctx context.Context,
+		userID domain.UserID,
+		name string,
+		includeInTotal bool,
+		currency string,
+	) (domain.Bank, error)
+	ChangeCurrency(ctx context.Context, userID domain.UserID, bankID int64, currency string) (domain.Bank, error)
+	LastCurrency(ctx context.Context, userID domain.UserID) (string, error)
 	Add(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 	Spend(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 	Set(ctx context.Context, userID domain.UserID, bankID int64, amount domain.Money) (domain.Bank, error)
 	Delete(ctx context.Context, userID domain.UserID, bankID int64) error
-	Total(ctx context.Context, userID domain.UserID) (domain.Money, error)
-	All(ctx context.Context, userID domain.UserID) ([]domain.Bank, domain.Money, error)
+	Total(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error)
+	All(ctx context.Context, userID domain.UserID) ([]domain.Bank, []domain.CurrencyTotal, error)
 	Toggle(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error)
 	Rename(ctx context.Context, userID domain.UserID, bankID int64, newName string) (domain.Bank, error)
 	Transfer(

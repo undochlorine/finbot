@@ -90,7 +90,7 @@ func (h *Bot) progressMoney(
 		return
 	}
 	if amountRaw == "" {
-		h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), askAmountText(ctx, st.Flow, bank.Name), nil)
+		h.prompt(ctx, b, chatID, userID, st.withAmount(st.Flow, bank), askAmountText(ctx, st.Flow, bank), nil)
 		return
 	}
 	st.Name = bank.Name
@@ -188,7 +188,7 @@ func (h *Bot) handleMoneyCallback(ctx context.Context, b *bot.Bot, update *model
 	if !ok {
 		return
 	}
-	h.prompt(ctx, b, chatID, userID, st.withAmount(flow, bank), askAmountText(ctx, flow, bank.Name), nil)
+	h.prompt(ctx, b, chatID, userID, st.withAmount(flow, bank), askAmountText(ctx, flow, bank), nil)
 }
 
 func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
@@ -209,26 +209,28 @@ func parseMoneyCallback(data string) (flow string, bankID int64, ok bool) {
 	return "", 0, false
 }
 
-func askAmountText(ctx context.Context, flow, name string) string {
+func askAmountText(ctx context.Context, flow string, bank domain.Bank) string {
 	c := copyFrom(ctx)
+	unit := domain.CurrencyUnit(bank.Currency)
 	switch flow {
 	case domain.CommandAdd:
-		return c.AskAddAmount(name)
+		return c.AskAddAmount(bank.Name, unit)
 	case domain.CommandSpend:
-		return c.AskSpendAmount(name)
+		return c.AskSpendAmount(bank.Name, unit)
 	default:
-		return c.AskSetAmount(name)
+		return c.AskSetAmount(bank.Name, unit)
 	}
 }
 
 func successText(ctx context.Context, flow string, bank domain.Bank, amount domain.Money) string {
 	c := copyFrom(ctx)
+	balance := domain.FormatMoney(bank.Balance, bank.Currency)
 	switch flow {
 	case domain.CommandAdd:
-		return c.Added(bank.Name, amount.Format(), bank.Balance.Format())
+		return c.Added(bank.Name, domain.FormatMoney(amount, bank.Currency), balance)
 	case domain.CommandSpend:
-		return c.Spent(bank.Name, amount.Format(), bank.Balance.Format())
+		return c.Spent(bank.Name, domain.FormatMoney(amount, bank.Currency), balance)
 	default:
-		return c.SetTo(bank.Name, bank.Balance.Format())
+		return c.SetTo(bank.Name, balance)
 	}
 }

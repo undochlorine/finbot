@@ -103,13 +103,15 @@ func (r *BankRepository) Update(ctx context.Context, userID domain.UserID, bank 
 	}
 	row := conn(ctx, r.db).QueryRowContext(ctx, `
 		UPDATE banks
-		SET name = $1, name_normalized = $2, balance_cents = $3, include_in_total = $4, updated_at = $5
-		WHERE id = $6 AND user_id = $7
+		SET name = $1, name_normalized = $2, balance_cents = $3, include_in_total = $4,
+		    currency = $5, updated_at = $6
+		WHERE id = $7 AND user_id = $8
 		RETURNING id, user_id, name, balance_cents, include_in_total, currency, created_at, updated_at`,
 		bank.Name,
 		norm,
 		int64(bank.Balance),
 		bank.IncludeInTotal,
+		bank.Currency,
 		utcTime(bank.UpdatedAt),
 		bank.ID,
 		userID,
@@ -144,16 +146,39 @@ func (r *BankRepository) Delete(ctx context.Context, userID domain.UserID, bankI
 	return nil
 }
 
-func (r *BankRepository) TotalIncluded(ctx context.Context, userID domain.UserID) (domain.Money, error) {
-	var cents int64
-	err := conn(ctx, r.db).QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(balance_cents), 0)
+func (r *BankRepository) TotalIncluded(
+	ctx context.Context,
+	userID domain.UserID,
+) (totals []domain.CurrencyTotal, err error) {
+	rows, err := conn(ctx, r.db).QueryContext(ctx, `
+		SELECT currency, COALESCE(SUM(balance_cents), 0)
 		FROM banks
-		WHERE user_id = $1 AND include_in_total = TRUE`, userID).Scan(&cents)
+		WHERE user_id = $1 AND include_in_total
+		GROUP BY currency`, userID)
 	if err != nil {
-		return 0, fmt.Errorf("total included: %w", err)
+		return nil, fmt.Errorf("total included: %w", err)
 	}
-	return domain.Money(cents), nil
+	defer func() {
+		if cerr := rows.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("total included close: %w", cerr)
+		}
+	}()
+
+	totals = make([]domain.CurrencyTotal, 0)
+	for rows.Next() {
+		var (
+			code  string
+			cents int64
+		)
+		if err = rows.Scan(&code, &cents); err != nil {
+			return nil, fmt.Errorf("total included: %w", err)
+		}
+		totals = append(totals, domain.CurrencyTotal{Currency: code, Amount: domain.Money(cents)})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("total included: %w", err)
+	}
+	return totals, nil
 }
 
 func scanBankRow(row *sql.Row, op string) (domain.Bank, error) {

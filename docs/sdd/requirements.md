@@ -88,11 +88,11 @@ flowchart TB
 - **Remove bank:** delete the bank and its balance (not reset-to-zero)
 - **Rename bank:** `/rename` picks a bank then asks for the new name (shortcut: `/rename Travelling`). If the full arg is not a bank, `/rename Travelling Holiday` renames bank `Travelling` to `Holiday`. Unique per user stays case-insensitive. Recasing the same bank is allowed.
 - **Include in total:** asked when creating a bank; user can toggle later (`/toggle`)
-- **Money:** `int64` minor units (cents). Display as `123.45` with a `.` in every language. Every currency uses 2 decimal places, including JPY and USDT. No multi-currency **UX** until `4.13.1`–`4.13.3`. Banks already store `currency` (hidden in copy; totals still sum). Cross-currency `/transfer` is `4.14.1`–`4.14.2`.
+- **Money:** `int64` minor units (cents). Display is `FormatMoney` (`$10.00`, `€10.00`, `10.00 UAH`) with a `.` in every language. Every currency uses 2 decimal places, including JPY and USDT. Choosing and changing a currency is live (`4.13.3`). Cross-currency `/transfer` is `4.14.1`–`4.14.2`.
 
 ### Currencies and FX
 
-Specified 2026-11-08. Implement only in the sub-steps below. Until those steps are accepted, runtime copy and the ungrouped `SUM` stay as they are.
+Specified 2026-11-08. Display, grouped totals, and the picker are live (`4.13.1`–`4.13.3`). Still to build: FX transfer (`4.14`).
 
 - **Storage.** `banks.currency` is `TEXT NOT NULL DEFAULT 'USD'` (`001_init.sql`). `4.13.1` sets every existing bank to `USD` and adds `users.last_currency TEXT NOT NULL DEFAULT 'USD'`.
 - **Codes.** `USDT`, or an active ISO 4217 code accepted by `golang.org/x/text/currency.ParseISO`. Input is trimmed and uppercased. Symbols, names, and other crypto (`BTC`) are invalid.
@@ -106,7 +106,7 @@ Specified 2026-11-08. Implement only in the sub-steps below. Until those steps a
 - **Config knobs:** operator-tunable TTLs, durations, and limits are environment variables with the default in code. Each kind of data has its own variable (`BOT_TTL` is only the FSM). Pool sizes and statement timeouts stay code constants.
 - **Negative balances:** allowed. **Negative add/spend amounts are invalid**; use `/spend` / `/set` instead
 - **Bank names:** unique per user, compared case-insensitively. Unicode allowed. Store the name as the user typed it
-- **Operations log:** append-only on add/spend/set/delete/rename/transfer. **No `/history` until `4.10`.** Finance tips are `4.11`.
+- **Operations log:** append-only on add/spend/set/delete/rename/currency/transfer. **No `/history` until `4.10`.** Finance tips are `4.11`.
 - **Auth:** Telegram user ID is identity. No extra login
 - **Stage 4 database:** PostgreSQL only (not MongoDB, not a long-lived SQLite fallback). Runtime is Postgres after `4.1.3`. Work was split: `4.1.1` Compose/CI/`Open`/baseline schema; `4.1.2` same repository ports + `FOR UPDATE` / lock order / deadlock retry; `4.1.3` wired `cmd/bot` and deleted the SQLite adapter. Baseline Postgres schema — do not replay SQLite `001`–`003`. Local Compose; CI uses a GitHub Actions Postgres service. SQLite → Postgres copy was best-effort (no real users; leftover personal SQLite data may be dropped). Managed hosting, TLS, backups → `4.3.x` (Railway worker + Railway Postgres/Redis; design [`2026-09-09-hosting-design.md`](../superpowers/specs/2026-09-09-hosting-design.md)). Partitioning, PgBouncer, replicas, rate limits → `4.9`. Design: [`docs/superpowers/specs/2026-09-09-postgresql-migration-design.md`](../superpowers/specs/2026-09-09-postgresql-migration-design.md).
 - **Stage 4 Cache:** Redis only after `4.2.2` (not a long-lived in-memory production fallback). Redis is the **FSM session store** (JSON blob, 10-minute sliding TTL on save). It is **not** a cache of banks/totals — Postgres stays SoR for money. Exchange-rate JSON is the exception (`4.14.1`, key suffix `fx:usd`). Work is split: `4.2.1` Compose/CI/`Open`/`ports.Cache`; `4.2.2` wires `cmd/bot`. `memorycache` remains for unit tests only. Pending FIFO stays in-process until `4.9`. Key prefix `finbot:v1:` so `4.9` can add rate-limit/lock keys without a Redis rewrite. Managed Redis / `rediss://` → `4.3.x`. Token bucket, replica locks, optional snapshot cache → `4.9`. Design: [`docs/superpowers/specs/2026-09-09-redis-cache-design.md`](../superpowers/specs/2026-09-09-redis-cache-design.md).

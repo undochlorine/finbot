@@ -24,7 +24,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 func (r *UserRepository) Get(ctx context.Context, userID domain.UserID) (domain.User, error) {
 	row := conn(ctx, r.db).QueryRowContext(ctx, `
 		SELECT telegram_id, username, last_activity_at, plan, trial_ends_at, discount_percent,
-		       locale, referred_by, created_at, updated_at
+		       locale, referred_by, last_currency, created_at, updated_at
 		FROM users
 		WHERE telegram_id = $1`, userID)
 	user, err := scanUser(row)
@@ -106,6 +106,37 @@ func (r *UserRepository) SetReferredByIfEmpty(ctx context.Context, userID, refer
 	return nil
 }
 
+func (r *UserRepository) LastCurrency(ctx context.Context, userID domain.UserID) (string, error) {
+	var code string
+	err := conn(ctx, r.db).QueryRowContext(ctx, `
+		SELECT last_currency FROM users WHERE telegram_id = $1`, userID).Scan(&code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", domain.ErrUserNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("last currency: %w", err)
+	}
+	return code, nil
+}
+
+func (r *UserRepository) SetLastCurrency(ctx context.Context, userID domain.UserID, code string, at time.Time) error {
+	res, err := conn(ctx, r.db).ExecContext(ctx, `
+		UPDATE users
+		SET last_currency = $1, updated_at = $2
+		WHERE telegram_id = $3`, code, utcTime(at), userID)
+	if err != nil {
+		return fmt.Errorf("set last currency: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set last currency rows: %w", err)
+	}
+	if n == 0 {
+		return domain.ErrUserNotFound
+	}
+	return nil
+}
+
 func (r *UserRepository) SetLocale(ctx context.Context, userID domain.UserID, locale string, at time.Time) error {
 	res, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE users
@@ -133,7 +164,7 @@ func scanUser(row *sql.Row) (domain.User, error) {
 	)
 	err := row.Scan(
 		&u.TelegramID, &username, &u.LastActivityAt, &u.Plan, &u.TrialEndsAt, &discount,
-		&u.Locale, &referredBy, &u.CreatedAt, &u.UpdatedAt,
+		&u.Locale, &referredBy, &u.LastCurrency, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		return domain.User{}, fmt.Errorf("scan user: %w", err)

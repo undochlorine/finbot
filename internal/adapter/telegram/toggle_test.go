@@ -16,10 +16,10 @@ func TestToggleCommandFlow(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 	holiday := domain.Bank{
-		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true,
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 	}
 	gifts := domain.Bank{
-		ID: 8, UserID: userID, Name: "Gifts", Balance: 1250, IncludeInTotal: false,
+		ID: 8, UserID: userID, Name: "Gifts", Balance: 1250, IncludeInTotal: false, Currency: domain.CurrencyUSD,
 	}
 	holidayOut := holiday
 	holidayOut.IncludeInTotal = false
@@ -62,7 +62,7 @@ func TestToggleCommandFlow(t *testing.T) {
 				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: text.Toggled("Holiday", "50.00", false),
+			wantText: text.Toggled("Holiday", "$50.00", false),
 		},
 		{
 			name: "name shortcut includes without changing balance",
@@ -73,14 +73,14 @@ func TestToggleCommandFlow(t *testing.T) {
 				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: text.Toggled("Gifts", "12.50", true),
+			wantText: text.Toggled("Gifts", "$12.50", true),
 		},
 		{
 			name: "spaced name shortcut",
 			text: "/toggle Holiday Fund",
 			setup: func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient, sent *string) {
 				fund := domain.Bank{
-					ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 100, IncludeInTotal: true,
+					ID: testBankID, UserID: userID, Name: "Holiday Fund", Balance: 100, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 				}
 				out := fund
 				out.IncludeInTotal = false
@@ -89,7 +89,7 @@ func TestToggleCommandFlow(t *testing.T) {
 				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: text.Toggled("Holiday Fund", "1.00", false),
+			wantText: text.Toggled("Holiday Fund", "$1.00", false),
 		},
 		{
 			name: "unknown bank",
@@ -109,7 +109,7 @@ func TestToggleCommandFlow(t *testing.T) {
 				cache.EXPECT().Delete(anyCtx, key).Return(nil)
 				expectSendMessage(t, client, sent)
 			},
-			wantText: text.Toggled("Holiday", "50.00", false),
+			wantText: text.Toggled("Holiday", "$50.00", false),
 		},
 	}
 
@@ -134,7 +134,7 @@ func TestTogglePendingBankName(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 	holiday := domain.Bank{
-		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true,
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 	}
 	out := holiday
 	out.IncludeInTotal = false
@@ -148,7 +148,7 @@ func TestTogglePendingBankName(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("Holiday"))
-	require.Contains(t, sent, text.Toggled("Holiday", "50.00", false))
+	require.Contains(t, sent, text.Toggled("Holiday", "$50.00", false))
 }
 
 func TestToggleCallbackFlipsAndReplies(t *testing.T) {
@@ -156,7 +156,7 @@ func TestToggleCallbackFlipsAndReplies(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 	holiday := domain.Bank{
-		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true,
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 	}
 	out := holiday
 	out.IncludeInTotal = false
@@ -170,14 +170,14 @@ func TestToggleCallbackFlipsAndReplies(t *testing.T) {
 		expectSendMessage(t, client, &sent)
 	})
 	b.ProcessUpdate(ctx, callbackUpdate(callbackTogglePrefix+"7"))
-	require.Contains(t, sent, text.Toggled("Holiday", "50.00", false))
+	require.Contains(t, sent, text.Toggled("Holiday", "$50.00", false))
 }
 
 func TestToggleNotFound(t *testing.T) {
 	ctx := context.Background()
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
-	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true}
+	holiday := domain.Bank{ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD}
 	var sent string
 
 	b := newTestBot(t, ctx, func(svc *mocks.MockService, cache *mocks.MockCache, client *mocks.MockHTTPClient) {
@@ -195,7 +195,7 @@ func TestToggleThenTotalUsesNewIncludedSet(t *testing.T) {
 	userID := domain.UserID(telegramUserID)
 	key := fsmKey(userID)
 	holiday := domain.Bank{
-		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true,
+		ID: testBankID, UserID: userID, Name: "Holiday", Balance: 5000, IncludeInTotal: true, Currency: domain.CurrencyUSD,
 	}
 	out := holiday
 	out.IncludeInTotal = false
@@ -206,13 +206,13 @@ func TestToggleThenTotalUsesNewIncludedSet(t *testing.T) {
 		svc.EXPECT().Toggle(anyCtx, userID, testBankID).Return(out, nil)
 		cache.EXPECT().Delete(anyCtx, key).Return(nil)
 		expectSendMessage(t, client, &toggled)
-		svc.EXPECT().Total(anyCtx, userID).Return(domain.Money(0), nil)
+		svc.EXPECT().Total(anyCtx, userID).Return([]domain.CurrencyTotal{{Currency: domain.CurrencyUSD}}, nil)
 		expectSendMessage(t, client, &total)
 	})
 	b.ProcessUpdate(ctx, commandUpdate("/toggle Holiday"))
 	b.ProcessUpdate(ctx, commandUpdate("/total"))
-	require.Contains(t, toggled, text.Toggled("Holiday", "50.00", false))
-	require.Contains(t, total, text.Total("0.00"))
+	require.Contains(t, toggled, text.Toggled("Holiday", "$50.00", false))
+	require.Contains(t, total, text.Total([]string{"$0.00"}))
 }
 
 func TestCommandAtStartToggle(t *testing.T) {

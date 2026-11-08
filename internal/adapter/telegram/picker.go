@@ -137,6 +137,8 @@ func callbackPrefix(flow string) string {
 		return callbackTogglePrefix
 	case domain.CommandRename:
 		return callbackRenamePrefix
+	case domain.CommandCurrency:
+		return callbackCurrencyPrefix
 	default:
 		return callbackSetPrefix
 	}

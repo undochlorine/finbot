@@ -11,4 +11,5 @@ var (
 	ErrCurrencyMismatch = errors.New("currency mismatch")
 	ErrUserNotFound     = errors.New("user not found")
 	ErrUnknownLocale    = errors.New("unknown locale")
+	ErrInvalidCurrency  = errors.New("invalid currency")
 )

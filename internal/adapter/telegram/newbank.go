@@ -61,7 +61,9 @@ func (h *Bot) continueNewBank(
 			h.prompt(ctx, b, chatID, userID, st, copyFrom(ctx).NewBankAskInclude, includeKeyboard(ctx))
 			return
 		}
-		h.createBankAndReply(ctx, b, chatID, userID, st, include)
+		h.askNewBankCurrency(ctx, b, chatID, userID, st, include)
+	case stepCurrency:
+		h.applyCurrencyCode(ctx, b, chatID, userID, st, raw, true)
 	}
 }
 
@@ -78,7 +80,7 @@ func (h *Bot) handleNewBankCallback(ctx context.Context, b *bot.Bot, update *mod
 	if !ok || st.Name == "" {
 		return
 	}
-	h.createBankAndReply(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), st, include)
+	h.askNewBankCurrency(ctx, b, callbackChatID(update), domain.UserID(update.CallbackQuery.From.ID), st, include)
 }
 
 func (h *Bot) progressNewBank(
@@ -127,11 +129,13 @@ func (h *Bot) createBankAndReply(
 	chatID int64,
 	userID domain.UserID,
 	st fsmState,
-	include bool,
+	code string,
 ) {
-	bank, err := h.svc.CreateBank(ctx, userID, st.Name, include)
+	bank, err := h.svc.CreateBank(ctx, userID, st.Name, st.Include, code)
 	if err != nil {
 		switch {
+		case errors.Is(err, domain.ErrInvalidCurrency):
+			h.promptCurrency(ctx, b, chatID, userID, st, true)
 		case errors.Is(err, domain.ErrBankNameTaken):
 			h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankNameTaken(st.Name))
 		case errors.Is(err, domain.ErrInvalidBankName):
@@ -142,5 +146,9 @@ func (h *Bot) createBankAndReply(
 		}
 		return
 	}
-	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankCreated(bank.Name, bank.IncludeInTotal))
+	h.done(ctx, b, chatID, userID, st, copyFrom(ctx).BankCreated(
+		bank.Name,
+		domain.CurrencyUnit(bank.Currency),
+		bank.IncludeInTotal,
+	))
 }

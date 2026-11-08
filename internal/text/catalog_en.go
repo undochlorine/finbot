@@ -13,6 +13,7 @@ const (
 	CmdDescBank     = "show one bank"
 	CmdDescToggle   = "include or exclude a bank from the total"
 	CmdDescRename   = "rename a bank"
+	CmdDescCurrency = "change a bank's currency"
 	CmdDescTransfer = "move money between banks"
 	CmdDescBanks    = "list all banks"
 	CmdDescTotal    = "sum of banks included in the total"
@@ -41,6 +42,7 @@ Send /help to see all commands. You can type a bank name after a command
 /bank - show one bank
 /toggle - include or exclude a bank from the total
 /rename - rename a bank
+/currency - change a bank's currency
 /transfer - move money between banks
 /banks - list all banks
 /total - sum of banks included in the total
@@ -56,6 +58,7 @@ Delete still asks you to confirm: /delete Holiday.
 Show one bank: /bank Holiday.
 Toggle whether a bank counts in the total: /toggle Holiday.
 Rename a bank: /rename Holiday, or /rename Holiday Trips.
+Change a bank's currency: /currency Holiday, or /currency Holiday UAH.
 Transfer between banks: /transfer Holiday Gifts 50.`,
 
 	NewBankAskName:      "What should this bank be called?",
@@ -78,32 +81,40 @@ Transfer between banks: /transfer Holiday Gifts 50.`,
 	AskTransferFrom:     "Transfer from which bank?",
 	SameBank:            "Choose a different bank to transfer to.",
 	CurrencyMismatch:    "Those banks use different currencies. Transfers must be the same currency.",
+	AskCurrency: `Choose a currency.
+For a different one, send its code, for example UAH.`,
+	InvalidCurrency: "That is not a currency I can use. Choose a button, " +
+		"or send a 3-letter ISO code such as UAH. USDT is also allowed.",
 
-	BankCreatedIncluded:  `✅ Created bank "%s". It counts toward your total.`,
-	BankCreatedExcluded:  `✅ Created bank "%s". It does not count toward your total.`,
-	BankNameTakenFmt:     `You already have a bank named "%s". Choose a different name.`,
-	UnknownBankFmt:       `I don't know a bank named "%s". Send /banks to see your list.`,
-	AskAddAmountFmt:      `How much should I add to "%s"?`,
-	AskSpendAmountFmt:    `How much should I spend from "%s"?`,
-	AskSetAmountFmt:      `What should "%s" be set to?`,
-	AddedFmt:             `💸 Added %s to "%s". Balance is %s.`,
-	SpentFmt:             `💸 Spent %s from "%s". Balance is %s.`,
-	SetToFmt:             `✅ Set "%s" to %s.`,
-	AskDeleteConfirmFmt:  `Delete "%s"? This cannot be undone.`,
-	BankDeletedFmt:       `🗑️ Deleted bank "%s".`,
-	BankCardIncludedFmt:  `%s: %s (in total)`,
-	BankCardExcludedFmt:  `%s: %s (not in total)`,
-	TotalFmt:             `Total: %s`,
-	ToggledIncludedFmt:   `✅ "%s" now counts toward your total. Balance is %s.`,
-	ToggledExcludedFmt:   `✅ "%s" now does not count toward your total. Balance is %s.`,
-	AskRenameNameFmt:     `What should "%s" be called?`,
-	BankRenamedFmt:       `✏️ Renamed "%s" to "%s".`,
-	AskTransferToFmt:     `Transfer from "%s" to which bank?`,
-	AskTransferAmountFmt: `How much should I transfer from "%s" to "%s"?`,
-	TransferredFmt:       "💸 Transferred %s from \"%s\" to \"%s\".\n%s: %s.\n%s: %s.",
-	LanguageSetFmt:       "Language set to %s.",
-	LanguageNameEN:       "English",
-	LanguageNameRU:       "Russian",
-	LanguageNameUK:       "Ukrainian",
-	LanguageNameMD:       "Moldavian",
+	BankCreatedIncluded:   `✅ Created bank "%s" in %s. It counts toward your total.`,
+	BankCreatedExcluded:   `✅ Created bank "%s" in %s. It does not count toward your total.`,
+	BankNameTakenFmt:      `You already have a bank named "%s". Choose a different name.`,
+	UnknownBankFmt:        `I don't know a bank named "%s". Send /banks to see your list.`,
+	AskAddAmountFmt:       `How much should I add to "%s" (%s)?`,
+	AskSpendAmountFmt:     `How much should I spend from "%s" (%s)?`,
+	AskSetAmountFmt:       `What should "%s" be set to (%s)?`,
+	AddedFmt:              `💸 Added %s to "%s". Balance is %s.`,
+	SpentFmt:              `💸 Spent %s from "%s". Balance is %s.`,
+	SetToFmt:              `✅ Set "%s" to %s.`,
+	AskDeleteConfirmFmt:   `Delete "%s"? This cannot be undone.`,
+	BankDeletedFmt:        `🗑️ Deleted bank "%s".`,
+	BankCardIncludedFmt:   `%s: %s (in total)`,
+	BankCardExcludedFmt:   `%s: %s (not in total)`,
+	TotalFmt:              `Total:`,
+	ToggledIncludedFmt:    `✅ "%s" now counts toward your total. Balance is %s.`,
+	ToggledExcludedFmt:    `✅ "%s" now does not count toward your total. Balance is %s.`,
+	AskRenameNameFmt:      `What should "%s" be called?`,
+	BankRenamedFmt:        `✏️ Renamed "%s" to "%s".`,
+	AskTransferToFmt:      `Transfer from "%s" to which bank?`,
+	AskTransferAmountFmt:  `How much should I transfer from "%s" to "%s" (%s)?`,
+	TransferredFmt:        "💸 Transferred %s from \"%s\" to \"%s\".\n%s: %s.\n%s: %s.",
+	CurrencyAlreadyFmt:    `"%s" already uses %s.`,
+	AskCurrencyConfirmFmt: `"%s" is %s. It will show as %s. The number does not change. Confirm?`,
+	CurrencyKeptFmt:       `Okay, the currency stays %s.`,
+	CurrencyChangedFmt:    `✅ "%s" now uses %s. Balance is %s.`,
+	LanguageSetFmt:        "Language set to %s.",
+	LanguageNameEN:        "English",
+	LanguageNameRU:        "Russian",
+	LanguageNameUK:        "Ukrainian",
+	LanguageNameMD:        "Moldavian",
 }

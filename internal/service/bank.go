@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -17,7 +18,7 @@ type BankRepository interface {
 	List(ctx context.Context, userID domain.UserID) ([]domain.Bank, error)
 	Update(ctx context.Context, userID domain.UserID, bank domain.Bank) (domain.Bank, error)
 	Delete(ctx context.Context, userID domain.UserID, bankID int64) error
-	TotalIncluded(ctx context.Context, userID domain.UserID) (domain.Money, error)
+	TotalIncluded(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error)
 }
 
 func (s *Service) CreateBank(
@@ -25,13 +26,18 @@ func (s *Service) CreateBank(
 	userID domain.UserID,
 	name string,
 	includeInTotal bool,
+	currency string,
 ) (domain.Bank, error) {
 	name = strings.TrimSpace(name)
 	if _, err := domain.NormalizeBankName(name); err != nil {
 		return domain.Bank{}, fmt.Errorf("bank name: %w", err)
 	}
+	code, err := domain.ParseCurrency(currency)
+	if err != nil {
+		return domain.Bank{}, fmt.Errorf("currency: %w", err)
+	}
 
-	_, err := s.banks.GetByName(ctx, userID, name)
+	_, err = s.banks.GetByName(ctx, userID, name)
 	if err == nil {
 		return domain.Bank{}, domain.ErrBankNameTaken
 	}
@@ -40,16 +46,26 @@ func (s *Service) CreateBank(
 	}
 
 	now := s.clock.Now()
-	bank, err := s.banks.Create(ctx, userID, domain.Bank{
-		UserID:         userID,
-		Name:           name,
-		Balance:        0,
-		IncludeInTotal: includeInTotal,
-		Currency:       s.defaultCurrency,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	})
-	if err != nil {
+	var bank domain.Bank
+	if err := s.tx.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		bank, err = s.banks.Create(ctx, userID, domain.Bank{
+			UserID:         userID,
+			Name:           name,
+			Balance:        0,
+			IncludeInTotal: includeInTotal,
+			Currency:       code,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		})
+		if err != nil {
+			return fmt.Errorf("insert bank: %w", err)
+		}
+		if err := s.users.SetLastCurrency(ctx, userID, code, now); err != nil {
+			return fmt.Errorf("set last currency: %w", err)
+		}
+		return nil
+	}); err != nil {
 		return domain.Bank{}, fmt.Errorf("create bank: %w", err)
 	}
 	return bank, nil
@@ -149,24 +165,107 @@ func (s *Service) List(ctx context.Context, userID domain.UserID) ([]domain.Bank
 	return banks, nil
 }
 
-func (s *Service) Total(ctx context.Context, userID domain.UserID) (domain.Money, error) {
-	total, err := s.banks.TotalIncluded(ctx, userID)
+func (s *Service) Total(ctx context.Context, userID domain.UserID) ([]domain.CurrencyTotal, error) {
+	totals, err := s.banks.TotalIncluded(ctx, userID)
 	if err != nil {
-		return 0, fmt.Errorf("total: %w", err)
+		return nil, fmt.Errorf("total: %w", err)
 	}
-	return total, nil
+	return groupedTotals(totals), nil
 }
 
-func (s *Service) All(ctx context.Context, userID domain.UserID) ([]domain.Bank, domain.Money, error) {
+func (s *Service) All(ctx context.Context, userID domain.UserID) ([]domain.Bank, []domain.CurrencyTotal, error) {
 	banks, err := s.List(ctx, userID)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
-	total, err := s.Total(ctx, userID)
+	totals, err := s.Total(ctx, userID)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
-	return banks, total, nil
+	return banks, totals, nil
+}
+
+func groupedTotals(rows []domain.CurrencyTotal) []domain.CurrencyTotal {
+	if len(rows) == 0 {
+		return []domain.CurrencyTotal{{Currency: domain.CurrencyUSD, Amount: 0}}
+	}
+	out := slices.Clone(rows)
+	slices.SortFunc(out, func(a, b domain.CurrencyTotal) int {
+		if rank := currencyRank(a.Currency) - currencyRank(b.Currency); rank != 0 {
+			return rank
+		}
+		return strings.Compare(a.Currency, b.Currency)
+	})
+	return out
+}
+
+const (
+	currencyRankUSD = iota
+	currencyRankEUR
+	currencyRankUSDT
+	currencyRankOther
+)
+
+func currencyRank(code string) int {
+	switch code {
+	case domain.CurrencyUSD:
+		return currencyRankUSD
+	case domain.CurrencyEUR:
+		return currencyRankEUR
+	case domain.CurrencyUSDT:
+		return currencyRankUSDT
+	default:
+		return currencyRankOther
+	}
+}
+
+func (s *Service) ChangeCurrency(
+	ctx context.Context,
+	userID domain.UserID,
+	bankID int64,
+	currency string,
+) (domain.Bank, error) {
+	code, err := domain.ParseCurrency(currency)
+	if err != nil {
+		return domain.Bank{}, fmt.Errorf("currency: %w", err)
+	}
+
+	var updated domain.Bank
+	err = s.tx.InTx(ctx, func(ctx context.Context) error {
+		bank, err := s.banks.GetByID(ctx, userID, bankID)
+		if err != nil {
+			return fmt.Errorf("get bank: %w", err)
+		}
+		if bank.Currency == code {
+			if err := s.users.SetLastCurrency(ctx, userID, code, s.clock.Now()); err != nil {
+				return fmt.Errorf("set last currency: %w", err)
+			}
+			updated = bank
+			return nil
+		}
+		old := bank.Currency
+		bank.Currency = code
+		updated, err = s.save(ctx, userID, bank)
+		if err != nil {
+			return err
+		}
+		if err := s.users.SetLastCurrency(ctx, userID, code, updated.UpdatedAt); err != nil {
+			return fmt.Errorf("set last currency: %w", err)
+		}
+		return s.appendOp(ctx, domain.Operation{
+			UserID:       userID,
+			BankID:       ptr(updated.ID),
+			Type:         domain.OperationCurrency,
+			Amount:       updated.Balance,
+			BalanceAfter: ptr(updated.Balance),
+			Meta:         old + " -> " + code,
+			CreatedAt:    updated.UpdatedAt,
+		})
+	})
+	if err != nil {
+		return domain.Bank{}, fmt.Errorf("change currency: %w", err)
+	}
+	return updated, nil
 }
 
 func (s *Service) Toggle(ctx context.Context, userID domain.UserID, bankID int64) (domain.Bank, error) {

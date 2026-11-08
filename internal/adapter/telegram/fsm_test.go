@@ -131,6 +131,8 @@ func TestExpiredCallbackAsksToStartOver(t *testing.T) {
 		{name: "bank", data: callbackBankPrefix + "7"},
 		{name: "toggle", data: callbackTogglePrefix + "7"},
 		{name: "newbank include", data: callbackNewBankIncludeYes},
+		{name: "currency code", data: callbackCCYPrefix + domain.CurrencyEUR},
+		{name: "currency bank", data: callbackCurrencyPrefix + "7"},
 	}
 
 	for _, tt := range tests {

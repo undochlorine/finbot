@@ -98,12 +98,8 @@ func TestUsersCannotSeeEachOthersBanks(t *testing.T) {
 				if err != nil {
 					t.Fatalf("total b: %v", err)
 				}
-				if totalA != a.Balance {
-					t.Fatalf("total a %d, want %d", totalA, a.Balance)
-				}
-				if totalB != b.Balance {
-					t.Fatalf("total b %d, want %d", totalB, b.Balance)
-				}
+				requireTotal(t, totalA, a.Currency, a.Balance)
+				requireTotal(t, totalB, b.Currency, b.Balance)
 			},
 		},
 	}
@@ -214,9 +210,7 @@ func TestReopenKeepsData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("total: %v", err)
 	}
-	if total != 10000 {
-		t.Fatalf("total %d, want 10000", total)
-	}
+	requireTotal(t, total, "USD", 10000)
 
 	other, err := banks.List(ctx, 2)
 	if err != nil {
@@ -335,16 +329,14 @@ func TestBankRepositoryCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("total: %v", err)
 	}
-	if total != 0 {
-		t.Fatalf("excluded total %d", total)
+	if len(total) != 0 {
+		t.Fatalf("excluded total %+v", total)
 	}
 	otherTotal, err := banks.TotalIncluded(ctx, 2)
 	if err != nil {
 		t.Fatalf("other total: %v", err)
 	}
-	if otherTotal != 50 {
-		t.Fatalf("other total %d", otherTotal)
-	}
+	requireTotal(t, otherTotal, "USD", 50)
 
 	if err := banks.Delete(ctx, 2, created.ID); !errors.Is(err, domain.ErrBankNotFound) {
 		t.Fatalf("cross-delete: %v", err)
@@ -364,8 +356,86 @@ func TestBankRepositoryCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("empty total: %v", err)
 	}
-	if empty != 0 {
-		t.Fatalf("empty total %d", empty)
+	if len(empty) != 0 {
+		t.Fatalf("empty total %+v", empty)
+	}
+}
+
+func TestTotalIncludedGroups(t *testing.T) {
+	db := mustOpenReset(t)
+	ctx := context.Background()
+	users := NewUserRepository(db)
+	banks := NewBankRepository(db)
+	now := time.Now().UTC().Truncate(time.Second)
+	upsertTestUser(t, users, 1, now)
+	upsertTestUser(t, users, 2, now)
+
+	createCurrencyBank(t, banks, 1, "Cash", "USD", 10000, true, now)
+	createCurrencyBank(t, banks, 1, "Card", "USD", 2500, true, now)
+	createCurrencyBank(t, banks, 1, "Hryvnia", "UAH", 2000, true, now)
+	createCurrencyBank(t, banks, 1, "Gift", "EUR", 400, false, now)
+	createCurrencyBank(t, banks, 1, "Tether", "USDT", 0, true, now)
+	createCurrencyBank(t, banks, 2, "Other", "USD", 50, true, now)
+	createCurrencyBank(t, banks, 2, "Other UAH", "UAH", 999, true, now)
+
+	got, err := banks.TotalIncluded(ctx, 1)
+	if err != nil {
+		t.Fatalf("total: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("groups %+v", got)
+	}
+	sums := map[string]domain.Money{}
+	for _, row := range got {
+		sums[row.Currency] = row.Amount
+	}
+	if sums["USD"] != 12500 || sums["UAH"] != 2000 || sums["USDT"] != 0 {
+		t.Fatalf("sums %+v", got)
+	}
+	if _, ok := sums["EUR"]; ok {
+		t.Fatalf("excluded currency in %+v", got)
+	}
+
+	other, err := banks.TotalIncluded(ctx, 2)
+	if err != nil {
+		t.Fatalf("other: %v", err)
+	}
+	otherSums := map[string]domain.Money{}
+	for _, row := range other {
+		otherSums[row.Currency] = row.Amount
+	}
+	if len(otherSums) != 2 || otherSums["USD"] != 50 || otherSums["UAH"] != 999 {
+		t.Fatalf("other user %+v", other)
+	}
+}
+
+func createCurrencyBank(
+	t *testing.T,
+	banks *BankRepository,
+	user domain.UserID,
+	name, currency string,
+	bal domain.Money,
+	include bool,
+	now time.Time,
+) {
+	t.Helper()
+	_, err := banks.Create(context.Background(), user, domain.Bank{
+		Name:           name,
+		Balance:        bal,
+		IncludeInTotal: include,
+		Currency:       currency,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	})
+	if err != nil {
+		t.Fatalf("create %q: %v", name, err)
+	}
+}
+
+func requireTotal(t *testing.T, got []domain.CurrencyTotal, code string, amount domain.Money) {
+	t.Helper()
+	if len(got) != 1 || got[0].Currency != code || got[0].Amount != amount {
+		t.Fatalf("totals %+v, want %s %d", got, code, amount)
 	}
 }
 

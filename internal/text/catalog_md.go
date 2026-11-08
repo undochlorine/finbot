@@ -20,6 +20,7 @@ var md = Catalog{
 /bank - аратэ ун банк
 /toggle - инклуда сау ексклуда о банкэ дин тотал
 /rename - скимба денумерий уней бэнчь
+/currency - скимбэ валюта уней бэнчь
 /transfer - трансфера бань ынтре бэнчь
 /banks - аратэ тоате бэнчиле
 /total - сума бэнчилор инклусе ын тотал
@@ -36,6 +37,7 @@ var md = Catalog{
 Аратэ о сунгурэ банкэ: /bank Ваканцэ.
 Активязэ/дезактивязэ ынклудереа уней бэнчь ын тотал: /toggle Ваканцэ.
 Реденумеште о банкэ: /rename Ваканцэ, сау /rename Ваканцэ Кэлэторииле.
+Скимбэ валюта уней бэнчь: /currency Ваканцэ, сау /currency Ваканцэ UAH.
 Трансфер ынтре бэнчь: /transfer Ваканцэ Кадоурь 50.`,
 
 	NewBankAskName:      "Кум ар требуи сэ се нумеаскэ ачастэ банкэ?",
@@ -58,32 +60,40 @@ var md = Catalog{
 	AskTransferFrom:     "Де ла че банкэ се фаче трансферул?",
 	SameBank:            "Алеӂець о алтэ банкэ кэтре каре сэ фачець трансферул.",
 	CurrencyMismatch:    "Ачесте бэнчь фолосеск валуте диферите. Трансферуриле требуе сэ фие фэкут ын ачееашь валутэ",
+	AskCurrency: `Алеӂе о валютэ.
+Пентру алта, тримите кодул ей, де екземплу UAH.`,
+	InvalidCurrency: "Ачаста ну есте о валютэ пе каре о пот фолоси. Алеӂе о бутон " +
+		"сау тримите ун код ISO дин 3 литере, де екземплу UAH. USDT есте де асеменя пермис.",
 
-	BankCreatedIncluded:  `✅ С-а креат банка "%s". Ачеаста се й-а ын калкул ла тоталул тэу.`,
-	BankCreatedExcluded:  `✅ С-а креат банка "%s". Ачеаста ну-й ынклусэ ын тоталул тэу.`,
-	BankNameTakenFmt:     `Ай даму о банкэ нумитэ "%s". Алеӂе ун алт нуме.`,
-	UnknownBankFmt:       `Ну куноск ничь-о банкэ ку нумеле "%s". Тримите команда /banks пентру а ведеа листа та.`,
-	AskAddAmountFmt:      `Кыт ар требуи сэ адэуг ла "%s"?`,
-	AskSpendAmountFmt:    `Кыт ар требуи сэ келтуеск дин "%s"?`,
-	AskSetAmountFmt:      `Ла че валоаре ар требуи сетат "%s"?`,
-	AddedFmt:             `💸 С-а адэугат %s ла "%s". Солдул есте %s.`,
-	SpentFmt:             `💸 С-ау келтуит %s дин "%s". Солдул есте де %s.`,
-	SetToFmt:             `✅ А сетат "%s" ла %s.`,
-	AskDeleteConfirmFmt:  `Сэ штерг "%s"? Акциуне аша ну поате фи анулатэ.`,
-	BankDeletedFmt:       `🗑️ Ам штерс банкэ "%s".`,
-	BankCardIncludedFmt:  `%s: %s (ын тотал)`,
-	BankCardExcludedFmt:  `%s: %s (ну-й ын тотал)`,
-	TotalFmt:             `Тотал: %s`,
-	ToggledIncludedFmt:   `✅ "%s" амуш се адэугэ ла тоталул тэу. Солдул есте %s.`,
-	ToggledExcludedFmt:   `✅ "%s" амуш ну се адэугэ ла тоталул тэу. Солдул есте %s.`,
-	AskRenameNameFmt:     `Кум ар требуи сэ се нумеаскэ "%s"?`,
-	BankRenamedFmt:       `✏️ Ам реденумит "%s" ын "%s".`,
-	AskTransferToFmt:     `Трансферул де ла "%s" кынтре че банкэ?`,
-	AskTransferAmountFmt: `Кыт ар требуи сэ трансфер дин "%s" ла "%s"?`,
-	TransferredFmt:       "💸 Ам трансферат %s дин \"%s\" ын \"%s\".\n%s: %s.\n%s: %s.",
-	LanguageSetFmt:       "Лимба сетатэ ла %s.",
-	LanguageNameEN:       "English",
-	LanguageNameRU:       "Russian",
-	LanguageNameUK:       "Ukrainian",
-	LanguageNameMD:       "Молдовеняскэ",
+	BankCreatedIncluded:   `✅ С-а креат банка "%s" ын %s. Ачеаста се й-а ын калкул ла тоталул тэу.`,
+	BankCreatedExcluded:   `✅ С-а креат банка "%s" ын %s. Ачеаста ну-й ынклусэ ын тоталул тэу.`,
+	BankNameTakenFmt:      `Ай даму о банкэ нумитэ "%s". Алеӂе ун алт нуме.`,
+	UnknownBankFmt:        `Ну куноск ничь-о банкэ ку нумеле "%s". Тримите команда /banks пентру а ведеа листа та.`,
+	AskAddAmountFmt:       `Кыт ар требуи сэ адэуг ла "%s" (%s)?`,
+	AskSpendAmountFmt:     `Кыт ар требуи сэ келтуеск дин "%s" (%s)?`,
+	AskSetAmountFmt:       `Ла че валоаре ар требуи сетат "%s" (%s)?`,
+	AddedFmt:              `💸 С-а адэугат %s ла "%s". Солдул есте %s.`,
+	SpentFmt:              `💸 С-ау келтуит %s дин "%s". Солдул есте де %s.`,
+	SetToFmt:              `✅ А сетат "%s" ла %s.`,
+	AskDeleteConfirmFmt:   `Сэ штерг "%s"? Акциуне аша ну поате фи анулатэ.`,
+	BankDeletedFmt:        `🗑️ Ам штерс банкэ "%s".`,
+	BankCardIncludedFmt:   `%s: %s (ын тотал)`,
+	BankCardExcludedFmt:   `%s: %s (ну-й ын тотал)`,
+	TotalFmt:              `Тотал:`,
+	ToggledIncludedFmt:    `✅ "%s" амуш се адэугэ ла тоталул тэу. Солдул есте %s.`,
+	ToggledExcludedFmt:    `✅ "%s" амуш ну се адэугэ ла тоталул тэу. Солдул есте %s.`,
+	AskRenameNameFmt:      `Кум ар требуи сэ се нумеаскэ "%s"?`,
+	BankRenamedFmt:        `✏️ Ам реденумит "%s" ын "%s".`,
+	AskTransferToFmt:      `Трансферул де ла "%s" кынтре че банкэ?`,
+	AskTransferAmountFmt:  `Кыт ар требуи сэ трансфер дин "%s" ла "%s" (%s)?`,
+	TransferredFmt:        "💸 Ам трансферат %s дин \"%s\" ын \"%s\".\n%s: %s.\n%s: %s.",
+	CurrencyAlreadyFmt:    `"%s" фолосеште дежа %s.`,
+	AskCurrencyConfirmFmt: `"%s" есте %s. Се ва афиша ка %s. Нумэрул ну се скимбэ. Конфирмь?`,
+	CurrencyKeptFmt:       `Бине, валюта рэмыне %s.`,
+	CurrencyChangedFmt:    `✅ "%s" фолосеште акум %s. Солдул есте %s.`,
+	LanguageSetFmt:        "Лимба сетатэ ла %s.",
+	LanguageNameEN:        "English",
+	LanguageNameRU:        "Russian",
+	LanguageNameUK:        "Ukrainian",
+	LanguageNameMD:        "Молдовеняскэ",
 }

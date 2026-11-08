@@ -45,10 +45,10 @@ flowchart LR
 
 Owned by **service**:
 
-- `BankRepository` — CRUD, list, total for included banks; **all methods take `userID`**
-- `UserRepository` — upsert on first seen, update `LastActivityAt` (no `Get`; service does not read users back)
+- `BankRepository` — CRUD, list, and included totals grouped by currency; **all methods take `userID`**
+- `UserRepository` — upsert on first seen, update `LastActivityAt`, read and set `last_currency` (no full user `Get` on the service; `Upsert` does not write `last_currency`)
 - `OperationRepository` — append-only operations
-- `Transactor` — `InTx` for add/spend/set/delete/rename/transfer. Postgres retries up to 3 times on deadlock (`40P01`) and serialization (`40001`)
+- `Transactor` — `InTx` for create-bank, add/spend/set/delete/rename/currency/transfer. Postgres retries up to 3 times on deadlock (`40P01`) and serialization (`40001`)
 - `Clock` — `Now()` for activity and tests
 
 Owned by **memorycache** (unit tests):
@@ -67,7 +67,11 @@ Still in **ports**:
 
 ## Write path
 
-Add/spend/set/delete/rename/transfer run in one `Transactor` transaction (balance change + operation row). `meta` snapshots the bank name as typed so `/history` still has a name after `ON DELETE SET NULL`.
+Add/spend/set/delete/rename/currency/transfer run in one `Transactor` transaction (balance change + operation row, except currency, which keeps the cents). `meta` snapshots the bank name as typed so `/history` still has a name after `ON DELETE SET NULL`.
+
+`CreateBank` takes the validated code. It does not read `DEFAULT_CURRENCY`. One transaction inserts the bank and sets `users.last_currency`.
+
+`ChangeCurrency` is scoped by `userID`. An unknown bank is the usual not-found error. The same code sets `last_currency` and writes no operation. A different code sets `banks.currency` and `last_currency`, and appends one `currency` operation: `amount_cents` and `balance_after_cents` are the current balance, `meta` is `USD -> UAH`. There is no exchange rate on this path.
 
 `/transfer`: load the two banks by **ascending id** (so opposite transfers cannot deadlock), then apply from/to updates. One `operations` row on the from-bank (`meta` = to-bank id).
 
@@ -86,7 +90,7 @@ type Bank struct {
     Name           string
     Balance        Money
     IncludeInTotal bool
-    Currency       string // unused in copy until 4.13
+    Currency       string
     CreatedAt      time.Time
     UpdatedAt      time.Time
 }
@@ -100,12 +104,19 @@ type User struct {
     DiscountPercent *int // nil = not whitelisted; 100 = free; 50 = 50% off
     Locale          string // default "en"
     ReferredBy      *UserID // set once from /start payload
+    LastCurrency    string  // default USD; Upsert does not write it
     CreatedAt       time.Time
     UpdatedAt       time.Time
 }
 ```
 
-Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 decimal places.
+`ParseCurrency` accepts `USDT` or an active ISO 4217 code from `golang.org/x/text/currency.ParseISO`. Input is trimmed and uppercased. Symbols, names, and other crypto are invalid.
+
+`FormatMoney` keeps two decimal places and a `.` for every code. `USD` is `$10.00` / `-$10.00`. `EUR` is `€10.00` / `-€10.00`. Every other code is `10.00 UAH` / `10.00 USDT` / `-10.00 UAH`. `CurrencyUnit` is `$`, `€`, or the code, for amount prompts.
+
+`Total` returns `[]CurrencyTotal`: one sum per included currency, sorted `USD`, `EUR`, `USDT`, then other codes A→Z. `All` returns the bank list plus that set. An empty included set is `USD` and `0`. The service does not add those groups into one number.
+
+Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 decimal places. A currency token (`$100`, `100 USD`) is an invalid amount.
 
 ## Layer rules
 
@@ -115,7 +126,7 @@ Parse user amounts (`100`, `100.5`, `100.50`) into cents; reject more than 2 dec
 - Adapters depend inward (e.g. postgres compile-check against `service.BankRepository`)
 - Repositories return domain types
 - User-facing copy only in `internal/text`
-- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `rename`, `transfer`). Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
+- Reusable tokens live in `domain` as consts: `Yes` / `No`, and command names used in more than one place (`newbank`, `add`, `spend`, `set`, `delete`, `bank`, `banks`, `total`, `all`, `rename`, `currency`, `transfer`). Operation type `currency` sits next to `rename`. Handler-only names (`start`, `help`, `cancel`, `feedback`) stay in telegram.
 - Do not extend tech debt: if a shortcut fights the architecture, fix the design
 - Tests describe business rules, not line coverage
 - Tests of layer X import `X/mocks`, never another layer’s mocks
