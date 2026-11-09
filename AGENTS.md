@@ -60,7 +60,8 @@ For `let's move to step X.Y` also read `docs/sdd/requirements.md` and the step f
 | 4.13.3 | telegram, persistence, service | `docs/sdd/steps/4.13.3-currency-picker.md` |
 | 4.14 | telegram, persistence, service | `docs/sdd/steps/4.14-fx-transfer.md` (umbrella; do not implement — start `4.14.1`) |
 | 4.14.1 | service, telegram | `docs/sdd/steps/4.14.1-fx-rates.md` |
-| 4.14.2 | telegram, persistence, service | `docs/sdd/steps/4.14.2-fx-transfer.md` |
+| 4.14.2 | persistence, service, telegram | `docs/sdd/steps/4.14.2-currency-balances.md` |
+| 4.14.3 | telegram, persistence, service | `docs/sdd/steps/4.14.3-fx-transfer.md` |
 | 4.15 | billing, telegram | `docs/sdd/steps/4.15-referral.md` |
 | 4.16 | billing | `docs/sdd/steps/4.16-contributors.md` |
 | 4.17 | platform | `docs/sdd/steps/4.17-dashboards.md` |
@@ -75,4 +76,4 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 `4.14.1` is next. `Follow AGENTS.md. Let's move to step 4.14.1`.
 
-FX rate cache only. Do not start the converted `/transfer`. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).
+FX rate cache only. Several balances per bank are `4.14.2`. Converted `/transfer` is `4.14.3`. Do not start those. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).
