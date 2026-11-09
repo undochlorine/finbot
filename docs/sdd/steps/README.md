@@ -39,7 +39,7 @@ Pickup: `Follow AGENTS.md. Let's move to step 4.4` — then only the files that 
 | 4.13.2 | `done` | [Currency display](4.13.2-currency-display.md) |
 | 4.13.3 | `done` | [Currency picker](4.13.3-currency-picker.md) |
 | 4.14 | `todo` | [Balances and FX transfer (umbrella)](4.14-fx-transfer.md) |
-| 4.14.1 | `todo` | [FX rates](4.14.1-fx-rates.md) |
+| 4.14.1 | `done` | [FX rates](4.14.1-fx-rates.md) |
 | 4.14.2 | `todo` | [Currency balances](4.14.2-currency-balances.md) |
 | 4.14.3 | `todo` | [FX transfer](4.14.3-fx-transfer.md) |
 | 4.15 | `todo` | [Referral program](4.15-referral.md) |

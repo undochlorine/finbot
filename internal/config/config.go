@@ -11,6 +11,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/joho/godotenv"
 
+	"finbot/internal/adapter/fx"
 	"finbot/internal/adapter/postgres"
 	"finbot/internal/adapter/rediscache"
 	"finbot/internal/adapter/telegram"
@@ -27,6 +28,7 @@ type Config struct {
 	Admin    telegram.AdminConfig `envPrefix:"ADMIN_TELEGRAM_"`
 	Postgres postgres.Config      `envPrefix:"DATABASE_"`
 	Redis    rediscache.Config    `envPrefix:"REDIS_"`
+	FX       fx.Config            `envPrefix:"FX_"`
 	Service  service.Config
 }
 
@@ -61,6 +63,7 @@ func (c *Config) ValidateWithContext(ctx context.Context) error {
 		c.Admin.ValidateWithContext(ctx),
 		c.Postgres.ValidateWithContext(ctx),
 		c.Redis.ValidateWithContext(ctx),
+		c.FX.ValidateWithContext(ctx),
 		c.Service.ValidateWithContext(ctx),
 	} {
 		if err != nil {
@@ -110,6 +113,9 @@ func clearEmptyOptionalEnv() error {
 	for _, key := range []string{
 		"LOG_LEVEL",
 		"BOT_TTL",
+		"FX_FRESH_TTL",
+		"FX_CACHE_TTL",
+		"FX_HTTP_TIMEOUT",
 		"TRIAL_DURATION",
 		"ADMIN_TELEGRAM_ID",
 		"DEFAULT_CURRENCY",

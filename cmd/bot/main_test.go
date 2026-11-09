@@ -20,6 +20,9 @@ func TestRunMissingToken(t *testing.T) {
 	t.Setenv("REDIS_URL", "")
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -39,6 +42,9 @@ func TestRunMissingDatabaseURL(t *testing.T) {
 	t.Setenv("REDIS_URL", "")
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -58,6 +64,9 @@ func TestRunInvalidDatabaseURL(t *testing.T) {
 	t.Setenv("REDIS_URL", "")
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -77,6 +86,9 @@ func TestRunMissingRedisURL(t *testing.T) {
 	t.Setenv("REDIS_URL", "")
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -96,6 +108,9 @@ func TestRunInvalidRedisURL(t *testing.T) {
 	t.Setenv("REDIS_URL", "://not-a-url")
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {
@@ -115,6 +130,9 @@ func TestRunUnreachablePostgres(t *testing.T) {
 	t.Setenv("REDIS_URL", testUnreachableRedis)
 	t.Setenv("BOT_TTL", "")
 	t.Setenv("ENVFILE", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
 
 	err := run(context.Background())
 	if err == nil {

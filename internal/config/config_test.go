@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"finbot/internal/adapter/fx"
 	"finbot/internal/adapter/postgres"
 	"finbot/internal/adapter/rediscache"
 	"finbot/internal/adapter/telegram"
@@ -88,6 +89,7 @@ func TestParseConfig(t *testing.T) {
 					URL: testDatabaseURL,
 				},
 				Redis: rediscache.Config{URL: testRedisURL},
+				FX:    defaultFX(),
 				Service: service.Config{
 					Trial:   service.TrialConfig{Duration: "24h"},
 					Default: service.DefaultConfig{Currency: "EUR"},
@@ -279,6 +281,75 @@ func TestParseConfig(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "blank fx keeps defaults",
+			env: map[string]string{
+				"BOT_TOKEN":       "tok",
+				"DATABASE_URL":    testDatabaseURL,
+				"REDIS_URL":       testRedisURL,
+				"FX_FRESH_TTL":    " ",
+				"FX_CACHE_TTL":    "",
+				"FX_HTTP_TIMEOUT": "   ",
+			},
+			want: validCfg("tok", testDatabaseURL, testRedisURL),
+		},
+		{
+			name: "fx overrides",
+			env: map[string]string{
+				"BOT_TOKEN":       "tok",
+				"DATABASE_URL":    testDatabaseURL,
+				"REDIS_URL":       testRedisURL,
+				"FX_FRESH_TTL":    "2h",
+				"FX_CACHE_TTL":    "2h",
+				"FX_HTTP_TIMEOUT": "5s",
+			},
+			want: func() Config {
+				cfg := validCfg("tok", testDatabaseURL, testRedisURL)
+				cfg.FX = fx.Config{FreshTTL: "2h", CacheTTL: "2h", HTTPTimeout: "5s"}
+				return cfg
+			}(),
+		},
+		{
+			name:    "zero fx fresh ttl rejected",
+			env:     fxEnv("FX_FRESH_TTL", "0"),
+			wantErr: true,
+		},
+		{
+			name:    "negative fx fresh ttl rejected",
+			env:     fxEnv("FX_FRESH_TTL", "-1s"),
+			wantErr: true,
+		},
+		{
+			name:    "zero fx cache ttl rejected",
+			env:     fxEnv("FX_CACHE_TTL", "0"),
+			wantErr: true,
+		},
+		{
+			name:    "negative fx cache ttl rejected",
+			env:     fxEnv("FX_CACHE_TTL", "-1s"),
+			wantErr: true,
+		},
+		{
+			name:    "zero fx http timeout rejected",
+			env:     fxEnv("FX_HTTP_TIMEOUT", "0"),
+			wantErr: true,
+		},
+		{
+			name:    "negative fx http timeout rejected",
+			env:     fxEnv("FX_HTTP_TIMEOUT", "-1s"),
+			wantErr: true,
+		},
+		{
+			name: "fx cache shorter than fresh rejected",
+			env: map[string]string{
+				"BOT_TOKEN":    "tok",
+				"DATABASE_URL": testDatabaseURL,
+				"REDIS_URL":    testRedisURL,
+				"FX_FRESH_TTL": "1h",
+				"FX_CACHE_TTL": "30m",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -356,6 +427,7 @@ func validCfg(token, databaseURL, redisURL string) Config {
 		Bot:      telegram.Config{Token: token, TTL: "1h"},
 		Postgres: postgres.Config{URL: databaseURL},
 		Redis:    rediscache.Config{URL: redisURL},
+		FX:       defaultFX(),
 		Service: service.Config{
 			Trial:   service.TrialConfig{Duration: "168h"},
 			Default: service.DefaultConfig{Currency: "USD"},
@@ -374,4 +446,20 @@ func resetParseEnv(t *testing.T) {
 	t.Setenv("DEFAULT_CURRENCY", "")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("REDIS_URL", "")
+	t.Setenv("FX_FRESH_TTL", "")
+	t.Setenv("FX_CACHE_TTL", "")
+	t.Setenv("FX_HTTP_TIMEOUT", "")
+}
+
+func defaultFX() fx.Config {
+	return fx.Config{FreshTTL: "1h", CacheTTL: "24h", HTTPTimeout: "3s"}
+}
+
+func fxEnv(key, value string) map[string]string {
+	return map[string]string{
+		"BOT_TOKEN":    "tok",
+		"DATABASE_URL": testDatabaseURL,
+		"REDIS_URL":    testRedisURL,
+		key:            value,
+	}
 }

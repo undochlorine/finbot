@@ -15,12 +15,15 @@ Human run/CI checklist is canonical in [`README.md`](../../../README.md). This f
 | `POSTGRES_TEST_URL` | no | Compose `finbot_test` URL in tests | Adapter integration tests. Unreachable Postgres **fails** (does not skip) |
 | `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0`. Missing or invalid fails load. Unreachable Redis fails startup |
 | `BOT_TTL` | no | `1h` | Sliding FSM TTL (Go duration, must be `> 0`) |
+| `FX_FRESH_TTL` | no | `1h` | How long a cached USD rate table is reused (Go duration, must be `> 0`) |
+| `FX_CACHE_TTL` | no | `24h` | Redis lifetime of the last good rate table (Go duration, must be `> 0` and `>= FX_FRESH_TTL`) |
+| `FX_HTTP_TIMEOUT` | no | `3s` | Timeout of one exchange-rate fetch (Go duration, must be `> 0`) |
 | `REDIS_TEST_URL` | no | Compose Redis URL in tests | `rediscache` integration tests. Unreachable Redis **fails** (does not skip) |
 | `ENVFILE` | no | unset | Optional dotenv path for `config.ParseConfig`. Process env wins. Production does not set this |
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`.
 
-Operator-tunable durations and limits are env vars with `envDefault` on the struct. One variable per entity: `BOT_TTL` is only the FSM. A later cache (FX quotes in `4.14.1`) gets its own names. Blank or unset keeps the default. Pool sizes and statement timeouts stay code constants.
+Operator-tunable durations and limits are env vars with `envDefault` on the struct. One variable per entity: `BOT_TTL` is only the FSM. Exchange rates use `FX_FRESH_TTL`, `FX_CACHE_TTL`, and `FX_HTTP_TIMEOUT`. Blank or unset keeps the default. Pool sizes and statement timeouts stay code constants.
 
 ## Docker
 
