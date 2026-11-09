@@ -6,6 +6,10 @@ structname: "{{.Mock}}{{.InterfaceName}}"
 template: testify
 
 packages:
+  finbot/internal/adapter/fx:
+    interfaces:
+      Cache: {}
+      Doer: {}
   finbot/internal/adapter/memorycache:
     interfaces:
       Clock: {}

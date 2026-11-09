@@ -8,8 +8,8 @@ Do not read `docs/sdd/legacy/` unless the user asks, a live doc points at a supe
 
 | Field | Value |
 | --- | --- |
-| **Current step** | `4.14.1` (todo) |
-| **Last done** | `4.13.3` currency picker |
+| **Current step** | `4.14.2` (todo) |
+| **Last done** | `4.14.1` FX rates |
 | **MVP target** | private-use Telegram finance bot in Go + Postgres |
 | **GitHub** | `undochlorine/finbot` exists; do not push unless asked |
 | **Go module** | `finbot` until a remote exists |
@@ -74,6 +74,6 @@ Bugfix (not a numbered step): this file + `docs/sdd/requirements.md` + the area 
 
 ## Wake-up
 
-`4.14.1` is next. `Follow AGENTS.md. Let's move to step 4.14.1`.
+`4.14.2` is next. `Follow AGENTS.md. Let's move to step 4.14.2`.
 
-FX rate cache only. Several balances per bank are `4.14.2`. Converted `/transfer` is `4.14.3`. Do not start those. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).
+Several balances per bank. FX quotes stay in `internal/adapter/fx`; this step does not call `Quote`. Converted `/transfer` is `4.14.3`. Do not start that. Product rules: [`docs/sdd/requirements.md`](docs/sdd/requirements.md) (Currencies and FX). Stage 4 index: [`docs/sdd/steps/README.md`](docs/sdd/steps/README.md). Human run/CI: [`README.md`](README.md).

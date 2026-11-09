@@ -28,6 +28,9 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 | `DATABASE_URL` | yes | — | Postgres URL. Local Compose: `postgres://finbot:finbot@127.0.0.1:5432/finbot?sslmode=disable` |
 | `REDIS_URL` | yes | — | Redis URL (`redis://` or `rediss://`, host non-empty). Local Compose: `redis://:finbot@127.0.0.1:6379/0` |
 | `BOT_TTL` | no | `1h` | Sliding conversation FSM TTL (Go duration). Must be `> 0` |
+| `FX_FRESH_TTL` | no | `1h` | How long a cached USD rate table is reused before a refresh (Go duration). Must be `> 0` |
+| `FX_CACHE_TTL` | no | `24h` | How long Redis keeps the last good rate table (Go duration). Must be `> 0` and `>= FX_FRESH_TTL` |
+| `FX_HTTP_TIMEOUT` | no | `3s` | Timeout of one exchange-rate fetch (Go duration). Must be `> 0` |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error` |
 | `TRIAL_DURATION` | no | `168h` (7 days) | Frozen on first signup as `trial_ends_at`. `0` means no trial. Negative values are rejected. Not enforced until stage 2 |
 | `ADMIN_TELEGRAM_ID` | no | unset | Numeric Telegram user id that receives `/feedback`. Empty or `0` makes `/feedback` reply that it is unavailable. Negative and non-numeric values fail startup. |
@@ -36,7 +39,7 @@ The bot keeps slash commands and results (`Added 100 to "Travelling"…`, `/bank
 
 Copy `.env.example` to `.env` for local secrets. `.env` is gitignored. Process environment wins over `ENVFILE`. Compose reads `.env` for `${BOT_TOKEN}` interpolation; the bot container gets in-network `DATABASE_URL` / `REDIS_URL` from `docker-compose.yml`, not the host URLs in `.env`.
 
-Each TTL belongs to one kind of data. `BOT_TTL` is only the conversation FSM. A new cache or expiry gets its own variable, with the default in code; leave it unset to keep that default.
+Each TTL belongs to one kind of data. `BOT_TTL` is only the conversation FSM. Exchange rates use `FX_FRESH_TTL` (how long a cached table is reused, default `1h`), `FX_CACHE_TTL` (how long Redis keeps the last good table, default `24h`), and `FX_HTTP_TIMEOUT` (one fetch attempt, default `3s`). Leave a variable unset or blank to keep its default.
 
 ## Run locally
 
@@ -62,7 +65,7 @@ From the repo root:
 cp .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env` to the **dev** token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Optional: `LOG_LEVEL`, `TRIAL_DURATION`, `DEFAULT_CURRENCY`, `BOT_TTL`. Host URLs in `.env` (`DATABASE_URL`, `REDIS_URL`) are for `ENVFILE=.env go run ./cmd/bot` against published Compose ports. `make up` always points the bot container at the `postgres` and `redis` services.
+Set `BOT_TOKEN` in `.env` to the **dev** token from BotFather. Set `ADMIN_TELEGRAM_ID` to your numeric Telegram user id if you want `/feedback` forwarded to you; leave it empty to keep `/feedback` unavailable. Optional: `LOG_LEVEL`, `TRIAL_DURATION`, `DEFAULT_CURRENCY`, `BOT_TTL`, `FX_FRESH_TTL`, `FX_CACHE_TTL`, `FX_HTTP_TIMEOUT`. Host URLs in `.env` (`DATABASE_URL`, `REDIS_URL`) are for `ENVFILE=.env go run ./cmd/bot` against published Compose ports. `make up` always points the bot container at the `postgres` and `redis` services.
 
 ### 3. Start Postgres, Redis, and the bot
 
@@ -196,6 +199,9 @@ Set these on the Railway worker. The app uses **private** plugin URLs, not the p
 | `DATABASE_URL` | yes | Private Postgres URL. Use TLS (`sslmode=require` or the vendor URL as issued) |
 | `REDIS_URL` | yes | Private Redis URL (`redis://` or `rediss://`, or the vendor URL as issued) |
 | `BOT_TTL` | no | Default `1h`. Omit to keep the default |
+| `FX_FRESH_TTL` | no | Default `1h`. Omit or leave blank to keep the default. Must be `> 0` |
+| `FX_CACHE_TTL` | no | Default `24h`. Omit or leave blank to keep the default. Must be `> 0` and `>= FX_FRESH_TTL` |
+| `FX_HTTP_TIMEOUT` | no | Default `3s`. Omit or leave blank to keep the default. Must be `> 0` |
 | `LOG_LEVEL` | no | `info` in production |
 | `ADMIN_TELEGRAM_ID` | no | Numeric Telegram user id for `/feedback` |
 | `TRIAL_DURATION` | no | Default `168h`. Not enforced until later |
@@ -217,7 +223,7 @@ The project **Logs** sidebar mixes every service. `checkpoint starting` / `check
 
 ### Postgres and Redis access
 
-Banks, users, and operations live in Postgres until you delete them (or until step `4.4` inactivity). There is **no row TTL** and no Redis cache of balances. Redis only holds the conversation FSM (sliding TTL from `BOT_TTL`, default `1h`).
+Banks, users, and operations live in Postgres until you delete them (or until step `4.4` inactivity). There is **no row TTL** and no Redis cache of balances. Redis holds the conversation FSM (sliding TTL from `BOT_TTL`, default `1h`) and, when a quote is requested, the last good exchange-rate table (key suffix `fx:usd`, TTL from `FX_CACHE_TTL`, default `24h`).
 
 1. **Browser:** Railway Postgres data tab / query UI and Redis UI.
 2. **Local client:** enable the plugin TCP proxy (public URL + TLS + password). Connect with TablePlus / `psql` / Redis Insight / `redis-cli`. Do not open Postgres or Redis to `0.0.0.0` without TLS and a password. Do not tunnel through the bot process.

@@ -47,6 +47,9 @@ services:
       DATABASE_URL: postgres://finbot:finbot@postgres:5432/finbot?sslmode=disable
       REDIS_URL: redis://:finbot@redis:6379/0
       BOT_TTL: ${BOT_TTL:-1h}
+      FX_FRESH_TTL: ${FX_FRESH_TTL:-1h}
+      FX_CACHE_TTL: ${FX_CACHE_TTL:-24h}
+      FX_HTTP_TIMEOUT: ${FX_HTTP_TIMEOUT:-3s}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TRIAL_DURATION: ${TRIAL_DURATION:-168h}
       ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-}
